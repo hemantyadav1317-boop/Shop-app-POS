@@ -64,7 +64,7 @@ function CustomerDialog() {
   );
 }
 
-export function CartPanel({ onDone }: { onDone?: () => void }) {
+export function CartPanel({ onDone }: { onDone?: (() => void) | undefined }) {
   const { cart, setQty, remove, clear, subTotal, total, itemCount, saveOrder } = usePos();
 
   return (

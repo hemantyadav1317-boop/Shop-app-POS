@@ -16,7 +16,7 @@ const MODES = [
   { id: "Credit", icon: UserCheck },
 ] as const;
 
-export function PaymentDialog({ children, onDone }: { children: ReactNode; onDone?: () => void }) {
+export function PaymentDialog({ children, onDone }: { children: ReactNode; onDone?: (() => void) | undefined }) {
   const { cart, subTotal, total, discount, setDiscount, checkout } = usePos();
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<string>("Cash");
