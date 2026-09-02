@@ -1,0 +1,10 @@
+REVOKE ALL ON FUNCTION public.is_shop_member(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.has_shop_role(uuid, public.shop_role[]) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.create_sale(uuid,jsonb,numeric,public.payment_mode,numeric,uuid,text,text,text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.create_purchase(uuid,jsonb,numeric,uuid,text,text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.collect_due(uuid,uuid,numeric,public.payment_mode) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_sale(uuid,jsonb,numeric,public.payment_mode,numeric,uuid,text,text,text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_purchase(uuid,jsonb,numeric,uuid,text,text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.collect_due(uuid,uuid,numeric,public.payment_mode) TO authenticated;
