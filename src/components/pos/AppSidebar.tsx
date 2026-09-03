@@ -1,55 +1,38 @@
 import { Link } from "@tanstack/react-router";
-import {
-  BookOpen,
-  ClipboardList,
-  Crown,
-  FileText,
-  HelpCircle,
-  LayoutGrid,
-  Package,
-  Receipt,
-  Settings,
-  ShoppingBag,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { LogOut, Store } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-
-const NAV = [
-  { to: "/", label: "New Sale", icon: ShoppingBag },
-  { to: "/bills", label: "Bill History", icon: FileText },
-  { to: "/saved", label: "Saved Orders", icon: ClipboardList },
-  { to: "/inventory", label: "Inventory / Stock", icon: Package },
-  { to: "/customers", label: "Customer Management", icon: Users },
-  { to: "/reports", label: "Report", icon: LayoutGrid },
-] as const;
-
-const SECONDARY = [
-  { label: "Expenses", icon: Wallet },
-  { label: "DayBook", icon: BookOpen },
-  { label: "Credit Notes", icon: Receipt },
-  { label: "Settings", icon: Settings },
-  { label: "Help", icon: HelpCircle },
-] as const;
+import { PRIMARY_NAV } from "@/lib/nav";
+import { useShop } from "@/lib/shop";
+import { useAuth } from "@/lib/auth";
+import { ThemeToggle } from "./ThemeToggle";
+import { signOutAndRedirect } from "@/lib/signout";
 
 function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
+  const { shop, role } = useShop();
+  const { user } = useAuth();
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground">
-      <div className="px-5 pb-5 pt-6">
-        <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-sidebar-primary text-lg font-black text-sidebar-primary-foreground">
-          YV
+      <div className="px-4 pb-4 pt-5">
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground">
+            <Store className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">{shop?.name ?? "My Shop"}</p>
+            <p className="truncate text-xs opacity-70">
+              {role ? role[0]!.toUpperCase() + role.slice(1) : "—"} · {user?.email ?? ""}
+            </p>
+          </div>
         </div>
-        <p className="mt-3 truncate text-base font-semibold">Yadav Veggie &amp; Fruits</p>
-        <p className="truncate text-xs opacity-70">Admin · Store POS</p>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto bg-card px-2 py-3 text-card-foreground">
-        {NAV.map((item) => (
+        {PRIMARY_NAV.map((item) => (
           <Link
             key={item.to}
             to={item.to}
             onClick={onNavigate}
-            activeOptions={{ exact: item.to === "/" }}
             activeProps={{ className: "bg-accent text-accent-foreground font-semibold" }}
             className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-muted"
           >
@@ -57,21 +40,17 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
             <span className="truncate">{item.label}</span>
           </Link>
         ))}
-        <div className="my-3 h-px bg-border" />
-        {SECONDARY.map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-muted-foreground"
-          >
-            <item.icon className="h-[18px] w-[18px] shrink-0" />
-            <span className="truncate">{item.label}</span>
-          </div>
-        ))}
       </nav>
 
-      <div className="flex items-center gap-3 bg-sidebar px-5 py-4">
-        <Crown className="h-5 w-5 shrink-0" />
-        <span className="truncate text-sm font-semibold uppercase tracking-wide">Upgrade to premium</span>
+      <div className="flex items-center justify-between gap-2 bg-sidebar px-3 py-3">
+        <ThemeToggle />
+        <button
+          type="button"
+          onClick={() => void signOutAndRedirect()}
+          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium hover:bg-sidebar-accent"
+        >
+          <LogOut className="h-4 w-4" /> Logout
+        </button>
       </div>
     </div>
   );
@@ -79,7 +58,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
 
 export function DesktopSidebar() {
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-border lg:block">
+    <aside className="hidden w-64 shrink-0 border-r border-border md:block">
       <SidebarBody />
     </aside>
   );
