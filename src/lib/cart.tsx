@@ -71,9 +71,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const addLine = useCallback((l: Omit<CartLine, "qty"> & { qty?: number }) => {
     setLines((prev) => {
       const idx = prev.findIndex((x) => same(x, l.product_id, l.name));
-      if (idx >= 0) {
+      const found = prev[idx];
+      if (idx >= 0 && found) {
         const next = [...prev];
-        next[idx] = { ...next[idx], qty: +(next[idx].qty + (l.qty ?? 1)).toFixed(3) };
+        next[idx] = { ...found, qty: +(found.qty + (l.qty ?? 1)).toFixed(3) };
         return next;
       }
       return [...prev, { ...l, qty: l.qty ?? 1 }];
