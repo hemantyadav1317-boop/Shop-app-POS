@@ -73,10 +73,11 @@ export function PaymentDialog({
         _discount: cart.discount,
         _payment_mode: mode,
         _paid: Math.min(paid, cart.total),
-        _customer_id: cart.customer?.id ?? null,
-        _customer_name: cart.customer?.name ?? null,
-        _customer_phone: cart.customer?.phone ?? null,
-        _note: null,
+        _customer_id: cart.customer?.id ?? undefined,
+        _customer_name: cart.customer?.name ?? undefined,
+        _customer_phone: cart.customer?.phone ?? undefined,
+        _note: undefined,
+
       });
       if (error) throw error;
 
