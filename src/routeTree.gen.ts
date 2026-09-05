@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedBillsRouteImport } from './routes/_authenticated/bills'
 import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
+import { Route as AuthenticatedSavedRouteImport } from './routes/_authenticated/saved'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -39,18 +40,25 @@ const AuthenticatedPosRoute = AuthenticatedPosRouteImport.update({
   path: '/pos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSavedRoute = AuthenticatedSavedRouteImport.update({
+  id: '/saved',
+  path: '/saved',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bills': typeof AuthenticatedBillsRoute
   '/pos': typeof AuthenticatedPosRoute
+  '/saved': typeof AuthenticatedSavedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/bills': typeof AuthenticatedBillsRoute
   '/pos': typeof AuthenticatedPosRoute
+  '/saved': typeof AuthenticatedSavedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -59,12 +67,13 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/bills': typeof AuthenticatedBillsRoute
   '/_authenticated/pos': typeof AuthenticatedPosRoute
+  '/_authenticated/saved': typeof AuthenticatedSavedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/bills' | '/pos'
+  fullPaths: '/' | '/auth' | '/bills' | '/pos' | '/saved'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/bills' | '/pos'
+  to: '/' | '/auth' | '/bills' | '/pos' | '/saved'
   id:
     | '__root__'
     | '/'
@@ -72,6 +81,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/bills'
     | '/_authenticated/pos'
+    | '/_authenticated/saved'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -117,17 +127,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedPosRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/saved': {
+      id: '/_authenticated/saved'
+      path: '/saved'
+      fullPath: '/saved'
+      preLoaderRoute: typeof AuthenticatedSavedRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedBillsRoute: typeof AuthenticatedBillsRoute
   AuthenticatedPosRoute: typeof AuthenticatedPosRoute
+  AuthenticatedSavedRoute: typeof AuthenticatedSavedRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBillsRoute: AuthenticatedBillsRoute,
   AuthenticatedPosRoute: AuthenticatedPosRoute,
+  AuthenticatedSavedRoute: AuthenticatedSavedRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
