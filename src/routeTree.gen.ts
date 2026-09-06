@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedBillsRouteImport } from './routes/_authenticated/bills'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as AuthenticatedExpensesRouteImport } from './routes/_authenticated/expenses'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
 import { Route as AuthenticatedPosRouteImport } from './routes/_authenticated/pos'
 import { Route as AuthenticatedPurchasesRouteImport } from './routes/_authenticated/purchases'
@@ -42,6 +43,11 @@ const AuthenticatedBillsRoute = AuthenticatedBillsRouteImport.update({
 const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedExpensesRoute = AuthenticatedExpensesRouteImport.update({
+  id: '/expenses',
+  path: '/expenses',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedInventoryRoute = AuthenticatedInventoryRouteImport.update({
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/bills': typeof AuthenticatedBillsRoute
   '/customers': typeof AuthenticatedCustomersRoute
+  '/expenses': typeof AuthenticatedExpensesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/pos': typeof AuthenticatedPosRoute
   '/purchases': typeof AuthenticatedPurchasesRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/bills': typeof AuthenticatedBillsRoute
   '/customers': typeof AuthenticatedCustomersRoute
+  '/expenses': typeof AuthenticatedExpensesRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/pos': typeof AuthenticatedPosRoute
   '/purchases': typeof AuthenticatedPurchasesRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/bills': typeof AuthenticatedBillsRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
+  '/_authenticated/expenses': typeof AuthenticatedExpensesRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/pos': typeof AuthenticatedPosRoute
   '/_authenticated/purchases': typeof AuthenticatedPurchasesRoute
@@ -112,6 +121,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/bills'
     | '/customers'
+    | '/expenses'
     | '/inventory'
     | '/pos'
     | '/purchases'
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/bills'
     | '/customers'
+    | '/expenses'
     | '/inventory'
     | '/pos'
     | '/purchases'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/bills'
     | '/_authenticated/customers'
+    | '/_authenticated/expenses'
     | '/_authenticated/inventory'
     | '/_authenticated/pos'
     | '/_authenticated/purchases'
@@ -185,6 +197,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/expenses': {
+      id: '/_authenticated/expenses'
+      path: '/expenses'
+      fullPath: '/expenses'
+      preLoaderRoute: typeof AuthenticatedExpensesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/inventory': {
       id: '/_authenticated/inventory'
       path: '/inventory'
@@ -226,6 +245,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedBillsRoute: typeof AuthenticatedBillsRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
+  AuthenticatedExpensesRoute: typeof AuthenticatedExpensesRoute
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedPosRoute: typeof AuthenticatedPosRoute
   AuthenticatedPurchasesRoute: typeof AuthenticatedPurchasesRoute
@@ -236,6 +256,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBillsRoute: AuthenticatedBillsRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
+  AuthenticatedExpensesRoute: AuthenticatedExpensesRoute,
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedPosRoute: AuthenticatedPosRoute,
   AuthenticatedPurchasesRoute: AuthenticatedPurchasesRoute,
