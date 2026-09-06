@@ -54,23 +54,20 @@ function ReportsPage() {
   const outstanding = (customers ?? []).reduce((a, x) => a + Number(x.balance), 0);
 
   function exportCsv() {
-    downloadCsv(
-      `report-${from}-to-${to}.csv`,
-      [
-        ["Metric", "Value"],
-        ["From", from],
-        ["To", to],
-        ["Bills", String(s.length)],
-        ["Sales total", salesTotal.toFixed(2)],
-        ["Collected", collected.toFixed(2)],
-        ["Credit (due)", dueTotal.toFixed(2)],
-        ["Purchases", purchaseTotal.toFixed(2)],
-        ["Expenses", expenseTotal.toFixed(2)],
-        ["Net cash", netCash.toFixed(2)],
-        ["Stock value", stockValue.toFixed(2)],
-        ["Customer outstanding", outstanding.toFixed(2)],
-      ],
-    );
+    const rows: Record<string, unknown>[] = [
+      { Metric: "From", Value: from },
+      { Metric: "To", Value: to },
+      { Metric: "Bills", Value: s.length },
+      { Metric: "Sales total", Value: salesTotal.toFixed(2) },
+      { Metric: "Collected", Value: collected.toFixed(2) },
+      { Metric: "Credit (due)", Value: dueTotal.toFixed(2) },
+      { Metric: "Purchases", Value: purchaseTotal.toFixed(2) },
+      { Metric: "Expenses", Value: expenseTotal.toFixed(2) },
+      { Metric: "Net cash", Value: netCash.toFixed(2) },
+      { Metric: "Stock value", Value: stockValue.toFixed(2) },
+      { Metric: "Customer outstanding", Value: outstanding.toFixed(2) },
+    ];
+    downloadCsv(`report-${from}-to-${to}.csv`, rows);
   }
 
   const topProducts = useMemo(() => {
