@@ -52,19 +52,27 @@ async function loadOrCreateShop(userId: string, email: string | undefined) {
     return { shop: existing.shops as unknown as Shop, role: existing.role as ShopRole };
   }
 
-  const { data: shop, error: shopErr } = await supabase
+  // The shop row is only readable once a membership row exists, so we generate
+  // the id up front and insert without asking for the row back.
+  const shopId = crypto.randomUUID();
+  const { error: shopErr } = await supabase
     .from("shops")
-    .insert({ owner_id: userId, name: email ? `${email.split("@")[0]}'s Shop` : "My Shop" })
-    .select()
-    .single();
+    .insert({ id: shopId, owner_id: userId, name: email ? `${email.split("@")[0]}'s Shop` : "My Shop" });
   if (shopErr) throw shopErr;
 
   const { error: memErr } = await supabase
     .from("shop_members")
-    .insert({ shop_id: shop.id, user_id: userId, role: "owner" });
+    .insert({ shop_id: shopId, user_id: userId, role: "owner" });
   if (memErr) throw memErr;
 
-  await seedCatalogue(shop.id);
+  const { data: shop, error: readErr } = await supabase
+    .from("shops")
+    .select("*")
+    .eq("id", shopId)
+    .single();
+  if (readErr) throw readErr;
+
+  await seedCatalogue(shopId);
   return { shop: shop as unknown as Shop, role: "owner" as ShopRole };
 }
 
