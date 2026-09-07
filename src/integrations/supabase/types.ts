@@ -727,6 +727,7 @@ export type Database = {
         Returns: boolean
       }
       is_shop_member: { Args: { _shop_id: string }; Returns: boolean }
+      is_shop_owner: { Args: { _shop_id: string }; Returns: boolean }
     }
     Enums: {
       payment_mode: "cash" | "online" | "credit" | "split" | "set_later"

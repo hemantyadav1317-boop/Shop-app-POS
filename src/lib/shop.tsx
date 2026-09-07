@@ -27,6 +27,12 @@ type Ctx = {
 const ShopContext = createContext<Ctx>({ shop: null, role: null, loading: true, refresh: () => {} });
 
 async function seedCatalogue(shopId: string) {
+  const { count } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("shop_id", shopId);
+  if (count && count > 0) return;
+
   const rows = PRODUCTS.map((p) => ({
     shop_id: shopId,
     name: p.name,
@@ -36,7 +42,8 @@ async function seedCatalogue(shopId: string) {
     stock: p.stock,
     low_stock_at: 5,
   }));
-  await supabase.from("products").insert(rows);
+  const { error } = await supabase.from("products").insert(rows);
+  if (error) console.error("catalogue seed failed", error);
 }
 
 async function loadOrCreateShop(userId: string, email: string | undefined) {
@@ -49,8 +56,11 @@ async function loadOrCreateShop(userId: string, email: string | undefined) {
 
   const existing = members?.[0];
   if (existing?.shops) {
-    return { shop: existing.shops as unknown as Shop, role: existing.role as ShopRole };
+    const shop = existing.shops as unknown as Shop;
+    await seedCatalogue(shop.id);
+    return { shop, role: existing.role as ShopRole };
   }
+
 
   // The shop row is only readable once a membership row exists, so we generate
   // the id up front and insert without asking for the row back.
