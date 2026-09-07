@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./auth";
-import { PRODUCTS } from "./pos-data";
+import { CATALOG } from "./catalog";
 
 export type ShopRole = "owner" | "manager" | "cashier";
 
@@ -33,13 +33,13 @@ async function seedCatalogue(shopId: string) {
     .eq("shop_id", shopId);
   if (count && count > 0) return;
 
-  const rows = PRODUCTS.map((p) => ({
+  const rows = CATALOG.map((p) => ({
     shop_id: shopId,
     name: p.name,
     category: p.category,
     unit: p.unit,
     price: p.price,
-    stock: p.stock,
+    stock: 0,
     low_stock_at: 5,
   }));
   const { error } = await supabase.from("products").insert(rows);
