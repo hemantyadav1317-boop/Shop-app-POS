@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.is_shop_owner(uuid) FROM anon;
