@@ -19,11 +19,11 @@ export function PosShell({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background">
+    <div className="flex h-dvh w-full overflow-hidden bg-background/70">
       <DesktopSidebar />
       <MobileSidebar open={open} onOpenChange={setOpen} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-card px-2 py-2 sm:px-4">
+        <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-card/90 px-2 py-2 backdrop-blur sm:px-4">
           <Button
             variant="ghost"
             size="icon"
