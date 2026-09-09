@@ -5,6 +5,8 @@ import { useShop } from "@/lib/shop";
 import { useProducts } from "@/lib/queries";
 import { useCart } from "@/lib/cart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { productIcon } from "@/lib/catalog";
+
 
 export function ProductGrid() {
   const { shop } = useShop();
@@ -80,6 +82,12 @@ export function ProductGrid() {
                     qty > 0 ? "border-primary bg-accent" : "border-transparent bg-tile"
                   }`}
                 >
+                  <span
+                    aria-hidden
+                    className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-primary/25 to-primary/5 text-2xl shadow-inner ring-1 ring-primary/20"
+                  >
+                    {productIcon(p.name, p.category)}
+                  </span>
                   <span className="line-clamp-2 min-h-[2.5rem] text-sm font-medium text-tile-foreground">
                     {p.name}
                   </span>
@@ -87,6 +95,7 @@ export function ProductGrid() {
                   <span className={`text-xs ${low ? "text-destructive" : "text-muted-foreground"}`}>
                     {qty > 0 ? `${qty} ${p.unit} in cart` : `Stock ${Number(p.stock)} ${p.unit}`}
                   </span>
+
                 </button>
               );
             })}
