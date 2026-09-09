@@ -5,6 +5,8 @@ import { useShop } from "@/lib/shop";
 import { useProducts } from "@/lib/queries";
 import { useCart } from "@/lib/cart";
 import { Skeleton } from "@/components/ui/skeleton";
+import { productIcon } from "@/lib/catalog";
+
 
 export function ProductGrid() {
   const { shop } = useShop();
