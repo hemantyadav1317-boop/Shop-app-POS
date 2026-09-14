@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { Bookmark, ReceiptText, ShoppingCart, Zap } from "lucide-react";
 import { PosShell } from "@/components/pos/PosShell";
 import { ProductGrid } from "@/components/pos/ProductGrid";
 import { CartPanel } from "@/components/pos/CartPanel";
+import { QuickSellDialog } from "@/components/pos/QuickSellDialog";
 import { useCart } from "@/lib/cart";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
