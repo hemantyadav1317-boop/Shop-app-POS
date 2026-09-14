@@ -157,9 +157,7 @@ export function PaymentDialog({
               )}
             </div>
             <div className="grid grid-cols-3 gap-2">
-              <Button variant="outline" onClick={() => printReceipt(receipt)}>
-                <Printer className="mr-1 h-4 w-4" /> Print
-              </Button>
+              <BluetoothPrintButton receipt={receipt} />
               <Button variant="outline" onClick={() => void shareReceipt(receipt)}>
                 <Share2 className="mr-1 h-4 w-4" /> Share
               </Button>
