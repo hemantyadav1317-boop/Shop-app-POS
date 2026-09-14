@@ -128,13 +128,7 @@ function BillsPage() {
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => printReceipt(await buildReceipt(b.id, b))}
-                    >
-                      <Printer className="mr-1 h-4 w-4" /> Print
-                    </Button>
+                    <BluetoothPrintButton receipt={() => buildReceipt(b.id, b)} />
                     <Button
                       size="sm"
                       variant="outline"
