@@ -1,13 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Download, Printer, Search, Share2 } from "lucide-react";
+import { Download, Search, Share2 } from "lucide-react";
 import { PosShell } from "@/components/pos/PosShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useShop } from "@/lib/shop";
 import { useSales } from "@/lib/queries";
 import { supabase } from "@/integrations/supabase/client";
-import { downloadBill, downloadCsv, printReceipt, shareReceipt, type ReceiptData } from "@/lib/receipt";
+import { downloadBill, downloadCsv, shareReceipt, type ReceiptData } from "@/lib/receipt";
+import { BluetoothPrintButton } from "@/components/pos/BluetoothPrintButton";
 
 export const Route = createFileRoute("/_authenticated/bills")({
   head: () => ({
@@ -127,13 +128,7 @@ function BillsPage() {
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={async () => printReceipt(await buildReceipt(b.id, b))}
-                    >
-                      <Printer className="mr-1 h-4 w-4" /> Print
-                    </Button>
+                    <BluetoothPrintButton receipt={() => buildReceipt(b.id, b)} />
                     <Button
                       size="sm"
                       variant="outline"

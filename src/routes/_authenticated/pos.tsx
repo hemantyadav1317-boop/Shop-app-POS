@@ -1,9 +1,10 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ShoppingCart } from "lucide-react";
+import { Bookmark, ReceiptText, ShoppingCart, Zap } from "lucide-react";
 import { PosShell } from "@/components/pos/PosShell";
 import { ProductGrid } from "@/components/pos/ProductGrid";
 import { CartPanel } from "@/components/pos/CartPanel";
+import { QuickSellDialog } from "@/components/pos/QuickSellDialog";
 import { useCart } from "@/lib/cart";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
@@ -22,12 +23,32 @@ export const Route = createFileRoute("/_authenticated/pos")({
 function PosPage() {
   const { total, lines } = useCart();
   const [cartOpen, setCartOpen] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+
+  const barBtn =
+    "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 py-2.5 text-xs font-semibold text-foreground";
 
   return (
     <PosShell title="New Sale">
       <div className="flex h-full min-h-0">
-        <div className="min-w-0 flex-1">
-          <ProductGrid />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1">
+            <ProductGrid />
+          </div>
+          <div className="flex gap-2 border-t border-border bg-background/80 p-2 pb-[132px] backdrop-blur lg:pb-2">
+            <Link to="/bills" className={barBtn}>
+              <ReceiptText className="h-4 w-4 shrink-0" />
+              <span className="truncate">Bills</span>
+            </Link>
+            <Link to="/saved" className={barBtn}>
+              <Bookmark className="h-4 w-4 shrink-0" />
+              <span className="truncate">Saved Bills</span>
+            </Link>
+            <button type="button" onClick={() => setQuickOpen(true)} className={barBtn}>
+              <Zap className="h-4 w-4 shrink-0 text-primary" />
+              <span className="truncate">Quick Sell</span>
+            </button>
+          </div>
         </div>
         <div className="hidden w-[360px] shrink-0 border-l border-border lg:block">
           <CartPanel />
@@ -52,6 +73,8 @@ function PosPage() {
           <CartPanel onDone={() => setCartOpen(false)} />
         </SheetContent>
       </Sheet>
+
+      <QuickSellDialog open={quickOpen} onOpenChange={setQuickOpen} />
     </PosShell>
   );
 }
