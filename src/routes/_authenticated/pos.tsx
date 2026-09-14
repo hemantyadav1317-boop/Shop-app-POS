@@ -73,6 +73,8 @@ function PosPage() {
           <CartPanel onDone={() => setCartOpen(false)} />
         </SheetContent>
       </Sheet>
+
+      <QuickSellDialog open={quickOpen} onOpenChange={setQuickOpen} />
     </PosShell>
   );
 }
