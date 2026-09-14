@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Download, Printer, Share2 } from "lucide-react";
+import { Check, Download, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
 import { useShop } from "@/lib/shop";
 import { useInvalidatePos } from "@/lib/queries";
-import { downloadBill, printReceipt, shareReceipt, type ReceiptData } from "@/lib/receipt";
+import { downloadBill, shareReceipt, type ReceiptData } from "@/lib/receipt";
+import { BluetoothPrintButton } from "./BluetoothPrintButton";
 
 type Mode = "cash" | "online" | "credit" | "split" | "set_later";
 
