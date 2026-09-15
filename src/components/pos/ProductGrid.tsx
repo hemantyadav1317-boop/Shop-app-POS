@@ -6,12 +6,14 @@ import { useProducts } from "@/lib/queries";
 import { useCart } from "@/lib/cart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { productIcon } from "@/lib/catalog";
+import { QtyRateDialog, type QtyRateTarget } from "./QtyRateDialog";
 
 
 export function ProductGrid() {
   const { shop } = useShop();
   const { data: products, isLoading } = useProducts(shop?.id);
-  const { addLine, lines } = useCart();
+  const { lines } = useCart();
+  const [target, setTarget] = useState<QtyRateTarget | null>(null);
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
 
