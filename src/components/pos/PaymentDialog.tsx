@@ -131,49 +131,39 @@ export function PaymentDialog({
         </DialogHeader>
 
         {receipt ? (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 rounded-xl bg-accent p-3 text-accent-foreground">
-              <Check className="h-5 w-5" />
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 rounded-xl bg-accent p-2.5 text-accent-foreground">
+              <Check className="h-4 w-4" />
               <span className="text-sm font-semibold">Sale completed successfully</span>
             </div>
-            <div className="rounded-xl border border-border p-3 text-sm">
-              {receipt.lines.map((l) => (
-                <div key={l.name} className="flex justify-between gap-2 py-0.5">
-                  <span className="truncate">
-                    {l.name} · {l.qty}
-                    {l.unit}
-                  </span>
-                  <span>{(l.qty * l.price).toFixed(2)}</span>
-                </div>
-              ))}
-              <div className="mt-2 flex justify-between border-t border-border pt-2 text-base font-black">
-                <span>Total</span>
-                <span>Rs {receipt.total.toFixed(2)}</span>
-              </div>
-              {receipt.due > 0 && (
-                <div className="flex justify-between text-sm text-destructive">
-                  <span>Due</span>
-                  <span>Rs {receipt.due.toFixed(2)}</span>
-                </div>
-              )}
-            </div>
+
+            <BillReceipt d={receipt} email={user?.email ?? null} />
+
             <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenChange(false);
+                  onCompleted?.();
+                }}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-xs font-semibold"
+              >
+                <Home className="h-6 w-6 text-primary" />
+                New Sale
+              </button>
+              <button
+                type="button"
+                onClick={() => void shareReceipt(receipt)}
+                className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-xs font-semibold"
+              >
+                <Share2 className="h-6 w-6 text-primary" />
+                Share Bill
+              </button>
               <BluetoothPrintButton receipt={receipt} />
-              <Button variant="outline" onClick={() => void shareReceipt(receipt)}>
-                <Share2 className="mr-1 h-4 w-4" /> Share
-              </Button>
-              <Button variant="outline" onClick={() => downloadBill(receipt)}>
-                <Download className="mr-1 h-4 w-4" /> Save
-              </Button>
             </div>
-            <Button
-              className="h-11 w-full"
-              onClick={() => {
-                onOpenChange(false);
-                onCompleted?.();
-              }}
-            >
-              New Sale
+
+            <Button variant="ghost" className="h-10 w-full" onClick={() => downloadBill(receipt)}>
+              <Download className="mr-1 h-4 w-4" /> Save bill
             </Button>
           </div>
         ) : (
