@@ -36,6 +36,20 @@ export function BluetoothPrintButton({
     }
   }
 
+  if (tile) {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void run()}
+        className={`flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-xs font-semibold ${className ?? ""}`}
+      >
+        <Bluetooth className="h-6 w-6 text-primary" />
+        {busy ? "…" : "Print Bill"}
+      </button>
+    );
+  }
+
   return (
     <Button variant="outline" className={className} disabled={busy} onClick={() => void run()}>
       <Bluetooth className="mr-1 h-4 w-4" /> {busy ? "…" : "Print"}

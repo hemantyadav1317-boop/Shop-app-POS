@@ -162,7 +162,7 @@ export function PaymentDialog({
                 <Share2 className="h-6 w-6 text-primary" />
                 Share Bill
               </button>
-              <BluetoothPrintButton receipt={receipt} />
+              <BluetoothPrintButton receipt={receipt} tile />
             </div>
 
             <Button variant="ghost" className="h-10 w-full" onClick={() => downloadBill(receipt)}>
