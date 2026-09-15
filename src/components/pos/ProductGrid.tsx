@@ -6,12 +6,14 @@ import { useProducts } from "@/lib/queries";
 import { useCart } from "@/lib/cart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { productIcon } from "@/lib/catalog";
+import { QtyRateDialog, type QtyRateTarget } from "./QtyRateDialog";
 
 
 export function ProductGrid() {
   const { shop } = useShop();
   const { data: products, isLoading } = useProducts(shop?.id);
-  const { addLine, lines } = useCart();
+  const { lines } = useCart();
+  const [target, setTarget] = useState<QtyRateTarget | null>(null);
   const [cat, setCat] = useState("All");
   const [q, setQ] = useState("");
 
@@ -76,7 +78,14 @@ export function ProductGrid() {
                   key={p.id}
                   type="button"
                   onClick={() =>
-                    addLine({ product_id: p.id, name: p.name, price: Number(p.price), unit: p.unit })
+                    setTarget({
+                      product_id: p.id,
+                      name: p.name,
+                      price: Number(p.price),
+                      unit: p.unit,
+                      category: p.category,
+                      inCartQty: qty,
+                    })
                   }
                   className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl border p-3 text-center shadow-[var(--shadow-tile)] transition-transform active:scale-[0.97] ${
                     qty > 0 ? "border-primary bg-accent" : "border-transparent bg-tile"
@@ -107,6 +116,8 @@ export function ProductGrid() {
           </div>
         )}
       </div>
+
+      <QtyRateDialog target={target} onClose={() => setTarget(null)} />
     </div>
   );
 }

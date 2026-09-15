@@ -8,9 +8,12 @@ import { printReceipt, type ReceiptData } from "@/lib/receipt";
 export function BluetoothPrintButton({
   receipt,
   className,
+  tile,
 }: {
   receipt: ReceiptData | (() => Promise<ReceiptData>);
   className?: string;
+  /** Big icon-over-label tile used on the checkout screen */
+  tile?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
 
@@ -31,6 +34,20 @@ export function BluetoothPrintButton({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (tile) {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void run()}
+        className={`flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-xs font-semibold ${className ?? ""}`}
+      >
+        <Bluetooth className="h-6 w-6 text-primary" />
+        {busy ? "…" : "Print Bill"}
+      </button>
+    );
   }
 
   return (
