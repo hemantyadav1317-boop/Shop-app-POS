@@ -8,9 +8,12 @@ import { printReceipt, type ReceiptData } from "@/lib/receipt";
 export function BluetoothPrintButton({
   receipt,
   className,
+  tile,
 }: {
   receipt: ReceiptData | (() => Promise<ReceiptData>);
   className?: string;
+  /** Big icon-over-label tile used on the checkout screen */
+  tile?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
 
