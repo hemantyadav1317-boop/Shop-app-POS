@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Download, Share2 } from "lucide-react";
+import { Check, Download, Home, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -16,6 +16,8 @@ import { useShop } from "@/lib/shop";
 import { useInvalidatePos } from "@/lib/queries";
 import { downloadBill, shareReceipt, type ReceiptData } from "@/lib/receipt";
 import { BluetoothPrintButton } from "./BluetoothPrintButton";
+import { BillReceipt } from "./BillReceipt";
+import { useAuth } from "@/lib/auth";
 
 type Mode = "cash" | "online" | "credit" | "split" | "set_later";
 
@@ -37,6 +39,7 @@ export function PaymentDialog({
   onCompleted?: () => void;
 }) {
   const { shop } = useShop();
+  const { user } = useAuth();
   const cart = useCart();
   const invalidate = useInvalidatePos();
 
