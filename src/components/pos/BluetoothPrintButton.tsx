@@ -38,15 +38,16 @@ export function BluetoothPrintButton({
 
   if (tile) {
     return (
-      <button
+      <Button
         type="button"
+        variant="outline"
         disabled={busy}
         onClick={() => void run()}
-        className={`flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-xs font-semibold ${className ?? ""}`}
+        className={`h-auto flex-col gap-1.5 px-2 py-3 text-xs font-semibold ${className ?? ""}`}
       >
         <Bluetooth className="h-6 w-6 text-primary" />
         {busy ? "…" : "Print Bill"}
-      </button>
+      </Button>
     );
   }
 

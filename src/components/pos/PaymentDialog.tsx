@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Download, Home, Share2 } from "lucide-react";
+import { Check, Home, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
 import { useShop } from "@/lib/shop";
 import { useInvalidatePos } from "@/lib/queries";
-import { downloadBill, shareReceipt, type ReceiptData } from "@/lib/receipt";
+import { shareReceipt, type ReceiptData } from "@/lib/receipt";
 import { BluetoothPrintButton } from "./BluetoothPrintButton";
 import { BillReceipt } from "./BillReceipt";
 import { useAuth } from "@/lib/auth";
@@ -143,31 +143,29 @@ export function PaymentDialog({
             <BillReceipt d={receipt} email={user?.email ?? null} />
 
             <div className="grid grid-cols-3 gap-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
                   onOpenChange(false);
                   onCompleted?.();
                 }}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-xs font-semibold"
+                className="h-auto flex-col gap-1.5 px-2 py-3 text-xs font-semibold"
               >
                 <Home className="h-6 w-6 text-primary" />
                 New Sale
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => void shareReceipt(receipt)}
-                className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-card px-2 py-3 text-xs font-semibold"
+                className="h-auto flex-col gap-1.5 px-2 py-3 text-xs font-semibold"
               >
                 <Share2 className="h-6 w-6 text-primary" />
                 Share Bill
-              </button>
+              </Button>
               <BluetoothPrintButton receipt={receipt} tile />
             </div>
-
-            <Button variant="ghost" className="h-10 w-full" onClick={() => downloadBill(receipt)}>
-              <Download className="mr-1 h-4 w-4" /> Save bill
-            </Button>
           </div>
         ) : (
           <div className="space-y-4">
