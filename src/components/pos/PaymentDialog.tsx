@@ -219,7 +219,7 @@ export function PaymentDialog({
               disabled={busy}
               onClick={() => void completeSale()}
             >
-              {busy ? "Saving…" : `Complete Rs ${cart.total.toFixed(2)}`}
+              {busy ? "Saving…" : `Bill · Rs ${cart.total.toFixed(2)}`}
             </Button>
           </div>
         )}
