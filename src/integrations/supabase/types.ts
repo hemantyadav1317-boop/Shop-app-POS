@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -410,6 +410,7 @@ export type Database = {
       sales: {
         Row: {
           bill_no: number
+          client_ref: string | null
           created_at: string
           created_by: string | null
           customer_id: string | null
@@ -428,6 +429,7 @@ export type Database = {
         }
         Insert: {
           bill_no: number
+          client_ref?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -446,6 +448,7 @@ export type Database = {
         }
         Update: {
           bill_no?: number
+          client_ref?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -564,6 +567,8 @@ export type Database = {
           owner_id: string
           phone: string | null
           updated_at: string
+          upi_id: string | null
+          upi_payee_name: string | null
         }
         Insert: {
           address?: string | null
@@ -576,6 +581,8 @@ export type Database = {
           owner_id: string
           phone?: string | null
           updated_at?: string
+          upi_id?: string | null
+          upi_payee_name?: string | null
         }
         Update: {
           address?: string | null
@@ -588,6 +595,8 @@ export type Database = {
           owner_id?: string
           phone?: string | null
           updated_at?: string
+          upi_id?: string | null
+          upi_payee_name?: string | null
         }
         Relationships: []
       }
@@ -694,6 +703,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      confirm_sale_payment: {
+        Args: {
+          _amount: number
+          _mode: Database["public"]["Enums"]["payment_mode"]
+          _sale_id: string
+        }
+        Returns: undefined
+      }
       create_purchase: {
         Args: {
           _items: Json
@@ -707,6 +724,21 @@ export type Database = {
       }
       create_sale: {
         Args: {
+          _customer_id: string
+          _customer_name: string
+          _customer_phone: string
+          _discount: number
+          _items: Json
+          _note: string
+          _paid: number
+          _payment_mode: Database["public"]["Enums"]["payment_mode"]
+          _shop_id: string
+        }
+        Returns: string
+      }
+      create_sale_once: {
+        Args: {
+          _client_ref: string
           _customer_id: string
           _customer_name: string
           _customer_phone: string

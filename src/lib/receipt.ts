@@ -15,9 +15,12 @@ export type ReceiptData = {
   paid: number;
   due: number;
   paymentMode: string;
+  saleId?: string;
+  upiId?: string | null;
+  upiName?: string | null;
 };
 
-export function receiptHtml(d: ReceiptData) {
+export function receiptHtml(d: ReceiptData, qr?: string | null, status?: string) {
   const rows = d.lines
     .map(
       (l) =>
@@ -51,10 +54,13 @@ ${d.customerName ? `<div class="row"><span>${escapeHtml(d.customerName)}</span><
 <div class="tot">
   <div class="row"><span>Sub Total</span><span>${d.subTotal.toFixed(2)}</span></div>
   <div class="row"><span>Discount</span><span>-${d.discount.toFixed(2)}</span></div>
+  <div class="row"><span>Tax</span><span>0.00</span></div>
   <div class="row big"><span>Total</span><span>Rs ${d.total.toFixed(2)}</span></div>
   <div class="row"><span>Paid (${escapeHtml(d.paymentMode)})</span><span>${d.paid.toFixed(2)}</span></div>
   ${d.due > 0 ? `<div class="row"><span>Due</span><span>${d.due.toFixed(2)}</span></div>` : ""}
 </div>
+<p class="c big">${escapeHtml(status ?? "")}</p>
+${qr ? `<div class="c"><p class="big">SCAN TO PAY</p><img src="${qr}" style="width:60%;image-rendering:pixelated"/><p class="big">Rs ${d.due.toFixed(2)}</p><p>UPI: ${escapeHtml(d.upiId ?? "")}<br/>${escapeHtml(d.upiName ?? "")}</p></div>` : ""}
 <p class="c">Thank you! Visit again 🙏</p>
 </body></html>`;
 }
@@ -65,10 +71,12 @@ function escapeHtml(s: string) {
   );
 }
 
-export function printReceipt(d: ReceiptData) {
+export async function printReceipt(d: ReceiptData) {
   const w = window.open("", "_blank", "width=420,height=640");
   if (!w) return false;
-  w.document.write(receiptHtml(d));
+  const { upiQrDataUrl, paymentStatus } = await import("@/lib/bill-image");
+  const qr = await upiQrDataUrl(d, 360);
+  w.document.write(receiptHtml(d, qr, paymentStatus(d)));
   w.document.close();
   w.focus();
   setTimeout(() => w.print(), 300);

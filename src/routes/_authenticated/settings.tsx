@@ -29,7 +29,7 @@ function SettingsPage() {
   const { shop, role, refresh } = useShop();
   const { user } = useAuth();
   const { data: members } = useShopMembers(shop?.id);
-  const [form, setForm] = useState({ name: "", phone: "", address: "", currency: "Rs", bill_prefix: "" });
+  const [form, setForm] = useState({ name: "", phone: "", address: "", currency: "Rs", bill_prefix: "", upi_id: "", upi_payee_name: "" });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -40,6 +40,8 @@ function SettingsPage() {
         address: shop.address ?? "",
         currency: shop.currency ?? "Rs",
         bill_prefix: shop.bill_prefix ?? "",
+        upi_id: shop.upi_id ?? "",
+        upi_payee_name: shop.upi_payee_name ?? "",
       });
     }
   }, [shop]);
@@ -57,6 +59,8 @@ function SettingsPage() {
         address: form.address.trim() || null,
         currency: form.currency.trim() || "Rs",
         bill_prefix: form.bill_prefix.trim(),
+        upi_id: form.upi_id.trim() || null,
+        upi_payee_name: form.upi_payee_name.trim() || null,
       })
       .eq("id", shop.id);
     setSaving(false);
@@ -127,6 +131,22 @@ function SettingsPage() {
                 disabled={!canEdit}
                 onChange={(e) => setForm({ ...form, bill_prefix: e.target.value })}
               />
+            </div>
+          </div>
+          <h3 className="mt-5 text-sm font-bold">Payment QR (UPI)</h3>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Har bill par is UPI ID ka QR, bill ki baaki rakam ke saath chhapega. QR scan hone se bill apne aap paid nahi hota — paisa aane par Bills me "Mark paid" dabayein.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="upi">UPI ID / VPA</Label>
+              <Input id="upi" placeholder="shopname@okaxis" value={form.upi_id} disabled={!canEdit}
+                onChange={(e) => setForm({ ...form, upi_id: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="upn">Payee name</Label>
+              <Input id="upn" value={form.upi_payee_name} disabled={!canEdit}
+                onChange={(e) => setForm({ ...form, upi_payee_name: e.target.value })} />
             </div>
           </div>
           {canEdit && (
