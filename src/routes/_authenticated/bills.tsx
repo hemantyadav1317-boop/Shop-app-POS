@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Download, Search, Share2 } from "lucide-react";
+import { CheckCircle2, Download, Search, Share2 } from "lucide-react";
+import { toast } from "sonner";
+import { shareBillImage } from "@/lib/bill-image";
+import { useInvalidatePos } from "@/lib/queries";
 import { PosShell } from "@/components/pos/PosShell";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,6 +26,7 @@ export const Route = createFileRoute("/_authenticated/bills")({
 });
 
 function BillsPage() {
+  const invalidate = useInvalidatePos();
   const { shop } = useShop();
   const { data: sales, isLoading } = useSales(shop?.id);
   const [q, setQ] = useState("");
@@ -63,6 +67,9 @@ function BillsPage() {
       paid: Number(bill.paid),
       due: Number(bill.due),
       paymentMode: bill.payment_mode,
+      saleId: bill.id,
+      upiId: shop?.upi_id ?? null,
+      upiName: shop?.upi_payee_name ?? null,
     };
   }
 
@@ -132,7 +139,7 @@ function BillsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={async () => void shareReceipt(await buildReceipt(b.id, b))}
+                      onClick={async () => void shareBillImage(await buildReceipt(b.id, b))}
                     >
                       <Share2 className="mr-1 h-4 w-4" /> Share
                     </Button>
@@ -143,6 +150,23 @@ function BillsPage() {
                     >
                       <Download className="mr-1 h-4 w-4" /> Save
                     </Button>
+                    {Number(b.due) > 0 && (
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          const { error } = await supabase.rpc("confirm_sale_payment", {
+                            _sale_id: b.id,
+                            _amount: Number(b.due),
+                            _mode: "online",
+                          });
+                          if (error) return void toast.error(error.message);
+                          toast.success(`Bill #${b.bill_no} paid mark ho gaya`);
+                          invalidate();
+                        }}
+                      >
+                        <CheckCircle2 className="mr-1 h-4 w-4" /> Mark paid
+                      </Button>
+                    )}
                   </div>
                 </li>
               ))}

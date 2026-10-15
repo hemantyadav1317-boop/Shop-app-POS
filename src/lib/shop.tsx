@@ -15,6 +15,8 @@ export type Shop = {
   currency: string;
   gst_number: string | null;
   bill_prefix: string;
+  upi_id?: string | null;
+  upi_payee_name?: string | null;
 };
 
 type Ctx = {

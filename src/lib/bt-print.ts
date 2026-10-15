@@ -1,4 +1,5 @@
 import type { ReceiptData } from "@/lib/receipt";
+import { renderBillCanvas } from "@/lib/bill-image";
 
 /**
  * Bluetooth thermal printer (ESC/POS) support.
@@ -81,61 +82,6 @@ async function send(bytes: Uint8Array) {
   }
 }
 
-/** Receipt ko 384px chaudi canvas par draw karta hai. */
-function renderCanvas(d: ReceiptData) {
-  const pad = 8;
-  const lh = 22;
-  const rows: Array<{ text: string; size: number; align: "l" | "c" | "r"; bold?: boolean; right?: string }> = [];
-
-  rows.push({ text: d.shopName, size: 24, align: "c", bold: true });
-  if (d.shopAddress) rows.push({ text: d.shopAddress, size: 15, align: "c" });
-  if (d.shopPhone) rows.push({ text: d.shopPhone, size: 15, align: "c" });
-  rows.push({ text: "--------------------------------", size: 15, align: "c" });
-  rows.push({ text: `Bill #${d.billNo}`, size: 16, align: "l", right: d.date });
-  if (d.customerName) rows.push({ text: d.customerName, size: 16, align: "l", right: d.customerPhone ?? "" });
-  rows.push({ text: "--------------------------------", size: 15, align: "c" });
-  for (const l of d.lines) {
-    rows.push({ text: l.name, size: 17, align: "l" });
-    rows.push({ text: `  ${l.qty} ${l.unit} x ${l.price}`, size: 16, align: "l", right: (l.qty * l.price).toFixed(2) });
-  }
-  rows.push({ text: "--------------------------------", size: 15, align: "c" });
-  rows.push({ text: "Sub Total", size: 16, align: "l", right: d.subTotal.toFixed(2) });
-  if (d.discount > 0) rows.push({ text: "Discount", size: 16, align: "l", right: `-${d.discount.toFixed(2)}` });
-  rows.push({ text: "TOTAL", size: 22, align: "l", bold: true, right: `Rs ${d.total.toFixed(2)}` });
-  rows.push({ text: `Paid (${d.paymentMode})`, size: 16, align: "l", right: d.paid.toFixed(2) });
-  if (d.due > 0) rows.push({ text: "Due", size: 16, align: "l", right: d.due.toFixed(2) });
-  rows.push({ text: " ", size: 15, align: "c" });
-  rows.push({ text: "Thank you! Visit again", size: 16, align: "c" });
-  rows.push({ text: " ", size: 15, align: "c" });
-
-  const canvas = document.createElement("canvas");
-  canvas.width = DOTS;
-  canvas.height = rows.length * lh + pad * 2;
-  const ctx = canvas.getContext("2d")!;
-  ctx.fillStyle = "#fff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "#000";
-  ctx.textBaseline = "middle";
-
-  rows.forEach((r, i) => {
-    const y = pad + i * lh + lh / 2;
-    ctx.font = `${r.bold ? "bold " : ""}${r.size}px "Noto Sans Devanagari", system-ui, sans-serif`;
-    if (r.align === "c") {
-      ctx.textAlign = "center";
-      ctx.fillText(r.text, DOTS / 2, y, DOTS - pad * 2);
-    } else {
-      ctx.textAlign = "left";
-      ctx.fillText(r.text, pad, y, DOTS - pad * 2 - 110);
-    }
-    if (r.right) {
-      ctx.textAlign = "right";
-      ctx.fillText(r.right, DOTS - pad, y);
-    }
-  });
-
-  return canvas;
-}
-
 /** Canvas ko ESC/POS raster (GS v 0) bytes me badalta hai. */
 function canvasToEscPos(canvas: HTMLCanvasElement) {
   const ctx = canvas.getContext("2d")!;
@@ -169,7 +115,7 @@ function canvasToEscPos(canvas: HTMLCanvasElement) {
 
 /** Bill ko Bluetooth thermal printer par print karta hai. */
 export async function printViaBluetooth(d: ReceiptData) {
-  const bytes = canvasToEscPos(renderCanvas(d));
+  const bytes = canvasToEscPos(await renderBillCanvas(d, DOTS, 1));
   await send(bytes);
 }
 
