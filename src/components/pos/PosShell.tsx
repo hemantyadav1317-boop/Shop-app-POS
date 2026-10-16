@@ -1,7 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Menu } from "lucide-react";
-import { DesktopSidebar, MobileSidebar } from "./AppSidebar";
+import { Maximize, Menu, Minimize } from "lucide-react";
+import { MobileSidebar } from "./AppSidebar";
 import { Button } from "@/components/ui/button";
 import { BOTTOM_NAV } from "@/lib/nav";
 
@@ -17,24 +17,45 @@ export function PosShell({
   hideBottomNav?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [fs, setFs] = useState(false);
+
+  useEffect(() => {
+    const on = () => setFs(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", on);
+    return () => document.removeEventListener("fullscreenchange", on);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void document.documentElement.requestFullscreen?.().catch(() => {});
+  }
 
   return (
     <div className="flex h-dvh w-full overflow-hidden bg-background/70">
-      <DesktopSidebar />
       <MobileSidebar open={open} onOpenChange={setOpen} />
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-card/90 px-2 py-2 backdrop-blur sm:px-4">
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
             aria-label="Open menu"
             onClick={() => setOpen(true)}
           >
             <Menu className="h-5 w-5" />
           </Button>
           <h1 className="truncate text-base font-bold sm:text-lg">{title}</h1>
-          <div className="shrink-0">{headerRight}</div>
+          <div className="flex shrink-0 items-center gap-1">
+            {headerRight}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden md:inline-flex"
+              aria-label={fs ? "Exit full screen" : "Full screen"}
+              onClick={toggleFullscreen}
+            >
+              {fs ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
+            </Button>
+          </div>
         </header>
 
         <main className="min-h-0 flex-1 overflow-hidden">{children}</main>

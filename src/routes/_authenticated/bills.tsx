@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useShop } from "@/lib/shop";
 import { useSales } from "@/lib/queries";
 import { supabase } from "@/integrations/supabase/client";
-import { downloadBill, downloadCsv, shareReceipt, type ReceiptData } from "@/lib/receipt";
+import { downloadBill, downloadCsv, type ReceiptData } from "@/lib/receipt";
 import { BluetoothPrintButton } from "@/components/pos/BluetoothPrintButton";
 
 export const Route = createFileRoute("/_authenticated/bills")({
