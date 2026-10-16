@@ -14,7 +14,7 @@ export function upiUri(d: ReceiptData): string | null {
     tn: `Bill ${d.billNo}`,
     tr: `BILL${d.billNo}`,
   });
-  return `upi://pay?${p.toString().replace(/\+/g, "%20")}`;
+  return `upi://pay?${p.toString().replace(/\+/g, "%20").replace(/%40/g, "@")}`;
 }
 
 export function paymentStatus(d: ReceiptData) {
