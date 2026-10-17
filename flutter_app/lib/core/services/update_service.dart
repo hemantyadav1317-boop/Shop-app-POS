@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:ota_update/ota_update.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_colors.dart';
 
@@ -93,6 +94,102 @@ class UpdateService {
       debugPrint("Update check error: $e");
     }
     return null;
+  }
+
+  /// Starts downloading the APK directly inside the app with a live progress dialog
+  static void startInAppDownload(BuildContext context, String apkUrl) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        double progress = 0.0;
+        String statusText = 'डाउनलोड शुरू हो रहा है...';
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            // Trigger OTA update execution
+            try {
+              OtaUpdate()
+                  .execute(
+                apkUrl,
+                destinationFilename: 'ShopPOS-Update.apk',
+              )
+                  .listen((OtaEvent event) {
+                if (event.status == OtaStatus.DOWNLOADING) {
+                  final percent = double.tryParse(event.value ?? '0') ?? 0;
+                  setDialogState(() {
+                    progress = percent / 100.0;
+                    statusText = 'डाउनलोड हो रहा है: ${percent.toInt()}%';
+                  });
+                } else if (event.status == OtaStatus.INSTALLING) {
+                  setDialogState(() {
+                    progress = 1.0;
+                    statusText = 'इंस्टॉल हो रहा है... 🚀';
+                  });
+                  Future.delayed(const Duration(seconds: 1), () {
+                    if (dialogCtx.mounted) {
+                      Navigator.pop(dialogCtx);
+                    }
+                  });
+                } else {
+                  // Fallback to browser download on permission error or other issue
+                  if (dialogCtx.mounted) {
+                    Navigator.pop(dialogCtx);
+                  }
+                  final uri = Uri.parse(apkUrl);
+                  launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              }, onError: (e) {
+                debugPrint("OTA Error: $e");
+                if (dialogCtx.mounted) {
+                  Navigator.pop(dialogCtx);
+                }
+                final uri = Uri.parse(apkUrl);
+                launchUrl(uri, mode: LaunchMode.externalApplication);
+              });
+            } catch (e) {
+              debugPrint("OTA Execute error: $e");
+              if (dialogCtx.mounted) {
+                Navigator.pop(dialogCtx);
+              }
+              final uri = Uri.parse(apkUrl);
+              launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: const [
+                  Icon(Icons.downloading, color: AppColors.primary),
+                  SizedBox(width: 10),
+                  Text('अपडेट डाउनलोड हो रहा है', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(statusText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
+                  const SizedBox(height: 14),
+                  LinearProgressIndicator(
+                    value: progress > 0 ? progress : null,
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                    backgroundColor: AppColors.primarySurface,
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'डाउनलोड पूरा होते ही यह अपने आप इंस्टॉल हो जाएगा। कृपया ऐप बंद न करें।',
+                    style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   /// Displays the update dialog ONLY when a new version is available
@@ -193,12 +290,9 @@ class UpdateService {
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
             ),
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(ctx);
-              final uri = Uri.parse(info.downloadUrl);
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
+              startInAppDownload(context, info.downloadUrl);
             },
           ),
         ],
