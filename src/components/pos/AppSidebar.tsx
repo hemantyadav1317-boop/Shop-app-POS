@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { PRIMARY_NAV } from "@/lib/nav";
 import { useShop } from "@/lib/shop";
 import { useAuth } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./ThemeToggle";
 import { signOutAndRedirect } from "@/lib/signout";
 
@@ -15,13 +16,13 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
     <div className="flex h-full min-h-0 flex-col bg-sidebar text-sidebar-foreground">
       <div className="px-4 pb-4 pt-5">
         <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sidebar-primary text-sidebar-primary-foreground">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <Store className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold">{shop?.name ?? "My Shop"}</p>
             <p className="truncate text-xs opacity-70">
-              {role ? role[0]!.toUpperCase() + role.slice(1) : "—"} · {user?.email ?? ""}
+              {role ? role.charAt(0).toUpperCase() + role.slice(1) : "—"} · {user?.email ?? ""}
             </p>
           </div>
         </div>
@@ -34,7 +35,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
             to={item.to}
             onClick={onNavigate}
             activeProps={{ className: "bg-accent text-accent-foreground font-semibold" }}
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-muted"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-muted"
           >
             <item.icon className="h-[18px] w-[18px] shrink-0" />
             <span className="truncate">{item.label}</span>
@@ -44,13 +45,14 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
 
       <div className="flex items-center justify-between gap-2 bg-sidebar px-3 py-3">
         <ThemeToggle />
-        <button
+        <Button
+          variant="ghost"
           type="button"
           onClick={() => void signOutAndRedirect()}
-          className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium hover:bg-sidebar-accent"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium hover:bg-sidebar-accent"
         >
           <LogOut className="h-4 w-4" /> Logout
-        </button>
+        </Button>
       </div>
     </div>
   );

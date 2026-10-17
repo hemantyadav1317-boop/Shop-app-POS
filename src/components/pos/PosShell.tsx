@@ -31,26 +31,28 @@ export function PosShell({
   }
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background/70">
+    <div className="flex h-dvh w-full overflow-hidden bg-background">
       <MobileSidebar open={open} onOpenChange={setOpen} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-card/90 px-2 py-2 backdrop-blur sm:px-4">
+        <header className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-card px-3 py-2 sm:px-4">
           <Button
             variant="ghost"
             size="icon"
             aria-label="Open menu"
+             title="Open menu"
             onClick={() => setOpen(true)}
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <h1 className="truncate text-base font-bold sm:text-lg">{title}</h1>
+          <h1 className="truncate text-base font-semibold sm:text-lg">{title}</h1>
           <div className="flex shrink-0 items-center gap-1">
             {headerRight}
             <Button
               variant="ghost"
               size="icon"
               className="hidden md:inline-flex"
-              aria-label={fs ? "Exit full screen" : "Full screen"}
+              title={fs ? "Exit full screen" : "Full screen"}
+               aria-label={fs ? "Exit full screen" : "Full screen"}
               onClick={toggleFullscreen}
             >
               {fs ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}

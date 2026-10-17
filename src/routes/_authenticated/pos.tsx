@@ -6,6 +6,7 @@ import { ProductGrid } from "@/components/pos/ProductGrid";
 import { CartPanel } from "@/components/pos/CartPanel";
 import { QuickSellDialog } from "@/components/pos/QuickSellDialog";
 import { useCart } from "@/lib/cart";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 export const Route = createFileRoute("/_authenticated/pos")({
@@ -26,7 +27,7 @@ function PosPage() {
   const [quickOpen, setQuickOpen] = useState(false);
 
   const barBtn =
-    "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl border border-border bg-card px-2 py-2.5 text-xs font-semibold text-foreground";
+    "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-3 text-xs font-semibold text-foreground";
 
   return (
     <PosShell title="New Sale">
@@ -35,7 +36,7 @@ function PosPage() {
           <div className="min-h-0 flex-1">
             <ProductGrid />
           </div>
-          <div className="flex gap-2 border-t border-border bg-background/80 p-2 pb-[132px] backdrop-blur lg:pb-2">
+          <div className="flex gap-2 border-t border-border pos-shortcuts bg-card p-3 pb-[90px]">
             <Link to="/bills" className={barBtn}>
               <ReceiptText className="h-4 w-4 shrink-0" />
               <span className="truncate">Bills</span>
@@ -44,31 +45,31 @@ function PosPage() {
               <Bookmark className="h-4 w-4 shrink-0" />
               <span className="truncate">Saved Bills</span>
             </Link>
-            <button type="button" onClick={() => setQuickOpen(true)} className={barBtn}>
+            <Button variant="outline" type="button" onClick={() => setQuickOpen(true)} className={barBtn}>
               <Zap className="h-4 w-4 shrink-0 text-primary" />
               <span className="truncate">Quick Sell</span>
-            </button>
+            </Button>
           </div>
         </div>
-        <div className="hidden w-[360px] shrink-0 border-l border-border lg:block">
+        <div className="pos-cart hidden w-[340px] shrink-0 border-l border-border xl:w-[380px]">
           <CartPanel />
         </div>
       </div>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-[68px] p-3 md:bottom-0 lg:hidden">
-        <button
+      <div className="pos-cart-launch pointer-events-none fixed inset-x-0 bottom-[64px] p-3 md:bottom-0">
+        <Button
           type="button"
           onClick={() => setCartOpen(true)}
-          className="pointer-events-auto grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl bg-primary px-4 py-3 text-primary-foreground shadow-[var(--shadow-panel)]"
+          className="pointer-events-auto grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 h-14 rounded-lg bg-primary px-4 py-3 text-primary-foreground shadow-[var(--shadow-panel)]"
         >
           <ShoppingCart className="h-5 w-5 shrink-0" />
-          <span className="truncate text-left text-sm font-semibold">{lines.length} items in order</span>
+          <span className="truncate text-left text-sm font-semibold">{lines.length} items</span>
           <span className="shrink-0 text-base font-black">Rs {total.toFixed(2)}</span>
-        </button>
+        </Button>
       </div>
 
       <Sheet open={cartOpen} onOpenChange={setCartOpen}>
-        <SheetContent side="bottom" className="h-[90dvh] p-0 lg:hidden">
+        <SheetContent side="bottom" className="h-[90dvh] p-0">
           <SheetTitle className="sr-only">Order</SheetTitle>
           <CartPanel onDone={() => setCartOpen(false)} />
         </SheetContent>

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { Monitor, Moon, Sun } from "lucide-react";
 import { useTheme, type ThemePref } from "@/lib/theme";
 
@@ -12,17 +13,19 @@ export function ThemeToggle({ full = false }: { full?: boolean }) {
 
   return (
     <div
-      className={`flex gap-1 rounded-xl border border-border bg-card p-1 ${full ? "w-full" : ""}`}
+      className={`flex gap-1 rounded-lg border border-border bg-card p-1 ${full ? "w-full" : ""}`}
       role="group"
       aria-label="Appearance"
     >
       {OPTIONS.map((o) => (
-        <button
+        <Button variant="ghost"
           key={o.value}
           type="button"
           onClick={() => setTheme(o.value)}
           aria-pressed={theme === o.value}
-          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-medium transition-colors ${
+          aria-label={o.label}
+          title={o.label}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 h-10 py-2 text-xs font-medium transition-colors ${
             theme === o.value
               ? "bg-primary text-primary-foreground"
               : "text-muted-foreground hover:bg-muted"
@@ -30,7 +33,7 @@ export function ThemeToggle({ full = false }: { full?: boolean }) {
         >
           <o.icon className="h-4 w-4" />
           {full && <span>{o.label}</span>}
-        </button>
+        </Button>
       ))}
     </div>
   );

@@ -6,6 +6,11 @@ export type DbProduct = {
   shop_id: string;
   name: string;
   category: string;
+  name_en?: string | null;
+  name_hi?: string | null;
+  image_url?: string | null;
+  sku?: string | null;
+  barcode?: string | null;
   unit: "kg" | "pc";
   price: number;
   cost_price: number;
