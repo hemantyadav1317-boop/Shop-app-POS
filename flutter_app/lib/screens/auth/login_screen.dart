@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/update_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../main_shell.dart';
@@ -13,6 +14,13 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      UpdateService.showUpdateDialogIfNeeded(context);
+    });
+  }
   void _showShopSetupDialog(BuildContext context) {
     final nameCtrl = TextEditingController(text: 'यादव जनरल स्टोर');
     final phoneCtrl = TextEditingController();
