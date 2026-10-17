@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
 import '../../providers/shop_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../auth/login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -78,6 +80,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final shopProvider = context.watch<ShopProvider>();
+    final authProvider = context.watch<AuthProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -95,6 +98,58 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // User Account Profile Card
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      backgroundColor: AppColors.primarySurface,
+                      radius: 22,
+                      child: const Icon(Icons.person, color: AppColors.primary, size: 26),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            authProvider.displayName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          Text(
+                            authProvider.email ?? (authProvider.isGuestMode ? 'ऑफ़लाइन मोड (Guest)' : 'लॉगिन नहीं है'),
+                            style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                        side: const BorderSide(color: AppColors.error),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () async {
+                        await authProvider.signOut();
+                        if (context.mounted) {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
+                        }
+                      },
+                      child: const Text('लॉगआउट', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
             // Theme Mode Toggle
             Card(
               child: Padding(

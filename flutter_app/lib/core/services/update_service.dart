@@ -47,15 +47,21 @@ class UpdateService {
     final repo = customRepo ?? githubRepo;
     try {
       final url = Uri.parse('https://api.github.com/repos/$repo/releases/latest');
-      final res = await http.get(url).timeout(const Duration(seconds: 5));
+      final res = await http.get(
+        url,
+        headers: {
+          'User-Agent': 'ShopPOS-App',
+          'Accept': 'application/vnd.github.v3+json',
+        },
+      ).timeout(const Duration(seconds: 6));
 
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         final tagName = (data['tag_name'] as String? ?? '').replaceAll('v', '');
         final body = data['body'] as String? ?? 'नया सुधार और फीचर्स जोड़े गए हैं।';
-        
+
         // Find APK download asset if present
-        String downloadUrl = data['html_url'] as String? ?? '';
+        String downloadUrl = data['html_url'] as String? ?? 'https://github.com/$repo/releases';
         final assets = data['assets'] as List?;
         if (assets != null && assets.isNotEmpty) {
           final apkAsset = assets.firstWhere(
@@ -73,6 +79,15 @@ class UpdateService {
           downloadUrl: downloadUrl,
           releaseNotes: body,
         );
+      } else if (res.statusCode == 404) {
+        // 404 on GitHub means no newer release exists yet
+        return UpdateInfo(
+          hasUpdate: false,
+          currentVersion: currentVersion,
+          latestVersion: currentVersion,
+          downloadUrl: 'https://github.com/$repo/releases',
+          releaseNotes: 'आप नवीनतम वर्जन पर हैं।',
+        );
       }
     } catch (e) {
       debugPrint("Update check error: $e");
@@ -84,21 +99,26 @@ class UpdateService {
   static void showUpdateDialogIfNeeded(BuildContext context, {bool showIfNoUpdate = false}) async {
     final info = await checkForUpdate();
 
+    if (!context.mounted) return;
+
     if (info == null) {
-      if (showIfNoUpdate && context.mounted) {
+      if (showIfNoUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('अपडेट चेक करने में असमर्थ। कृपया इंटरनेट कनेक्शन जांचें।')),
+          const SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text('सर्वर से संपर्क नहीं हो पाया। कृपया बाद में प्रयास करें।'),
+          ),
         );
       }
       return;
     }
 
     if (!info.hasUpdate) {
-      if (showIfNoUpdate && context.mounted) {
+      if (showIfNoUpdate) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.primary,
-            content: Text('🎉 आप पहले से ही नवीनतम वर्जन (v${info.currentVersion}) का उपयोग कर रहे हैं!'),
+            content: Text('🎉 आपका ऐप नवीनतम वर्जन (v${info.currentVersion}) पर है! कोई नया अपडेट पेंडिंग नहीं है।'),
           ),
         );
       }
@@ -106,8 +126,6 @@ class UpdateService {
     }
 
     // New update is available - show popup
-    if (!context.mounted) return;
-
     showDialog(
       context: context,
       barrierDismissible: false,

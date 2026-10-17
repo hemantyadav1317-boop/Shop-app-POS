@@ -3,10 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'core/theme/app_theme.dart';
 import 'data/services/supabase_service.dart';
+import 'providers/auth_provider.dart';
 import 'providers/shop_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/customer_provider.dart';
+import 'screens/auth/login_screen.dart';
 import 'screens/main_shell.dart';
 
 void main() async {
@@ -26,6 +28,7 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ShopProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()..loadProducts('demo-shop-101')),
@@ -42,6 +45,7 @@ class ShopPosApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shopProvider = context.watch<ShopProvider>();
+    final auth = context.watch<AuthProvider>();
 
     return MaterialApp(
       title: 'Shop POS — Billing, Stock & Khata',
@@ -49,7 +53,13 @@ class ShopPosApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: shopProvider.themeMode,
-      home: const MainShell(),
+      home: auth.isLoading
+          ? const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            )
+          : (auth.isAuthenticated ? const MainShell() : const LoginScreen()),
     );
   }
 }
