@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Minus, Plus, Save, Trash2, UserPlus, X } from "lucide-react";
+import { Minus, Plus, ShoppingBag, Save, Trash2, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,7 +80,7 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
     <div className="flex h-full min-h-0 flex-col bg-card">
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-3">
         <div className="min-w-0">
-          <p className="text-sm font-bold">Order</p>
+          <p className="text-base font-semibold">Current order</p>
           <p className="truncate text-xs text-muted-foreground">
             {cart.customer ? `${cart.customer.name} · ${cart.customer.phone}` : "Walk-in customer"}
           </p>
@@ -92,38 +92,38 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {cart.lines.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            Cart khali hai — product tap karke add karein.
-          </p>
+          <div className="flex h-full min-h-40 flex-col items-center justify-center gap-3 text-muted-foreground"><ShoppingBag className="h-10 w-10 opacity-40" /><p className="text-sm">No items yet</p></div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="space-y-0 divide-y divide-border">
             {cart.lines.map((l) => (
               <li
                 key={`${l.product_id ?? l.name}`}
-                className="rounded-xl border border-border bg-background p-2.5"
+                className="py-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{l.name}</p>
+                    <p className="break-words text-sm font-semibold">{l.name}</p>
                     <p className="text-xs text-muted-foreground">
                       {rs(l.price)} / {l.unit}
                     </p>
                   </div>
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     type="button"
                     aria-label={`Remove ${l.name}`}
                     onClick={() => cart.removeLine(l.product_id, l.name)}
                     className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
                   >
                     <X className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
                 <div className="mt-2 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-9 w-9"
+                      className="h-11 w-11"
                       aria-label="Decrease"
                       onClick={() => cart.setQty(l.product_id, l.name, l.qty - step(l.unit))}
                     >
@@ -136,12 +136,12 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
                       onChange={(e) =>
                         cart.setQty(l.product_id, l.name, Number(e.target.value) || 0)
                       }
-                      className="h-9 w-20 text-center"
+                      className="h-11 w-16 text-center"
                     />
                     <Button
                       variant="outline"
                       size="icon"
-                      className="h-9 w-9"
+                      className="h-11 w-11"
                       aria-label="Increase"
                       onClick={() => cart.setQty(l.product_id, l.name, l.qty + step(l.unit))}
                     >
@@ -173,9 +173,9 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
             className="h-9 w-28 text-right"
           />
         </div>
-        <div className="flex items-center justify-between text-base font-black">
-          <span>Total</span>
-          <span className="text-primary">{rs(cart.total)}</span>
+        <div className="flex items-center justify-between text-base font-semibold">
+          <span>Payable</span>
+          <span className="text-2xl font-bold tabular-nums text-primary">{rs(cart.total)}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-1">
@@ -191,7 +191,7 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
           disabled={!cart.lines.length}
           onClick={() => setPayOpen(true)}
         >
-          Bill · {rs(cart.total)}
+          BILL · {rs(cart.total)}
         </Button>
       </div>
 
@@ -217,18 +217,18 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
             {!!customers?.length && (
               <div className="max-h-40 overflow-y-auto rounded-xl border border-border">
                 {customers.map((c) => (
-                  <button
+                  <Button variant="ghost"
                     key={c.id}
                     type="button"
                     onClick={() => {
                       cart.setCustomer({ id: c.id, name: c.name, phone: c.phone ?? "" });
                       setCustOpen(false);
                     }}
-                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-muted"
+                    className="flex w-full items-center justify-between px-3 py-2 text-left text-sm"
                   >
                     <span className="truncate">{c.name}</span>
                     <span className="text-xs text-muted-foreground">{c.phone}</span>
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}

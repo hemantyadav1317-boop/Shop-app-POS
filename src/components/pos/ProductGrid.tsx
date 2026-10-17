@@ -7,11 +7,12 @@ import { useCart } from "@/lib/cart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { productIcon } from "@/lib/catalog";
 import { QtyRateDialog, type QtyRateTarget } from "./QtyRateDialog";
-
+import { Button } from "@/components/ui/button";
+import { matchesProduct } from "@/lib/product-search";
 
 export function ProductGrid() {
   const { shop } = useShop();
-  const { data: products, isLoading } = useProducts(shop?.id);
+  const { data: products, isLoading, isError, refetch } = useProducts(shop?.id);
   const { lines } = useCart();
   const [target, setTarget] = useState<QtyRateTarget | null>(null);
   const [cat, setCat] = useState("All");
@@ -23,9 +24,8 @@ export function ProductGrid() {
   );
 
   const items = useMemo(() => {
-    const term = q.trim().toLowerCase();
     return (products ?? []).filter(
-      (p) => (cat === "All" || p.category === cat) && (!term || p.name.toLowerCase().includes(term)),
+      (p) => (cat === "All" || p.category === cat) && matchesProduct(p, q),
     );
   }, [products, cat, q]);
 
@@ -35,18 +35,19 @@ export function ProductGrid() {
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none]">
         {categories.map((c) => (
-          <button
+          <Button variant="outline"
             key={c}
             type="button"
             onClick={() => setCat(c)}
-            className={`shrink-0 rounded-xl border px-4 py-2.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
+            aria-pressed={cat === c}
+            className={`h-11 shrink-0 rounded-lg border px-4 text-sm font-medium ${
               cat === c
                 ? "border-primary bg-accent text-accent-foreground"
                 : "border-border bg-card text-muted-foreground"
             }`}
           >
             {c}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -55,26 +56,26 @@ export function ProductGrid() {
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search product"
+          placeholder="Search name, SKU or barcode"
           aria-label="Search product"
           className="h-11 bg-card pl-9"
         />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto pb-2">
-        {isLoading ? (
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+        {isError ? <div className="py-10 text-center"><p className="mb-3 text-sm text-destructive">Products could not be loaded</p><Button variant="outline" onClick={() => void refetch()}>Retry</Button></div> : isLoading ? (
+          <div className="product-grid">
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="h-24 rounded-2xl" />
+              <Skeleton key={i} className="h-48 rounded-lg" />
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="product-grid">
             {items.map((p) => {
               const qty = qtyOf(p.id);
               const low = p.stock <= p.low_stock_at;
               return (
-                <button
+                <Button variant="ghost"
                   key={p.id}
                   type="button"
                   onClick={() =>
@@ -85,27 +86,25 @@ export function ProductGrid() {
                       unit: p.unit,
                       category: p.category,
                       inCartQty: qty,
+                      stock: Number(p.stock),
                     })
                   }
-                  className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl border p-3 text-center shadow-[var(--shadow-tile)] transition-transform active:scale-[0.97] ${
-                    qty > 0 ? "border-primary bg-accent" : "border-transparent bg-tile"
+                  aria-label={`${p.name}, Rs ${Number(p.price)} per ${p.unit}`}
+                  className={`relative flex h-auto min-h-48 min-w-0 flex-col items-stretch gap-1.5 whitespace-normal rounded-lg border p-3 text-left shadow-[var(--shadow-tile)] ${
+                    qty > 0 ? "border-primary bg-accent hover:bg-accent" : "border-border bg-tile hover:bg-muted"
                   }`}
                 >
-                  <span
-                    aria-hidden
-                    className="grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-primary/25 to-primary/5 text-2xl shadow-inner ring-1 ring-primary/20"
-                  >
-                    {productIcon(p.name, p.category)}
-                  </span>
-                  <span className="line-clamp-2 min-h-[2.5rem] text-sm font-medium text-tile-foreground">
+                  {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" className="h-16 w-full object-contain" /> : <span aria-hidden className="grid h-16 place-items-center text-4xl">{productIcon(p.name, p.category)}</span>}
+                  <span className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-tile-foreground">
                     {p.name}
                   </span>
-                  <span className="text-base font-black text-primary">Rs {Number(p.price)}</span>
+                  {p.name_en && <span className="truncate text-xs text-muted-foreground">{p.name_en}</span>}
+                  <span className="text-base font-bold tabular-nums text-foreground">Rs {Number(p.price)}<span className="text-xs font-normal text-muted-foreground"> / {p.unit}</span></span>
                   <span className={`text-xs ${low ? "text-destructive" : "text-muted-foreground"}`}>
-                    {qty > 0 ? `${qty} ${p.unit} in cart` : `Stock ${Number(p.stock)} ${p.unit}`}
+                    {low ? "Low · " : ""}Stock {Number(p.stock)} {p.unit}
                   </span>
-
-                </button>
+                  {qty > 0 && <span className="absolute right-2 top-2 rounded bg-primary px-1.5 py-0.5 text-xs font-semibold text-primary-foreground">{qty} {p.unit}</span>}
+                </Button>
               );
             })}
             {items.length === 0 && (

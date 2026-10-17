@@ -156,43 +156,58 @@ export type Database = {
       }
       products: {
         Row: {
+          barcode: string | null
           category: string
           cost_price: number
           created_at: string
           id: string
+          image_url: string | null
           is_active: boolean
           low_stock_at: number
           name: string
+          name_en: string | null
+          name_hi: string | null
           price: number
           shop_id: string
+          sku: string | null
           stock: number
           unit: Database["public"]["Enums"]["unit_type"]
           updated_at: string
         }
         Insert: {
+          barcode?: string | null
           category?: string
           cost_price?: number
           created_at?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           low_stock_at?: number
           name: string
+          name_en?: string | null
+          name_hi?: string | null
           price?: number
           shop_id: string
+          sku?: string | null
           stock?: number
           unit?: Database["public"]["Enums"]["unit_type"]
           updated_at?: string
         }
         Update: {
+          barcode?: string | null
           category?: string
           cost_price?: number
           created_at?: string
           id?: string
+          image_url?: string | null
           is_active?: boolean
           low_stock_at?: number
           name?: string
+          name_en?: string | null
+          name_hi?: string | null
           price?: number
           shop_id?: string
+          sku?: string | null
           stock?: number
           unit?: Database["public"]["Enums"]["unit_type"]
           updated_at?: string
@@ -558,6 +573,7 @@ export type Database = {
       shops: {
         Row: {
           address: string | null
+          allow_negative_stock: boolean
           bill_prefix: string
           created_at: string
           currency: string
@@ -572,6 +588,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          allow_negative_stock?: boolean
           bill_prefix?: string
           created_at?: string
           currency?: string
@@ -586,6 +603,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          allow_negative_stock?: boolean
           bill_prefix?: string
           created_at?: string
           currency?: string
@@ -758,8 +776,23 @@ export type Database = {
         }
         Returns: boolean
       }
+      inventory_audit: {
+        Args: { _shop_id: string }
+        Returns: {
+          current_stock: number
+          movement_count: number
+          product_id: string
+          product_name: string
+          recorded_change: number
+          unit: Database["public"]["Enums"]["unit_type"]
+        }[]
+      }
       is_shop_member: { Args: { _shop_id: string }; Returns: boolean }
       is_shop_owner: { Args: { _shop_id: string }; Returns: boolean }
+      set_negative_stock_policy: {
+        Args: { _enabled: boolean; _shop_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       payment_mode: "cash" | "online" | "credit" | "split" | "set_later"

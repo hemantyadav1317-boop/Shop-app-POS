@@ -8,6 +8,13 @@
       "when": 1792080722703,
       "tag": "0000_upi_and_sale_idempotency",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792211370764,
+      "tag": "0001_retail_stock_safeguards_and_product_details",
+      "breakpoints": true
     }
   ]
 }

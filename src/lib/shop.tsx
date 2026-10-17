@@ -15,6 +15,7 @@ export type Shop = {
   currency: string;
   gst_number: string | null;
   bill_prefix: string;
+  allow_negative_stock?: boolean;
   upi_id?: string | null;
   upi_payee_name?: string | null;
 };
@@ -95,7 +96,10 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   const { data, isLoading } = useQuery({
     queryKey: ["shop", user?.id],
     enabled: !!user,
-    queryFn: () => loadOrCreateShop(user!.id, user!.email ?? undefined),
+    queryFn: () => {
+      if (!user) throw new Error("Sign in required");
+      return loadOrCreateShop(user.id, user.email ?? undefined);
+    },
     staleTime: 60_000,
   });
 

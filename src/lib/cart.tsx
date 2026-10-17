@@ -49,9 +49,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     try {
       const raw = localStorage.getItem(KEY);
       if (raw) {
-        const parsed = JSON.parse(raw) as { lines: CartLine[]; customer: CartCustomer };
+        const parsed = JSON.parse(raw) as { lines: CartLine[]; customer: CartCustomer; discount?: number };
         setLines(parsed.lines ?? []);
         setCustomer(parsed.customer ?? null);
+        setDiscount(parsed.discount ?? 0);
       }
     } catch {
       /* ignore */
@@ -62,11 +63,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!ready) return;
     try {
-      localStorage.setItem(KEY, JSON.stringify({ lines, customer }));
+      localStorage.setItem(KEY, JSON.stringify({ lines, customer, discount }));
     } catch {
       /* ignore */
     }
-  }, [lines, customer, ready]);
+  }, [lines, customer, discount, ready]);
 
   const addLine = useCallback((l: Omit<CartLine, "qty"> & { qty?: number }) => {
     setLines((prev) => {
