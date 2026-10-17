@@ -1,16 +1,36 @@
--- ===== enums =====
-CREATE TYPE public.shop_role AS ENUM ('owner','manager','cashier');
-CREATE TYPE public.unit_type AS ENUM ('kg','pc');
-CREATE TYPE public.payment_mode AS ENUM ('cash','online','credit','split','set_later');
-CREATE TYPE public.stock_reason AS ENUM ('sale','purchase','adjustment','return','opening');
+-- =========================================================
+-- COMPLETE IDEMPOTENT SUPABASE SETUP SCRIPT
+-- Safe to run multiple times without any "already exists" errors
+-- =========================================================
 
--- ===== helper: updated_at =====
+-- ===== 1. ENUMS =====
+DO $$ BEGIN
+  CREATE TYPE public.shop_role AS ENUM ('owner','manager','cashier');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.unit_type AS ENUM ('kg','pc');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.payment_mode AS ENUM ('cash','online','credit','split','set_later');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.stock_reason AS ENUM ('sale','purchase','adjustment','return','opening');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+-- ===== 2. HELPER FUNCTIONS =====
 CREATE OR REPLACE FUNCTION public.set_updated_at() RETURNS TRIGGER
 LANGUAGE plpgsql SET search_path = public AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
 
--- ===== profiles =====
-CREATE TABLE public.profiles (
+-- ===== 3. PROFILES =====
+CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid PRIMARY KEY,
   email text,
   full_name text,
@@ -21,9 +41,17 @@ CREATE TABLE public.profiles (
 GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
 GRANT ALL ON public.profiles TO service_role;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "own profile read" ON public.profiles;
 CREATE POLICY "own profile read" ON public.profiles FOR SELECT TO authenticated USING (id = auth.uid());
+
+DROP POLICY IF EXISTS "own profile write" ON public.profiles;
 CREATE POLICY "own profile write" ON public.profiles FOR UPDATE TO authenticated USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+DROP POLICY IF EXISTS "own profile insert" ON public.profiles;
 CREATE POLICY "own profile insert" ON public.profiles FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
+
+DROP TRIGGER IF EXISTS profiles_updated ON public.profiles;
 CREATE TRIGGER profiles_updated BEFORE UPDATE ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 CREATE OR REPLACE FUNCTION public.handle_new_user() RETURNS TRIGGER
@@ -36,11 +64,13 @@ BEGIN
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END; $$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- ===== shops =====
-CREATE TABLE public.shops (
+-- ===== 4. SHOPS & MEMBERS =====
+CREATE TABLE IF NOT EXISTS public.shops (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL,
   name text NOT NULL,
@@ -53,7 +83,7 @@ CREATE TABLE public.shops (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.shop_members (
+CREATE TABLE IF NOT EXISTS public.shop_members (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   user_id uuid NOT NULL,
@@ -72,27 +102,52 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (SELECT 1 FROM public.shop_members m WHERE m.shop_id = _shop_id AND m.user_id = auth.uid() AND m.role = ANY(_roles));
 $$;
 
+CREATE OR REPLACE FUNCTION public.is_shop_owner(_shop_id uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.shops s WHERE s.id = _shop_id AND s.owner_id = auth.uid());
+$$;
+
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.shops TO authenticated;
 GRANT ALL ON public.shops TO service_role;
 ALTER TABLE public.shops ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "members read shop" ON public.shops;
 CREATE POLICY "members read shop" ON public.shops FOR SELECT TO authenticated USING (public.is_shop_member(id));
+
+DROP POLICY IF EXISTS "create own shop" ON public.shops;
 CREATE POLICY "create own shop" ON public.shops FOR INSERT TO authenticated WITH CHECK (owner_id = auth.uid());
+
+DROP POLICY IF EXISTS "owner updates shop" ON public.shops;
 CREATE POLICY "owner updates shop" ON public.shops FOR UPDATE TO authenticated USING (public.has_shop_role(id, ARRAY['owner','manager']::public.shop_role[])) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "owner deletes shop" ON public.shops;
 CREATE POLICY "owner deletes shop" ON public.shops FOR DELETE TO authenticated USING (owner_id = auth.uid());
+
+DROP TRIGGER IF EXISTS shops_updated ON public.shops;
 CREATE TRIGGER shops_updated BEFORE UPDATE ON public.shops FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.shop_members TO authenticated;
 GRANT ALL ON public.shop_members TO service_role;
 ALTER TABLE public.shop_members ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "members read members" ON public.shop_members;
 CREATE POLICY "members read members" ON public.shop_members FOR SELECT TO authenticated USING (public.is_shop_member(shop_id) OR user_id = auth.uid());
+
+DROP POLICY IF EXISTS "self join as owner" ON public.shop_members;
 CREATE POLICY "self join as owner" ON public.shop_members FOR INSERT TO authenticated
-  WITH CHECK ((user_id = auth.uid() AND EXISTS (SELECT 1 FROM public.shops s WHERE s.id = shop_id AND s.owner_id = auth.uid()))
-    OR public.has_shop_role(shop_id, ARRAY['owner','manager']::public.shop_role[]));
+WITH CHECK (
+  ((user_id = auth.uid()) AND public.is_shop_owner(shop_id))
+  OR public.has_shop_role(shop_id, ARRAY['owner'::public.shop_role, 'manager'::public.shop_role])
+);
+
+DROP POLICY IF EXISTS "owner manages members" ON public.shop_members;
 CREATE POLICY "owner manages members" ON public.shop_members FOR UPDATE TO authenticated USING (public.has_shop_role(shop_id, ARRAY['owner','manager']::public.shop_role[])) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "owner removes members" ON public.shop_members;
 CREATE POLICY "owner removes members" ON public.shop_members FOR DELETE TO authenticated USING (public.has_shop_role(shop_id, ARRAY['owner']::public.shop_role[]));
 
--- ===== generic shop-scoped tables =====
-CREATE TABLE public.products (
+-- ===== 5. SHOP-SCOPED TABLES =====
+CREATE TABLE IF NOT EXISTS public.products (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -103,11 +158,23 @@ CREATE TABLE public.products (
   stock numeric(12,3) NOT NULL DEFAULT 0,
   low_stock_at numeric(12,3) NOT NULL DEFAULT 0,
   is_active boolean NOT NULL DEFAULT true,
+  image_url text,
+  barcode text,
+  sku text,
+  name_en text,
+  name_hi text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.customers (
+-- Ensure image_url column exists if table was created previously
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS image_url text;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS barcode text;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS sku text;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS name_en text;
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS name_hi text;
+
+CREATE TABLE IF NOT EXISTS public.customers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -118,7 +185,7 @@ CREATE TABLE public.customers (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.vendors (
+CREATE TABLE IF NOT EXISTS public.vendors (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   name text NOT NULL,
@@ -129,7 +196,7 @@ CREATE TABLE public.vendors (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.sales (
+CREATE TABLE IF NOT EXISTS public.sales (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   bill_no integer NOT NULL,
@@ -149,7 +216,7 @@ CREATE TABLE public.sales (
   UNIQUE (shop_id, bill_no)
 );
 
-CREATE TABLE public.sale_items (
+CREATE TABLE IF NOT EXISTS public.sale_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   sale_id uuid NOT NULL REFERENCES public.sales(id) ON DELETE CASCADE,
@@ -162,7 +229,7 @@ CREATE TABLE public.sale_items (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.payments (
+CREATE TABLE IF NOT EXISTS public.payments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   sale_id uuid REFERENCES public.sales(id) ON DELETE CASCADE,
@@ -174,7 +241,7 @@ CREATE TABLE public.payments (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.purchases (
+CREATE TABLE IF NOT EXISTS public.purchases (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   vendor_id uuid REFERENCES public.vendors(id) ON DELETE SET NULL,
@@ -187,7 +254,7 @@ CREATE TABLE public.purchases (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.purchase_items (
+CREATE TABLE IF NOT EXISTS public.purchase_items (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   purchase_id uuid NOT NULL REFERENCES public.purchases(id) ON DELETE CASCADE,
@@ -199,7 +266,7 @@ CREATE TABLE public.purchase_items (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.expenses (
+CREATE TABLE IF NOT EXISTS public.expenses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   category text NOT NULL DEFAULT 'General',
@@ -210,7 +277,7 @@ CREATE TABLE public.expenses (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.stock_movements (
+CREATE TABLE IF NOT EXISTS public.stock_movements (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   product_id uuid REFERENCES public.products(id) ON DELETE CASCADE,
@@ -221,7 +288,7 @@ CREATE TABLE public.stock_movements (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE public.saved_orders (
+CREATE TABLE IF NOT EXISTS public.saved_orders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,
   label text,
@@ -232,7 +299,7 @@ CREATE TABLE public.saved_orders (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
--- grants + rls for shop-scoped tables
+-- Loop for RLS on shop tables
 DO $$
 DECLARE t text;
 BEGIN
@@ -241,24 +308,34 @@ BEGIN
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated;', t);
     EXECUTE format('GRANT ALL ON public.%I TO service_role;', t);
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', t);
+    EXECUTE format('DROP POLICY IF EXISTS "shop members read %1$s" ON public.%1$I;', t);
     EXECUTE format('CREATE POLICY "shop members read %1$s" ON public.%1$I FOR SELECT TO authenticated USING (public.is_shop_member(shop_id));', t);
+    EXECUTE format('DROP POLICY IF EXISTS "shop members insert %1$s" ON public.%1$I;', t);
     EXECUTE format('CREATE POLICY "shop members insert %1$s" ON public.%1$I FOR INSERT TO authenticated WITH CHECK (public.is_shop_member(shop_id));', t);
+    EXECUTE format('DROP POLICY IF EXISTS "shop members update %1$s" ON public.%1$I;', t);
     EXECUTE format('CREATE POLICY "shop members update %1$s" ON public.%1$I FOR UPDATE TO authenticated USING (public.is_shop_member(shop_id)) WITH CHECK (public.is_shop_member(shop_id));', t);
+    EXECUTE format('DROP POLICY IF EXISTS "shop members delete %1$s" ON public.%1$I;', t);
     EXECUTE format('CREATE POLICY "shop members delete %1$s" ON public.%1$I FOR DELETE TO authenticated USING (public.is_shop_member(shop_id));', t);
   END LOOP;
 END $$;
 
+DROP TRIGGER IF EXISTS products_updated ON public.products;
 CREATE TRIGGER products_updated BEFORE UPDATE ON public.products FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS customers_updated ON public.customers;
 CREATE TRIGGER customers_updated BEFORE UPDATE ON public.customers FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+DROP TRIGGER IF EXISTS vendors_updated ON public.vendors;
 CREATE TRIGGER vendors_updated BEFORE UPDATE ON public.vendors FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
-CREATE INDEX ON public.products (shop_id, is_active);
-CREATE INDEX ON public.sales (shop_id, created_at DESC);
-CREATE INDEX ON public.sale_items (sale_id);
-CREATE INDEX ON public.expenses (shop_id, spent_on);
-CREATE INDEX ON public.stock_movements (shop_id, product_id);
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_products_shop_active ON public.products (shop_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_sales_shop_created ON public.sales (shop_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON public.sale_items (sale_id);
+CREATE INDEX IF NOT EXISTS idx_expenses_shop_spent ON public.expenses (shop_id, spent_on);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_shop_prod ON public.stock_movements (shop_id, product_id);
 
--- ===== transactional sale creation =====
+-- ===== 6. TRANSACTIONAL RPC FUNCTIONS =====
 CREATE OR REPLACE FUNCTION public.create_sale(
   _shop_id uuid,
   _items jsonb,
@@ -323,9 +400,7 @@ BEGIN
 
   RETURN _sale_id;
 END; $$;
-GRANT EXECUTE ON FUNCTION public.create_sale(uuid,jsonb,numeric,public.payment_mode,numeric,uuid,text,text,text) TO authenticated;
 
--- ===== transactional purchase creation =====
 CREATE OR REPLACE FUNCTION public.create_purchase(
   _shop_id uuid, _items jsonb, _paid numeric, _vendor_id uuid, _vendor_name text, _note text
 ) RETURNS uuid
@@ -358,9 +433,7 @@ BEGIN
   END IF;
   RETURN _pid;
 END; $$;
-GRANT EXECUTE ON FUNCTION public.create_purchase(uuid,jsonb,numeric,uuid,text,text) TO authenticated;
 
--- ===== collect customer due =====
 CREATE OR REPLACE FUNCTION public.collect_due(_shop_id uuid, _customer_id uuid, _amount numeric, _mode public.payment_mode)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -369,42 +442,20 @@ BEGIN
   VALUES (_shop_id, _customer_id, _amount, _mode, 'Due collection', auth.uid());
   UPDATE public.customers SET balance = GREATEST(0, balance - _amount) WHERE id = _customer_id AND shop_id = _shop_id;
 END; $$;
-GRANT EXECUTE ON FUNCTION public.collect_due(uuid,uuid,numeric,public.payment_mode) TO authenticated;
-REVOKE ALL ON FUNCTION public.is_shop_member(uuid) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.has_shop_role(uuid, public.shop_role[]) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.set_updated_at() FROM PUBLIC, anon, authenticated;
+
+-- Permissions
+REVOKE ALL ON FUNCTION public.is_shop_member(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.has_shop_role(uuid, public.shop_role[]) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.set_updated_at() FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.create_sale(uuid,jsonb,numeric,public.payment_mode,numeric,uuid,text,text,text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.create_purchase(uuid,jsonb,numeric,uuid,text,text) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.collect_due(uuid,uuid,numeric,public.payment_mode) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.is_shop_owner(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.is_shop_member(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.has_shop_role(uuid, public.shop_role[]) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_shop_owner(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_sale(uuid,jsonb,numeric,public.payment_mode,numeric,uuid,text,text,text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.create_purchase(uuid,jsonb,numeric,uuid,text,text) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.collect_due(uuid,uuid,numeric,public.payment_mode) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.is_shop_member(uuid) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.has_shop_role(uuid, public.shop_role[]) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.create_sale(uuid, jsonb, numeric, public.payment_mode, numeric, uuid, text, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.create_purchase(uuid, jsonb, numeric, uuid, text, text) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.collect_due(uuid, uuid, numeric, public.payment_mode) TO authenticated;
-CREATE OR REPLACE FUNCTION public.is_shop_owner(_shop_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-  SELECT EXISTS (SELECT 1 FROM public.shops s WHERE s.id = _shop_id AND s.owner_id = auth.uid());
-$$;
-
-REVOKE ALL ON FUNCTION public.is_shop_owner(uuid) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.is_shop_owner(uuid) TO authenticated;
-
-DROP POLICY IF EXISTS "self join as owner" ON public.shop_members;
-CREATE POLICY "self join as owner" ON public.shop_members
-FOR INSERT TO authenticated
-WITH CHECK (
-  ((user_id = auth.uid()) AND public.is_shop_owner(shop_id))
-  OR public.has_shop_role(shop_id, ARRAY['owner'::public.shop_role, 'manager'::public.shop_role])
-);
-
-DELETE FROM public.shops s
-WHERE NOT EXISTS (SELECT 1 FROM public.shop_members m WHERE m.shop_id = s.id);
-REVOKE ALL ON FUNCTION public.is_shop_owner(uuid) FROM anon;
