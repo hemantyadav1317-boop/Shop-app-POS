@@ -11,8 +11,8 @@ class SupabaseService {
   static final SupabaseService instance = SupabaseService._internal();
   SupabaseService._internal();
 
-  static const String supabaseUrl = "https://c--91961872-620a-4857-a98b-5765ad45837c-prod.lovable.cloud";
-  static const String supabaseAnonKey = "sb_publishable_wO6mn4jo2hBWZhHfdSXljA_W_wc6rcU";
+  static const String supabaseUrl = "https://zibgyfybhvadduuhexqy.supabase.co";
+  static const String supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InppYmd5ZnliaHZhZGR1dWhleHF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIyNDk5MjEsImV4cCI6MjEwNzgyNTkyMX0.XFImvPo8yOUyc1svG2PG1-oK-P0O7iw2MAMxjh0gwSE";
 
   bool _isInitialized = false;
   String? _initError;
