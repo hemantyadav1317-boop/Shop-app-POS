@@ -2,10 +2,88 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/shop_provider.dart';
 import '../main_shell.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  void _showShopSetupDialog(BuildContext context) {
+    final nameCtrl = TextEditingController(text: 'यादव जनरल स्टोर');
+    final phoneCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('दुकान की जानकारी / Store Setup', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'अपनी दुकान का नाम और फ़ोन नंबर दर्ज करें:',
+              style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nameCtrl,
+              decoration: const InputDecoration(
+                labelText: 'दुकान का नाम *',
+                prefixIcon: Icon(Icons.storefront),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: phoneCtrl,
+              keyboardType: TextInputType.phone,
+              decoration: const InputDecoration(
+                labelText: 'मोबाइल नंबर',
+                prefixIcon: Icon(Icons.phone),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final shopName = nameCtrl.text.trim();
+              if (shopName.isEmpty) return;
+
+              final auth = context.read<AuthProvider>();
+              await auth.continueAsShopOwner(
+                shopName: shopName,
+                phone: phoneCtrl.text.trim(),
+              );
+
+              // Update shop provider
+              if (context.mounted) {
+                final currentShop = context.read<ShopProvider>().shop;
+                context.read<ShopProvider>().updateShop(
+                      currentShop.copyWith(
+                        name: shopName,
+                        phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                      ),
+                    );
+                Navigator.pop(ctx);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MainShell()),
+                );
+              }
+            },
+            child: const Text('शुरू करें (Start POS)'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,7 +143,7 @@ class LoginScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
                   // Feature Cards
                   _buildFeatureTile(
@@ -85,7 +163,7 @@ class LoginScreen extends StatelessWidget {
                     title: 'Customer Khata (बहीखाता)',
                     desc: 'Market udhar aur WhatsApp payment reminder.',
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 24),
 
                   // Google Login Button
                   ElevatedButton(
@@ -105,6 +183,13 @@ class LoginScreen extends StatelessWidget {
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(builder: (_) => const MainShell()),
+                              );
+                            } else if (auth.lastError != null && context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.error,
+                                  content: Text(auth.lastError!),
+                                ),
                               );
                             }
                           },
@@ -135,15 +220,32 @@ class LoginScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
+                  // Quick Shop Setup / Direct Entry Button
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.storefront_outlined, size: 18),
+                    label: const Text(
+                      'दुकान का नाम दर्ज करके शुरू करें',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _showShopSetupDialog(context),
+                  ),
+                  const SizedBox(height: 10),
+
                   // Offline / Demo Mode Button
                   OutlinedButton.icon(
                     icon: const Icon(Icons.flash_on, color: AppColors.primary, size: 18),
                     label: const Text(
-                      'Continue Offline (बिना इंटरनेट के चलाएं)',
+                      'Direct Offline Mode (बिना लॉगिन चलाएं)',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: () async {
