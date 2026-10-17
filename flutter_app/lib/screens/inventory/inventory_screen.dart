@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
+import 'package:shop_pos/screens/widgets/product_image_view.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -25,55 +27,188 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final lowStockCtrl = TextEditingController(text: existing != null ? existing.lowStockAt.toString() : '5');
     String unit = existing?.unit ?? 'kg';
     String icon = existing?.icon ?? '📦';
+    String? imageUrl = existing?.imageUrl;
+    final picker = ImagePicker();
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(existing == null ? 'नया सामान जोड़ें / Add Product' : 'सामान एडिट करें / Edit Product'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(
+            existing == null ? 'नया सामान जोड़ें / Add Product' : 'सामान एडिट करें / Edit Product',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    InkWell(
-                      onTap: () {
-                        // Quick icon selector
-                        showDialog(
-                          context: ctx,
-                          builder: (emojiDialogCtx) => SimpleDialog(
-                            title: const Text('इमोजी चुनें / Select Emoji'),
-                            children: ['🍎', '🍌', '🥭', '🍇', '🥔', '🧅', '🍅', '🥬', '🌶️', '🥛', '🧀', '📦', '🍞', '🍚', '🍫']
-                                .map((em) => SimpleDialogOption(
-                                      onPressed: () {
-                                        setDialogState(() => icon = em);
-                                        Navigator.pop(emojiDialogCtx);
-                                      },
-                                      child: Text(em, style: const TextStyle(fontSize: 24)),
-                                    ))
-                                .toList(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.lightMuted,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.lightBorder),
+                // Product Photo & Icon Card
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ProductImageView(
+                        imageUrl: imageUrl,
+                        fallbackIcon: icon,
+                        size: 64,
+                        borderRadius: 12,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              imageUrl != null && imageUrl!.isNotEmpty
+                                  ? 'फोटो जोड़ी गई है'
+                                  : 'कोई फोटो नहीं (इमोजी सेट है)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'फोटो लगाने के लिए विकल्प:',
+                              style: TextStyle(fontSize: 10, color: AppColors.lightTextSecondary),
+                            ),
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.camera_alt, size: 13),
+                                  label: const Text('कैमरा', style: TextStyle(fontSize: 11)),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () async {
+                                    try {
+                                      final img = await picker.pickImage(
+                                        source: ImageSource.camera,
+                                        maxWidth: 800,
+                                        maxHeight: 800,
+                                        imageQuality: 85,
+                                      );
+                                      if (img != null) {
+                                        setDialogState(() => imageUrl = img.path);
+                                      }
+                                    } catch (e) {
+                                      debugPrint("Camera error: $e");
+                                    }
+                                  },
+                                ),
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.photo_library, size: 13),
+                                  label: const Text('गैलरी', style: TextStyle(fontSize: 11)),
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () async {
+                                    try {
+                                      final img = await picker.pickImage(
+                                        source: ImageSource.gallery,
+                                        maxWidth: 800,
+                                        maxHeight: 800,
+                                        imageQuality: 85,
+                                      );
+                                      if (img != null) {
+                                        setDialogState(() => imageUrl = img.path);
+                                      }
+                                    } catch (e) {
+                                      debugPrint("Gallery error: $e");
+                                    }
+                                  },
+                                ),
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.link, size: 13),
+                                  label: const Text('URL', style: TextStyle(fontSize: 11)),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () {
+                                    final urlCtrl = TextEditingController(text: imageUrl?.startsWith('http') == true ? imageUrl : '');
+                                    showDialog(
+                                      context: ctx,
+                                      builder: (urlCtx) => AlertDialog(
+                                        title: const Text('इमेज URL लिंक दर्ज करें', style: TextStyle(fontSize: 14)),
+                                        content: TextField(
+                                          controller: urlCtrl,
+                                          decoration: const InputDecoration(
+                                            hintText: 'https://example.com/item.jpg',
+                                            prefixIcon: Icon(Icons.link),
+                                          ),
+                                        ),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(urlCtx), child: const Text('Cancel')),
+                                          ElevatedButton(
+                                            onPressed: () {
+                                              final val = urlCtrl.text.trim();
+                                              if (val.isNotEmpty) {
+                                                setDialogState(() => imageUrl = val);
+                                              }
+                                              Navigator.pop(urlCtx);
+                                            },
+                                            child: const Text('Set URL'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.emoji_emotions, size: 13),
+                                  label: const Text('इमोजी', style: TextStyle(fontSize: 11)),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () {
+                                    showDialog(
+                                      context: ctx,
+                                      builder: (emojiDialogCtx) => SimpleDialog(
+                                        title: const Text('इमोजी चुनें / Select Emoji'),
+                                        children: ['🍎', '🍌', '🥭', '🍇', '🥔', '🧅', '🍅', '🥬', '🌶️', '🥛', '🧀', '📦', '🍞', '🍚', '🍫', '🧴', '🧼', '☕', '🥤', '🍪']
+                                            .map((em) => SimpleDialogOption(
+                                                  onPressed: () {
+                                                    setDialogState(() => icon = em);
+                                                    Navigator.pop(emojiDialogCtx);
+                                                  },
+                                                  child: Text(em, style: const TextStyle(fontSize: 24)),
+                                                ))
+                                            .toList(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                if (imageUrl != null && imageUrl!.isNotEmpty)
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.delete_outline, size: 13, color: AppColors.error),
+                                    label: const Text('हटाएं', style: TextStyle(fontSize: 11, color: AppColors.error)),
+                                    onPressed: () => setDialogState(() => imageUrl = null),
+                                  ),
+                              ],
+                            ),
+                          ],
                         ),
-                        child: Text(icon, style: const TextStyle(fontSize: 28)),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: nameCtrl,
-                        decoration: const InputDecoration(labelText: 'सामान का नाम *'),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'सामान का नाम *'),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -158,6 +293,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   purchasePrice: double.tryParse(purchasePriceCtrl.text),
                   stock: double.tryParse(stockCtrl.text) ?? 0.0,
                   lowStockAt: double.tryParse(lowStockCtrl.text) ?? 5.0,
+                  imageUrl: imageUrl,
                   icon: icon,
                 );
 
@@ -304,7 +440,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
                       return Card(
                         child: ListTile(
-                          leading: Text(product.icon ?? '📦', style: const TextStyle(fontSize: 26)),
+                          leading: ProductImageView(
+                            imageUrl: product.imageUrl,
+                            fallbackIcon: product.icon,
+                            size: 46,
+                            borderRadius: 8,
+                          ),
                           title: Row(
                             children: [
                               Expanded(

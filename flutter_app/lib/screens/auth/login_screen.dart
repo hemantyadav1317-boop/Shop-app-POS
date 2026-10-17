@@ -85,6 +85,62 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void _showEmailLoginDialog(BuildContext context) {
+    final emailCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    bool isSignUp = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(isSignUp ? 'नया अकाउंट बनाएं / Register' : 'ईमेल से लॉगिन करें / Login', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'ईमेल / Email', prefixIcon: Icon(Icons.email_outlined)),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: passCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'पासवर्ड / Password', prefixIcon: Icon(Icons.lock_outline)),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () => setDialogState(() => isSignUp = !isSignUp),
+                child: Text(isSignUp ? 'पहले से अकाउंट है? लॉगिन करें' : 'नया अकाउंट बनाएं (Sign Up)'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final email = emailCtrl.text.trim();
+                final pass = passCtrl.text;
+                if (email.isEmpty || pass.length < 6) return;
+                final auth = context.read<AuthProvider>();
+                final ok = await auth.signInWithEmailPassword(email, pass);
+                if (ok && context.mounted) {
+                  Navigator.pop(ctx);
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell()));
+                } else if (auth.lastError != null && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(auth.lastError!)));
+                }
+              },
+              child: Text(isSignUp ? 'Sign Up' : 'Login'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -217,6 +273,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ],
                           ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Email & Password Login Button
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.email_outlined, size: 18),
+                    label: const Text(
+                      'ईमेल / पासवर्ड से लॉगिन (Supabase Cloud)',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _showEmailLoginDialog(context),
                   ),
                   const SizedBox(height: 12),
 

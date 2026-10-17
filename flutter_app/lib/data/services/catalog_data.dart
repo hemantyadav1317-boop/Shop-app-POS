@@ -16,6 +16,7 @@ class CatalogData {
         mrp: 90,
         stock: 25,
         icon: '🍓',
+        imageUrl: 'https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=200&q=80',
       ),
       Product(
         id: 'p_kela',
@@ -28,6 +29,7 @@ class CatalogData {
         price: 50,
         stock: 60,
         icon: '🍌',
+        imageUrl: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=200&q=80',
       ),
       Product(
         id: 'p_seb',
@@ -40,6 +42,7 @@ class CatalogData {
         price: 180,
         stock: 40,
         icon: '🍎',
+        imageUrl: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=200&q=80',
       ),
       Product(
         id: 'p_aam',
@@ -52,6 +55,7 @@ class CatalogData {
         price: 120,
         stock: 50,
         icon: '🥭',
+        imageUrl: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=200&q=80',
       ),
       Product(
         id: 'p_santra',

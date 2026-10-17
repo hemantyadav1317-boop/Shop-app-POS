@@ -5,6 +5,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/product.dart';
 import '../../../../providers/product_provider.dart';
 import '../../../../providers/cart_provider.dart';
+import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'qty_rate_dialog.dart';
 
 class ProductGrid extends StatelessWidget {
@@ -150,12 +151,14 @@ class ProductGrid extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Product Icon
+                // Product Image / Icon
                 Expanded(
                   child: Center(
-                    child: Text(
-                      product.icon ?? '📦',
-                      style: const TextStyle(fontSize: 40),
+                    child: ProductImageView(
+                      imageUrl: product.imageUrl,
+                      fallbackIcon: product.icon,
+                      size: 64,
+                      borderRadius: 10,
                     ),
                   ),
                 ),

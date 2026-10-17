@@ -15,9 +15,18 @@ class SupabaseService {
   static const String supabaseAnonKey = "sb_publishable_wO6mn4jo2hBWZhHfdSXljA_W_wc6rcU";
 
   bool _isInitialized = false;
-  bool get isInitialized => _isInitialized;
+  String? _initError;
+  String? get initError => _initError;
 
-  SupabaseClient? get client => _isInitialized ? Supabase.instance.client : null;
+  bool get isInitialized => _isInitialized || client != null;
+
+  SupabaseClient? get client {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // In-memory local fallback cache
   final List<Product> _localProducts = [];
@@ -39,16 +48,28 @@ class SupabaseService {
   Shop get currentShop => _localShop;
 
   Future<void> initialize() async {
+    if (client != null) {
+      _isInitialized = true;
+      return;
+    }
     try {
       await Supabase.initialize(
         url: supabaseUrl,
         anonKey: supabaseAnonKey,
       );
       _isInitialized = true;
+      _initError = null;
       debugPrint("Supabase initialized successfully");
     } catch (e) {
-      debugPrint("Supabase init failed, running in Offline-First mode: $e");
-      _isInitialized = false;
+      _initError = e.toString();
+      debugPrint("Supabase init failed: $e");
+      try {
+        Supabase.instance.client;
+        _isInitialized = true;
+        _initError = null;
+      } catch (_) {
+        _isInitialized = false;
+      }
     }
 
     // Populate initial local catalog
@@ -106,9 +127,9 @@ class SupabaseService {
 
   Future<Product> addProduct(Product product) async {
     _localProducts.add(product);
-    if (_isInitialized && client != null) {
+    if (isInitialized && client != null) {
       try {
-        await client!.from('products').insert(product.toJson());
+        await client!.from('products').insert(product.toSupabaseJson());
       } catch (e) {
         debugPrint("Error inserting product in cloud: $e");
       }
@@ -121,9 +142,9 @@ class SupabaseService {
     if (index != -1) {
       _localProducts[index] = product;
     }
-    if (_isInitialized && client != null) {
+    if (isInitialized && client != null) {
       try {
-        await client!.from('products').update(product.toJson()).eq('id', product.id);
+        await client!.from('products').update(product.toSupabaseJson()).eq('id', product.id);
       } catch (e) {
         debugPrint("Error updating product in cloud: $e");
       }

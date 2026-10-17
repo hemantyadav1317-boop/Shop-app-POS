@@ -3,6 +3,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
+import 'package:shop_pos/screens/widgets/product_image_view.dart';
 
 class QtyRateDialog extends StatefulWidget {
   final Product product;
@@ -82,9 +83,11 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
               // Header
               Row(
                 children: [
-                  Text(
-                    widget.product.icon ?? '📦',
-                    style: const TextStyle(fontSize: 28),
+                  ProductImageView(
+                    imageUrl: widget.product.imageUrl,
+                    fallbackIcon: widget.product.icon,
+                    size: 40,
+                    borderRadius: 8,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -227,6 +230,8 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                     unit: widget.product.unit,
                     price: _rate,
                     qty: _qty,
+                    imageUrl: widget.product.imageUrl,
+                    icon: widget.product.icon,
                   ));
                   Navigator.pop(context);
                 },

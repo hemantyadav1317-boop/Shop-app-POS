@@ -66,6 +66,10 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      if (!SupabaseService.instance.isInitialized) {
+        await SupabaseService.instance.initialize();
+      }
+
       final client = SupabaseService.instance.client;
       if (client != null) {
         await client.auth.signInWithOAuth(
@@ -80,7 +84,10 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _lastError = 'क्लाउड सर्वर से संपर्क नहीं हो सका।';
+        final err = SupabaseService.instance.initError;
+        _lastError = err != null
+            ? 'क्लाउड सर्वर एरर: $err'
+            : 'क्लाउड सर्वर से संपर्क नहीं हो सका। कृपया इंटरनेट जांचें।';
       }
     } catch (e) {
       debugPrint("Google Sign in error: $e");

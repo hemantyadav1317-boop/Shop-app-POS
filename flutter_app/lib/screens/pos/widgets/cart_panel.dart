@@ -5,6 +5,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/customer.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/customer_provider.dart';
+import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'payment_dialog.dart';
 
 class CartPanel extends StatefulWidget {
@@ -244,6 +245,13 @@ class _CartPanelState extends State<CartPanel> {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Row(
                         children: [
+                          ProductImageView(
+                            imageUrl: item.imageUrl,
+                            fallbackIcon: item.icon,
+                            size: 38,
+                            borderRadius: 6,
+                          ),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
