@@ -24,8 +24,9 @@ class UpdateInfo {
 class UpdateService {
   static const String currentVersion = '1.0.0';
 
-  // GitHub repository endpoint for auto updates
-  static String githubRepo = 'Vinay0775/pos-yadavstore';
+  // GitHub repositories for auto updates (checks hemantyadav1317-boop/Shop-app-POS first, then Vinay0775/pos-yadavstore)
+  static String githubRepo = 'hemantyadav1317-boop/Shop-app-POS';
+  static String fallbackRepo = 'Vinay0775/pos-yadavstore';
 
   /// Compares semantic versions (e.g., '1.0.1' > '1.0.0')
   static bool isNewerVersion(String current, String latest) {
@@ -46,6 +47,21 @@ class UpdateService {
   /// Checks if a new release is available on GitHub
   static Future<UpdateInfo?> checkForUpdate({String? customRepo}) async {
     final repo = customRepo ?? githubRepo;
+    final info = await _checkRepo(repo);
+    if (info != null && (info.hasUpdate || customRepo != null)) {
+      return info;
+    }
+    // Try fallback repo if primary has no releases
+    if (customRepo == null && fallbackRepo.isNotEmpty) {
+      final fallbackInfo = await _checkRepo(fallbackRepo);
+      if (fallbackInfo != null && fallbackInfo.hasUpdate) {
+        return fallbackInfo;
+      }
+    }
+    return info;
+  }
+
+  static Future<UpdateInfo?> _checkRepo(String repo) async {
     try {
       final url = Uri.parse('https://api.github.com/repos/$repo/releases/latest');
       final res = await http.get(
