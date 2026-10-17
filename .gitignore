@@ -30,3 +30,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment & Secrets
+.env
+.env.*
+
+# Flutter artifacts
+*.apk
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/android/.gradle/
+flutter_app/android/local.properties
+
