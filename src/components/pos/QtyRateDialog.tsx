@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { productIcon } from "@/lib/catalog";
+import { useShop } from "@/lib/shop";
+import { canSellStock } from "@/lib/stock-rules";
 
 export type QtyRateTarget = {
   product_id: string | null;
@@ -19,6 +21,7 @@ export type QtyRateTarget = {
   price: number;
   category?: string | null;
   inCartQty?: number;
+  stock?: number;
 };
 
 const KG_STEPS = [0.25, 0.5, 1, 2, 5];
@@ -32,6 +35,7 @@ export function QtyRateDialog({
   onClose: () => void;
 }) {
   const cart = useCart();
+  const { shop } = useShop();
   const [qty, setQty] = useState("1");
   const [rate, setRate] = useState("0");
 
@@ -46,12 +50,13 @@ export function QtyRateDialog({
 
   const q = Number(qty) || 0;
   const r = Number(rate) || 0;
+  const valid = Number.isFinite(r) && r >= 0 && (target.stock === undefined ? q > 0 : canSellStock(target.stock, q, shop?.allow_negative_stock));
   const steps = target.unit === "kg" ? KG_STEPS : PC_STEPS;
   const bump = (d: number) => setQty(String(Math.max(0, +(q + d).toFixed(3))));
 
   function save() {
     if (!target) return;
-    if (q <= 0) return;
+    if (!valid) return;
     cart.removeLine(target.product_id, target.name);
     cart.addLine({
       product_id: target.product_id,
@@ -84,6 +89,7 @@ export function QtyRateDialog({
                 variant="outline"
                 size="icon"
                 className="h-12 w-12 shrink-0"
+                aria-label="Decrease quantity"
                 onClick={() => bump(target.unit === "kg" ? -0.25 : -1)}
               >
                 <Minus className="h-5 w-5" />
@@ -101,6 +107,7 @@ export function QtyRateDialog({
                 variant="outline"
                 size="icon"
                 className="h-12 w-12 shrink-0"
+                aria-label="Increase quantity"
                 onClick={() => bump(target.unit === "kg" ? 0.25 : 1)}
               >
                 <Plus className="h-5 w-5" />
@@ -108,14 +115,14 @@ export function QtyRateDialog({
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
               {steps.map((s) => (
-                <button
+                <Button variant="outline"
                   key={s}
                   type="button"
                   onClick={() => setQty(String(s))}
                   className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold"
                 >
                   {s} {target.unit}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -137,7 +144,8 @@ export function QtyRateDialog({
             <span className="text-xl font-black text-primary">Rs {(q * r).toFixed(2)}</span>
           </div>
 
-          <Button className="h-12 w-full text-base font-bold" disabled={q <= 0} onClick={save}>
+          {!valid && q > 0 && <p role="alert" className="text-sm text-destructive">{r < 0 ? "Rate must be zero or greater" : `Available stock: ${target.stock} ${target.unit}`}</p>}
+          <Button className="h-12 w-full text-base font-bold" disabled={!valid} onClick={save}>
             Add to bill
           </Button>
         </div>
