@@ -13,3 +13,4 @@
 - Validate inventory in database triggers, audit manual adjustments, and restrict negative-stock opt-in to the shop owner; browser validation alone cannot prevent concurrent overselling.
 - Product search uses actual multilingual names, SKU and barcode fields plus a shared alias matcher; blank identifiers must never be invented.
 - Checkout renders saved sales and saved line items rather than reconstructing an invoice from the cleared cart; retries retain their client reference.
+- Use Vitest for application tests; keep Bun's global runtime types out of browser and Worker compilation to avoid incompatible fetch types.
