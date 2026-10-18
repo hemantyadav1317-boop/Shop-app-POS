@@ -1,4 +1,5 @@
 # Roadmap
+- [x] Resolve failed build from test runtime types and run stock/search tests
 - [x] Checkout: Cash/Online/Credit(/Split) → Bill, single-save guard
 - [x] Post-bill: Print (with QR), New Sale, Share as PNG image
 - [x] UPI settings (UPI ID, payee) + dynamic amount QR on print & image
