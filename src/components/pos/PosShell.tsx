@@ -18,8 +18,10 @@ export function PosShell({
 }) {
   const [open, setOpen] = useState(false);
   const [fs, setFs] = useState(false);
+  const [fullscreenAvailable, setFullscreenAvailable] = useState(false);
 
   useEffect(() => {
+    setFullscreenAvailable(document.fullscreenEnabled === true);
     const on = () => setFs(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", on);
     return () => document.removeEventListener("fullscreenchange", on);
@@ -47,7 +49,7 @@ export function PosShell({
           <h1 className="truncate text-base font-semibold sm:text-lg">{title}</h1>
           <div className="flex shrink-0 items-center gap-1">
             {headerRight}
-            <Button
+            {fullscreenAvailable && <Button
               variant="ghost"
               size="icon"
               className="hidden md:inline-flex"
@@ -56,7 +58,7 @@ export function PosShell({
               onClick={toggleFullscreen}
             >
               {fs ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
-            </Button>
+            </Button>}
           </div>
         </header>
 

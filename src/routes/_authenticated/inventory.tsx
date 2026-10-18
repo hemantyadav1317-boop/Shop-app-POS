@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { ChevronDown, Download, FolderPlus, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ClipboardCheck, Download, FolderPlus, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { PosShell } from "@/components/pos/PosShell";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { useInvalidatePos, useProducts, type DbProduct } from "@/lib/queries";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadCsv } from "@/lib/receipt";
 import { CATALOG, normalizeName } from "@/lib/catalog";
+import { matchesProduct } from "@/lib/product-search";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
   head: () => ({
@@ -66,7 +67,7 @@ function toDraft(p: DbProduct): Draft {
 }
 
 function InventoryPage() {
-  const { shop } = useShop();
+  const { shop, role } = useShop();
   const { data: products, isLoading } = useProducts(shop?.id);
   const invalidate = useInvalidatePos();
   const [tab, setTab] = useState<"products" | "categories">("products");
@@ -76,12 +77,16 @@ function InventoryPage() {
   const [catEdit, setCatEdit] = useState<{ from: string; to: string } | null>(null);
   const [openCat, setOpenCat] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [countTarget, setCountTarget] = useState<DbProduct | null>(null);
+  const [counted, setCounted] = useState("");
+  const [countNote, setCountNote] = useState("");
+  const [countBusy, setCountBusy] = useState(false);
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
     return (products ?? []).filter(
       (p) =>
-        (!term || p.name.toLowerCase().includes(term) || p.category.toLowerCase().includes(term)) &&
+        (!term || matchesProduct(p, term) || p.category.toLowerCase().includes(term)) &&
         (!lowOnly || Number(p.stock) <= Number(p.low_stock_at)),
     );
   }, [products, q, lowOnly]);
@@ -95,6 +100,23 @@ function InventoryPage() {
     }
     return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [products]);
+
+  async function reconcile() {
+    if (!countTarget || countBusy || role !== "owner") return;
+    const value = Number(counted);
+    if (!counted.trim() || !Number.isFinite(value) || value < 0 || !countNote.trim()) {
+      toast.error("Enter a non-negative physical count and adjustment reason");
+      return;
+    }
+    setCountBusy(true);
+    try {
+      const { error } = await supabase.rpc("reconcile_inventory", { _product_id: countTarget.id, _expected_stock: Number(countTarget.stock), _counted_stock: value, _note: countNote.trim() });
+      if (error) return void toast.error(error.message);
+      invalidate();
+      setCountTarget(null);
+      toast.success("Physical count saved — previous bills unchanged");
+    } finally { setCountBusy(false); }
+  }
 
   async function save() {
     if (!shop || !draft?.name.trim()) return;
@@ -241,25 +263,25 @@ function InventoryPage() {
       }
     >
       <div className="flex h-full min-h-0 flex-col gap-3 p-3">
-        <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1">
-          <button
+        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+          <Button variant="ghost"
             type="button"
             onClick={() => setTab("products")}
-            className={`rounded-xl py-2 text-sm font-semibold transition-colors ${
+            className={`h-11 rounded-lg py-2 text-sm font-semibold transition-colors ${
               tab === "products" ? "bg-card text-foreground shadow-[var(--shadow-tile)]" : "text-muted-foreground"
             }`}
           >
             Products ({(products ?? []).length})
-          </button>
-          <button
+          </Button>
+          <Button variant="ghost"
             type="button"
             onClick={() => setTab("categories")}
-            className={`rounded-xl py-2 text-sm font-semibold transition-colors ${
+            className={`h-11 rounded-lg py-2 text-sm font-semibold transition-colors ${
               tab === "categories" ? "bg-card text-foreground shadow-[var(--shadow-tile)]" : "text-muted-foreground"
             }`}
           >
             Category ({categories.length})
-          </button>
+          </Button>
         </div>
 
         {tab === "products" ? (
@@ -303,7 +325,7 @@ function InventoryPage() {
                     return (
                       <li
                         key={p.id}
-                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-2xl bg-card p-3 shadow-[var(--shadow-tile)]"
+                        className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-border bg-card p-3"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-semibold">{p.name}</p>
@@ -315,6 +337,7 @@ function InventoryPage() {
                           </p>
                         </div>
                         <div className="flex shrink-0 gap-1">
+                          {role === "owner" && <Button size="icon" variant="ghost" title="Physical stock count" aria-label={`Count stock for ${p.name}`} onClick={() => { setCountTarget(p); setCounted(""); setCountNote(""); }}><ClipboardCheck className="h-4 w-4" /></Button>}
                           <Button
                             size="icon"
                             variant="ghost"
@@ -356,16 +379,16 @@ function InventoryPage() {
               {categories.map(([name, list]) => {
                 const open = openCat === name;
                 return (
-                  <div key={name} className="rounded-2xl bg-card shadow-[var(--shadow-tile)]">
+                  <div key={name} className="rounded-lg border border-border bg-card">
                     <div className="flex items-center gap-2 p-3">
-                      <button
+                      <Button variant="ghost"
                         type="button"
-                        className="min-w-0 flex-1 text-left"
+                        className="h-auto min-w-0 flex-1 flex-col items-start gap-1 text-left"
                         onClick={() => setOpenCat(open ? null : name)}
                       >
                         <p className="truncate text-sm font-bold uppercase tracking-wide">{name}</p>
                         <p className="text-xs text-muted-foreground">{list.length} products</p>
-                      </button>
+                      </Button>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -421,6 +444,17 @@ function InventoryPage() {
           </>
         )}
       </div>
+
+      <Dialog open={!!countTarget} onOpenChange={(value) => { if (!value && !countBusy) setCountTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle>Physical stock count</DialogTitle></DialogHeader>
+          <p className="text-sm font-semibold">{countTarget?.name}</p>
+          <p className="text-sm text-muted-foreground">Recorded stock: {countTarget?.stock} {countTarget?.unit}</p>
+          <div><Label htmlFor="stock-count">Counted stock ({countTarget?.unit})</Label><Input id="stock-count" inputMode="decimal" value={counted} onChange={(e) => setCounted(e.target.value)} /></div>
+          <div><Label htmlFor="stock-reason">Adjustment reason</Label><Input id="stock-reason" value={countNote} onChange={(e) => setCountNote(e.target.value)} /></div>
+          <DialogFooter><Button variant="ghost" disabled={countBusy} onClick={() => setCountTarget(null)}>Cancel</Button><Button disabled={countBusy} onClick={() => void reconcile()}>{countBusy ? "Saving…" : "Save count"}</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!catEdit} onOpenChange={(v) => !v && setCatEdit(null)}>
         <DialogContent className="sm:max-w-sm">

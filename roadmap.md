@@ -7,5 +7,6 @@
 - [x] Tablet: auto-hide drawer nav, full-width workspace, fullscreen button
 - [ ] Refresh global themes, navigation, product cards and touch cart layout
 - [ ] Correct negative-stock safeguards and expose safe inventory reconciliation
+- [ ] Fix checkout receipt reset, saved-data readback and payment retry guards
 - [ ] Preserve and verify saved-bill, payment, print and image-sharing flows
 - [ ] Verify phone, tablet portrait and landscape layouts and report limitations

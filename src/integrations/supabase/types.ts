@@ -501,8 +501,10 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          customer_id: string | null
           customer_name: string | null
           customer_phone: string | null
+          discount: number
           id: string
           label: string | null
           lines: Json
@@ -511,8 +513,10 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          discount?: number
           id?: string
           label?: string | null
           lines?: Json
@@ -521,8 +525,10 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           customer_phone?: string | null
+          discount?: number
           id?: string
           label?: string | null
           lines?: Json
@@ -789,8 +795,21 @@ export type Database = {
       }
       is_shop_member: { Args: { _shop_id: string }; Returns: boolean }
       is_shop_owner: { Args: { _shop_id: string }; Returns: boolean }
+      reconcile_inventory: {
+        Args: {
+          _counted_stock: number
+          _expected_stock: number
+          _note: string
+          _product_id: string
+        }
+        Returns: undefined
+      }
       set_negative_stock_policy: {
         Args: { _enabled: boolean; _shop_id: string }
+        Returns: undefined
+      }
+      validate_sale_stock: {
+        Args: { _items: Json; _shop_id: string }
         Returns: undefined
       }
     }

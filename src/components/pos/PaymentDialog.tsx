@@ -19,6 +19,7 @@ import { shareBillImage, upiQrDataUrl, paymentStatus } from "@/lib/bill-image";
 import { BluetoothPrintButton } from "./BluetoothPrintButton";
 import { BillReceipt } from "./BillReceipt";
 import { useAuth } from "@/lib/auth";
+import { paymentAmount } from "@/lib/checkout-rules";
 
 type Mode = "cash" | "online" | "credit" | "split";
 
@@ -46,32 +47,40 @@ export function PaymentDialog({
   const [mode, setMode] = useState<Mode>("cash");
   const [paid, setPaid] = useState<number>(0);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const [received, setReceived] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const lock = useRef(false);
   const refKey = useRef<string>("");
+  const opened = useRef(false);
+  const paymentLock = useRef(false);
 
   useEffect(() => {
     if (!receipt) return setQr(null);
-    void upiQrDataUrl(receipt, 360).then(setQr);
+    let active = true;
+    void upiQrDataUrl(receipt, 360).then((url) => { if (active) setQr(url); }).catch(() => { if (active) setQr(null); });
+    return () => { active = false; };
   }, [receipt]);
 
   useEffect(() => {
-    if (open) {
+    if (open && !opened.current) {
       setMode("cash");
       setPaid(cart.total);
       setReceipt(null);
       setReceived(false);
       refKey.current = crypto.randomUUID();
+      lock.current = false;
     }
+    opened.current = open;
   }, [open, cart.total]);
 
   useEffect(() => {
+    if (receipt) return;
     if (mode === "cash") setPaid(cart.total);
     if (mode === "online") setPaid(received ? cart.total : 0);
     if (mode === "credit") setPaid(0);
-  }, [mode, cart.total, received]);
+  }, [mode, cart.total, received, receipt]);
 
   async function completeSale() {
     if (!shop || !cart.lines.length || lock.current) return;
@@ -82,6 +91,7 @@ export function PaymentDialog({
     lock.current = true;
     setBusy(true);
     try {
+      const amount = paymentAmount(paid, cart.total);
       const { data: saleId, error } = await supabase.rpc("create_sale_once", {
         _client_ref: refKey.current,
         _shop_id: shop.id,
@@ -94,7 +104,7 @@ export function PaymentDialog({
         })),
         _discount: cart.discount,
         _payment_mode: mode,
-        _paid: Math.min(paid, cart.total),
+        _paid: amount,
         _customer_id: cart.customer?.id ?? null,
         _customer_name: cart.customer?.name ?? null,
         _customer_phone: cart.customer?.phone ?? null,
@@ -103,33 +113,37 @@ export function PaymentDialog({
 
       if (error) throw error;
 
-      const { data: sale } = await supabase
+      if (typeof saleId !== "string") throw new Error("Saved bill could not be identified. Retry to retrieve it.");
+      const { data: sale, error: saleError } = await supabase
         .from("sales")
-        .select("bill_no, created_at")
-        .eq("id", saleId as unknown as string)
+        .select("*")
+        .eq("id", saleId)
         .single();
+      if (saleError || !sale) throw new Error("Bill saved, but could not be loaded. Retry with the same order.");
+      const { data: items, error: itemsError } = await supabase.from("sale_items").select("name, qty, unit, price").eq("sale_id", saleId).eq("shop_id", shop.id);
+      if (itemsError || !items?.length) throw new Error("Bill saved, but its items could not be loaded. Retry with the same order.");
 
       const data: ReceiptData = {
         shopName: shop.name,
         shopPhone: shop.phone,
         shopAddress: shop.address,
-        billNo: sale?.bill_no ?? 0,
-        date: new Date(sale?.created_at ?? Date.now()).toLocaleString("en-IN"),
-        customerName: cart.customer?.name ?? null,
-        customerPhone: cart.customer?.phone ?? null,
-        lines: cart.lines.map((l) => ({
+        billNo: sale.bill_no,
+        date: new Date(sale.created_at).toLocaleString("en-IN"),
+        customerName: sale.customer_name,
+        customerPhone: sale.customer_phone,
+        lines: items.map((l) => ({
           name: l.name,
-          qty: l.qty,
+          qty: Number(l.qty),
           unit: l.unit,
-          price: l.price,
+          price: Number(l.price),
         })),
-        subTotal: cart.subTotal,
-        discount: cart.discount,
-        total: cart.total,
-        paid: Math.min(paid, cart.total),
-        due: Math.max(0, cart.total - Math.min(paid, cart.total)),
-        paymentMode: mode,
-        saleId: saleId as unknown as string,
+        subTotal: Number(sale.sub_total),
+        discount: Number(sale.discount),
+        total: Number(sale.total),
+        paid: Number(sale.paid),
+        due: Number(sale.due),
+        paymentMode: sale.payment_mode,
+        saleId,
         upiId: shop.upi_id ?? null,
         upiName: shop.upi_payee_name ?? null,
       };
@@ -139,7 +153,7 @@ export function PaymentDialog({
       invalidate();
       toast.success("Sale completed successfully");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Sale failed");
+      toast.error(e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String(e.message) : "Sale failed");
       lock.current = false;
     } finally {
       setBusy(false);
@@ -149,20 +163,27 @@ export function PaymentDialog({
   const due = Math.max(0, cart.total - paid);
 
   async function markPaid() {
-    if (!receipt?.saleId) return;
+    if (!receipt?.saleId || paymentLock.current) return;
+    if (!window.confirm(`Confirm Rs ${receipt.due.toFixed(2)} has actually been received online?`)) return;
+    paymentLock.current = true;
+    setConfirming(true);
+    try {
     const { error } = await supabase.rpc("confirm_sale_payment", {
       _sale_id: receipt.saleId,
       _amount: receipt.due,
       _mode: "online",
     });
     if (error) return void toast.error(error.message);
-    setReceipt({ ...receipt, paid: receipt.paid + receipt.due, due: 0 });
+    const { data: saved, error: readError } = await supabase.from("sales").select("paid, due").eq("id", receipt.saleId).single();
+    if (readError || !saved) return void toast.error("Payment recorded. Reopen this bill to refresh its status.");
+    setReceipt({ ...receipt, paid: Number(saved.paid), due: Number(saved.due) });
     invalidate();
     toast.success("Payment received — bill paid");
+    } finally { paymentLock.current = false; setConfirming(false); }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(value) => { if (!busy && !confirming) onOpenChange(value); }}>
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{receipt ? `Bill #${receipt.billNo}` : "Payment"}</DialogTitle>
@@ -187,7 +208,7 @@ export function PaymentDialog({
                   <img src={qr} alt={`UPI QR for Rs ${receipt.due.toFixed(2)}`} className="mx-auto mt-1 w-48 rounded-lg bg-background p-1" />
                   <p className="text-lg font-black">Rs {receipt.due.toFixed(2)}</p>
                   <p className="text-xs text-muted-foreground">UPI: {receipt.upiId}</p>
-                  <Button size="sm" className="mt-2" onClick={() => void markPaid()}>
+                  <Button size="sm" className="mt-2" disabled={confirming} onClick={() => void markPaid()}>
                     <Check className="mr-1 h-4 w-4" /> Payment mil gaya — Mark paid
                   </Button>
                 </>
@@ -212,7 +233,7 @@ export function PaymentDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void shareBillImage(receipt).then((r) => r === "downloaded" && toast.success("Bill image download ho gayi"))}
+                onClick={() => void shareBillImage(receipt).then((r) => r === "downloaded" && toast.success("Bill image download ho gayi")).catch(() => toast.error("Bill image could not be shared. Please retry."))}
                 className="h-auto flex-col gap-1.5 px-2 py-3 text-xs font-semibold"
               >
                 <Share2 className="h-6 w-6 text-primary" />
@@ -236,18 +257,19 @@ export function PaymentDialog({
 
             <div className="grid grid-cols-4 gap-2">
               {MODES.map((m) => (
-                <button
+                <Button variant="outline"
                   key={m.value}
                   type="button"
                   onClick={() => { setMode(m.value); setReceived(false); }}
-                  className={`rounded-xl border px-2 py-3 text-sm font-semibold transition-colors ${
+                  aria-pressed={mode === m.value}
+                  className={`h-12 rounded-lg border px-2 py-3 text-sm font-semibold transition-colors ${
                     mode === m.value
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-border bg-card"
                   }`}
                 >
                   {m.label}
-                </button>
+                </Button>
               ))}
             </div>
 
