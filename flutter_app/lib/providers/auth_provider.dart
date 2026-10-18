@@ -99,6 +99,54 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+  static String _formatAuthError(String raw) {
+    if (raw.contains('AuthApiException:')) {
+      final match = RegExp(r'message:\s*([^,)]+)').firstMatch(raw);
+      if (match != null && match.group(1) != null) {
+        return match.group(1)!.trim();
+      }
+    }
+    return raw;
+  }
+
+  Future<bool> signUpWithEmailPassword(String email, String password) async {
+    _isLoading = true;
+    _lastError = null;
+    notifyListeners();
+
+    try {
+      final client = SupabaseService.instance.client;
+      if (client != null) {
+        final res = await client.auth.signUp(
+          email: email.trim(),
+          password: password,
+        );
+        if (res.user != null) {
+          if (res.session != null) {
+            _user = res.user;
+            _isGuestMode = false;
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('is_guest_mode', false);
+          }
+          _isLoading = false;
+          notifyListeners();
+          return true;
+        }
+      }
+    } catch (e) {
+      final err = e.toString().toLowerCase();
+      if (err.contains('already registered') || err.contains('user already exists')) {
+        _lastError = 'यह ईमेल पहले से रजिस्टर्ड है। कृपया लॉगिन करें।';
+      } else {
+        _lastError = 'साइन अप एरर: ${_formatAuthError(e.toString())}';
+      }
+    }
+
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> signInWithEmailPassword(String email, String password) async {
     _isLoading = true;
     _lastError = null;
@@ -120,7 +168,14 @@ class AuthProvider extends ChangeNotifier {
         return true;
       }
     } catch (e) {
-      _lastError = e.toString();
+      final err = e.toString().toLowerCase();
+      if (err.contains('invalid login credentials')) {
+        _lastError = 'गलत ईमेल या पासवर्ड। कृपया जांच कर दोबारा प्रयास करें।';
+      } else if (err.contains('email not confirmed')) {
+        _lastError = 'ईमेल वेरिफाई नहीं हुआ है। कृपया इनबॉक्स में लिंक चेक करें, या Supabase में Confirm Email ऑफ करें।';
+      } else {
+        _lastError = 'लॉगिन एरर: ${_formatAuthError(e.toString())}';
+      }
     }
 
     _isLoading = false;

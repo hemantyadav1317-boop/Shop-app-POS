@@ -131,14 +131,36 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () async {
                 final email = emailCtrl.text.trim();
                 final pass = passCtrl.text;
-                if (email.isEmpty || pass.length < 6) return;
+                if (email.isEmpty || pass.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('कृपया सही ईमेल और कम से कम 6 अक्षरों का पासवर्ड डालें।')),
+                  );
+                  return;
+                }
                 final auth = context.read<AuthProvider>();
-                final ok = await auth.signInWithEmailPassword(email, pass);
+                final ok = isSignUp
+                    ? await auth.signUpWithEmailPassword(email, pass)
+                    : await auth.signInWithEmailPassword(email, pass);
+
                 if (ok && context.mounted) {
                   Navigator.pop(ctx);
-                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell()));
+                  if (auth.user != null) {
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell()));
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        backgroundColor: AppColors.primary,
+                        content: Text('अकाउंट बन गया! अगर ईमेल पर लिंक आया है तो वेरिफाई करें, फिर लॉगिन करें।'),
+                      ),
+                    );
+                  }
                 } else if (auth.lastError != null && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(auth.lastError!)));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: AppColors.error,
+                      content: Text(auth.lastError!),
+                    ),
+                  );
                 }
               },
               child: Text(isSignUp ? 'Sign Up' : 'Login'),
