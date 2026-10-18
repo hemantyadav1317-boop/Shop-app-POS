@@ -15,6 +15,13 @@
       "when": 1792211370764,
       "tag": "0001_retail_stock_safeguards_and_product_details",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792286080883,
+      "tag": "0002_locked_sale_stock_and_counted_inventory",
+      "breakpoints": true
     }
   ]
 }
