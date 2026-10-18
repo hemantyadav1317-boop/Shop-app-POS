@@ -90,11 +90,11 @@ export function ProductGrid() {
                     })
                   }
                   aria-label={`${p.name}, Rs ${Number(p.price)} per ${p.unit}`}
-                  className={`relative flex h-auto min-h-48 min-w-0 flex-col items-stretch gap-1.5 whitespace-normal rounded-lg border p-3 text-left shadow-[var(--shadow-tile)] ${
+                  className={`relative flex h-auto min-h-40 min-w-0 flex-col items-stretch gap-1 whitespace-normal rounded-lg border p-3 text-left shadow-[var(--shadow-tile)] sm:min-h-44 ${
                     qty > 0 ? "border-primary bg-accent hover:bg-accent" : "border-border bg-tile hover:bg-muted"
                   }`}
                 >
-                  {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" className="h-16 w-full object-contain" /> : <span aria-hidden className="grid h-16 place-items-center text-4xl">{productIcon(p.name, p.category)}</span>}
+                  {p.image_url ? <img src={p.image_url} alt={p.name} loading="lazy" className="h-12 w-full object-contain sm:h-16" /> : <span aria-hidden className="product-symbol grid h-12 place-items-center text-4xl sm:h-16">{productIcon(p.name, p.category)}</span>}
                   <span className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-tile-foreground">
                     {p.name}
                   </span>

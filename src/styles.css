@@ -134,6 +134,10 @@
 }
 /* Stable, touch-first product tracks; cart remains visible on landscape tablets. */
 .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(142px, 1fr)); gap: 12px; }
+.pos-cart { display: none; }
+.pos-shortcuts { padding-bottom: 12px; }
+.pos-cart-launch { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.product-symbol { font-family: "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif; }
 @media (max-width: 479px) { .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
-@media (min-width: 960px) { .pos-cart { display: block; } .pos-cart-launch { display: none; } .pos-shortcuts { padding-bottom: 12px; } }
+@media (min-width: 960px), (min-width: 900px) and (orientation: landscape) { .pos-cart { display: block; } .pos-cart-launch { display: none; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
