@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { canSellStock } from "./stock-rules";
 import { matchesProduct } from "./product-search";
 describe("Inventory sale rules", () => {

@@ -36,7 +36,7 @@ function PosPage() {
           <div className="min-h-0 flex-1">
             <ProductGrid />
           </div>
-          <div className="flex gap-2 border-t border-border pos-shortcuts bg-card p-3 pb-[90px]">
+          <div className="pos-shortcuts flex shrink-0 gap-2 border-t border-border bg-card p-3">
             <Link to="/bills" className={barBtn}>
               <ReceiptText className="h-4 w-4 shrink-0" />
               <span className="truncate">Bills</span>
@@ -51,12 +51,12 @@ function PosPage() {
             </Button>
           </div>
         </div>
-        <div className="pos-cart hidden w-[340px] shrink-0 border-l border-border xl:w-[380px]">
+        <div className="pos-cart w-[320px] shrink-0 border-l border-border xl:w-[380px]">
           <CartPanel />
         </div>
       </div>
 
-      <div className="pos-cart-launch pointer-events-none fixed inset-x-0 bottom-[64px] p-3 md:bottom-0">
+      <div className="pos-cart-launch shrink-0 border-t border-border bg-card p-3">
         <Button
           type="button"
           onClick={() => setCartOpen(true)}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Minus, Plus, ShoppingBag, Save, Trash2, UserPlus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,8 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
 
   const [custOpen, setCustOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -59,10 +61,15 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
   }
 
   async function saveOrder() {
-    if (!shop || !cart.lines.length) return;
+    if (!shop || !cart.lines.length || saveLock.current) return;
+    saveLock.current = true;
+    setSaving(true);
+    try {
     const { error } = await supabase.from("saved_orders").insert({
       shop_id: shop.id,
       lines: cart.lines,
+      discount: cart.discount,
+      customer_id: cart.customer?.id ?? null,
       customer_name: cart.customer?.name ?? null,
       customer_phone: cart.customer?.phone ?? null,
     });
@@ -74,6 +81,7 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
     invalidate();
     toast.success("Order saved");
     onDone?.();
+    } finally { saveLock.current = false; setSaving(false); }
   }
 
   return (
@@ -179,16 +187,16 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-1">
-          <Button variant="outline" onClick={cart.clear} disabled={!cart.lines.length}>
+          <Button variant="outline" onClick={cart.clear} disabled={saving || !cart.lines.length}>
             <Trash2 className="mr-1 h-4 w-4" /> Clear
           </Button>
-          <Button variant="outline" onClick={() => void saveOrder()} disabled={!cart.lines.length}>
-            <Save className="mr-1 h-4 w-4" /> Save
+          <Button variant="outline" onClick={() => void saveOrder()} disabled={saving || !cart.lines.length}>
+            <Save className="mr-1 h-4 w-4" /> {saving ? "Saving…" : "Save"}
           </Button>
         </div>
         <Button
           className="h-12 w-full text-base font-bold"
-          disabled={!cart.lines.length}
+          disabled={saving || !cart.lines.length}
           onClick={() => setPayOpen(true)}
         >
           BILL · {rs(cart.total)}
