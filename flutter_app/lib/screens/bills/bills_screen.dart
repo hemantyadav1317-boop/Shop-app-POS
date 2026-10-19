@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:screenshot/screenshot.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/sale.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
+import '../pos/widgets/bill_receipt_card.dart';
 
 class BillsScreen extends StatefulWidget {
   const BillsScreen({super.key});
@@ -49,130 +51,142 @@ class _BillsScreenState extends State<BillsScreen> {
 
   void _showBillDetails(Sale sale) {
     final shop = context.read<ShopProvider>().shop;
-    final dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
+    final userEmail = SupabaseService.instance.client?.auth.currentUser?.email;
+    final dateFormat = DateFormat('dd-MM-yyyy h:mm a');
+    final screenshotController = ScreenshotController();
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Invoice #${sale.billNo}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: sale.due > 0 ? AppColors.error.withOpacity(0.15) : AppColors.primarySurface,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                sale.due > 0 ? 'उधार (Due)' : 'Paid',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  color: sale.due > 0 ? AppColors.error : AppColors.primary,
+      builder: (ctx) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 720),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(18, 14, 10, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Sale Invoice Receipt',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: 380,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Column(
-                    children: [
-                      Text(shop.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      if (shop.address != null) Text(shop.address!, style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-                      Text(dateFormat.format(sale.createdAt), style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-                    ],
+              const Divider(height: 1),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Screenshot(
+                    controller: screenshotController,
+                    child: BillReceiptCard(
+                      shopName: shop.name,
+                      shopAddress: shop.address,
+                      shopPhone: shop.phone,
+                      shopEmail: userEmail ?? 'hemantyadav1317@gmail.com',
+                      gstin: shop.gstin,
+                      billNo: '${sale.billNo}',
+                      dateString: dateFormat.format(sale.createdAt),
+                      items: sale.items,
+                      subtotal: sale.subtotal,
+                      discount: sale.discount,
+                      total: sale.total,
+                      paid: sale.paid,
+                      due: sale.due,
+                      paymentMode: sale.paymentMode,
+                      footerMessage: shop.receiptFooter,
+                    ),
                   ),
                 ),
-                const Divider(height: 24),
-                if (sale.customerName != null) ...[
-                  Text('Customer: ${sale.customerName} (${sale.customerPhone ?? ""})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                ],
-                const Text('आइटम्स / Items:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.lightTextSecondary)),
-                const SizedBox(height: 6),
-                ...sale.items.map((it) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        children: [
-                          Expanded(child: Text('${it.name} (${it.qty} ${it.unit})', style: const TextStyle(fontSize: 12))),
-                          Text(CurrencyFormatter.format(it.total), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                        ],
+              ),
+              const Divider(height: 1),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                color: Colors.grey.shade50,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () => Navigator.pop(ctx),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.reply, color: Color(0xFF2563EB), size: 24),
+                              SizedBox(height: 4),
+                              Text('Back', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                            ],
+                          ),
+                        ),
                       ),
-                    )),
-                const Divider(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Subtotal:', style: TextStyle(fontSize: 12)),
-                    Text(CurrencyFormatter.format(sale.subtotal), style: const TextStyle(fontSize: 12)),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          try {
+                            final imageBytes = await screenshotController.capture(pixelRatio: 2.0);
+                            await ReceiptPrintService.shareReceipt(sale: sale, shop: shop, imageBytes: imageBytes);
+                          } catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('शेयर एरर: $e')));
+                            }
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.share, color: Color(0xFF2563EB), size: 24),
+                              SizedBox(height: 4),
+                              Text('Share Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          try {
+                            final imageBytes = await screenshotController.capture(pixelRatio: 2.0);
+                            await ReceiptPrintService.printReceipt(sale: sale, shop: shop, imageBytes: imageBytes);
+                          } catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(backgroundColor: AppColors.error, content: Text('प्रिंट एरर: $e')));
+                            }
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: const Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.print, color: Color(0xFF2563EB), size: 24),
+                              SizedBox(height: 4),
+                              Text('Print Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                if (sale.discount > 0)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Discount:', style: TextStyle(fontSize: 12, color: AppColors.error)),
-                      Text('- ${CurrencyFormatter.format(sale.discount)}', style: const TextStyle(fontSize: 12, color: AppColors.error)),
-                    ],
-                  ),
-                const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('कुल राशि / Total:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text(CurrencyFormatter.format(sale.total), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Payment Mode: ${sale.paymentMode.toUpperCase()}', style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-                    Text('Paid: ${CurrencyFormatter.format(sale.paid)}', style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-                  ],
-                ),
-                if (sale.due > 0)
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('बकाया / Due:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.error)),
-                      Text(CurrencyFormatter.format(sale.due), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.error)),
-                    ],
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.share, size: 16),
-            label: const Text('Share PDF'),
-            onPressed: () async {
-              await ReceiptPrintService.shareReceipt(sale: sale, shop: shop);
-            },
-          ),
-          ElevatedButton.icon(
-            icon: const Icon(Icons.print, size: 16),
-            label: const Text('प्रिंट बिल (Print)'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              await ReceiptPrintService.printReceipt(sale: sale, shop: shop);
-            },
-          ),
-        ],
       ),
     );
   }

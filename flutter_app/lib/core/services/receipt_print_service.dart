@@ -1,12 +1,16 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
 
 class ReceiptPrintService {
-  /// Generate PDF document for thermal receipt (58mm or 80mm)
+  /// Generate PDF document for thermal receipt (58mm or 80mm) with Hindi Unicode support
   static Future<pw.Document> generateReceiptDocument({
     required Sale sale,
     required Shop shop,
@@ -20,8 +24,22 @@ class ReceiptPrintService {
     final dateFormat = DateFormat('dd-MM-yyyy hh:mm a');
     final formattedDate = dateFormat.format(sale.createdAt);
 
+    // Load Devanagari Hindi font so Indian characters and Hindi item names render properly
+    pw.ThemeData? themeData;
+    try {
+      final fontRegular = await PdfGoogleFonts.notoSansDevanagariRegular();
+      final fontBold = await PdfGoogleFonts.notoSansDevanagariBold();
+      themeData = pw.ThemeData.withFont(
+        base: fontRegular,
+        bold: fontBold,
+      );
+    } catch (_) {
+      // Fallback to default if offline / no internet connection
+    }
+
     pdf.addPage(
       pw.Page(
+        theme: themeData,
         pageFormat: rollFormat,
         build: (pw.Context context) {
           return pw.Column(
@@ -201,7 +219,30 @@ class ReceiptPrintService {
   static Future<void> printReceipt({
     required Sale sale,
     required Shop shop,
+    Uint8List? imageBytes,
   }) async {
+    if (imageBytes != null) {
+      final doc = pw.Document();
+      final img = pw.MemoryImage(imageBytes);
+      final is80mm = shop.printPaperSize == '80mm';
+      final rollFormat = is80mm
+          ? const PdfPageFormat(80 * PdfPageFormat.mm, double.infinity, marginAll: 2 * PdfPageFormat.mm)
+          : const PdfPageFormat(58 * PdfPageFormat.mm, double.infinity, marginAll: 2 * PdfPageFormat.mm);
+
+      doc.addPage(
+        pw.Page(
+          pageFormat: rollFormat,
+          build: (pw.Context context) => pw.Center(child: pw.Image(img)),
+        ),
+      );
+      final bytes = await doc.save();
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => bytes,
+        name: 'Invoice_${sale.billNo}',
+      );
+      return;
+    }
+
     final pdf = await generateReceiptDocument(sale: sale, shop: shop);
     final bytes = await pdf.save();
 
@@ -211,11 +252,23 @@ class ReceiptPrintService {
     );
   }
 
-  /// Share receipt PDF on WhatsApp or other apps
+  /// Share receipt image or PDF on WhatsApp or other apps
   static Future<void> shareReceipt({
     required Sale sale,
     required Shop shop,
+    Uint8List? imageBytes,
   }) async {
+    if (imageBytes != null) {
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/Invoice_${sale.billNo}.png');
+      await file.writeAsBytes(imageBytes);
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: 'बिल / Invoice #${sale.billNo} - ${shop.name}',
+      );
+      return;
+    }
+
     final pdf = await generateReceiptDocument(sale: sale, shop: shop);
     final bytes = await pdf.save();
 

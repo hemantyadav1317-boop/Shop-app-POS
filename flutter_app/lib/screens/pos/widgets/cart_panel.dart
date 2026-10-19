@@ -369,7 +369,7 @@ class _CartPanelState extends State<CartPanel> {
               ),
               const SizedBox(height: 12),
 
-              // Action Buttons: Clear, Hold, Pay
+              // Action Buttons: Clear, Hold, Bill / Print
               Row(
                 children: [
                   IconButton(
@@ -379,7 +379,7 @@ class _CartPanelState extends State<CartPanel> {
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.save_outlined, size: 16),
-                    label: const Text('Hold Bill', style: TextStyle(fontSize: 12)),
+                    label: const Text('Hold', style: TextStyle(fontSize: 12)),
                     onPressed: cart.lines.isEmpty
                         ? null
                         : () {
@@ -391,10 +391,15 @@ class _CartPanelState extends State<CartPanel> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: ElevatedButton(
+                    child: ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      icon: const Icon(Icons.print, size: 18, color: Colors.white),
+                      label: Text(
+                        'BILL / PRINT · ${CurrencyFormatter.format(cart.total)}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.white),
                       ),
                       onPressed: cart.lines.isEmpty
                           ? null
@@ -408,10 +413,6 @@ class _CartPanelState extends State<CartPanel> {
                                 ),
                               );
                             },
-                      child: Text(
-                        'BILL · ${CurrencyFormatter.format(cart.total)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      ),
                     ),
                   ),
                 ],
