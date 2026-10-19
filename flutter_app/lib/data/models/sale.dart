@@ -87,4 +87,42 @@ class Sale {
       'client_ref': clientRef,
     };
   }
+
+  Sale copyWith({
+    String? id,
+    String? shopId,
+    int? billNo,
+    String? customerId,
+    String? customerName,
+    String? customerPhone,
+    List<CartItem>? items,
+    double? subtotal,
+    double? discount,
+    double? total,
+    double? paid,
+    double? due,
+    String? paymentMode,
+    String? paymentStatus,
+    DateTime? createdAt,
+    String? clientRef,
+  }) {
+    return Sale(
+      id: id ?? this.id,
+      shopId: shopId ?? this.shopId,
+      billNo: billNo ?? this.billNo,
+      customerId: customerId ?? this.customerId,
+      customerName: customerName ?? this.customerName,
+      customerPhone: customerPhone ?? this.customerPhone,
+      items: items ?? this.items,
+      subtotal: subtotal ?? this.subtotal,
+      discount: discount ?? this.discount,
+      total: total ?? this.total,
+      paid: paid ?? this.paid,
+      due: due ?? this.due,
+      paymentMode: paymentMode ?? this.paymentMode,
+      paymentStatus: paymentStatus ?? this.paymentStatus,
+      createdAt: createdAt ?? this.createdAt,
+      clientRef: clientRef ?? this.clientRef,
+    );
+  }
 }

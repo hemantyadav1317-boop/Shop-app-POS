@@ -7,6 +7,9 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
+import '../../core/services/receipt_print_service.dart';
+import '../../data/models/sale.dart';
+import '../../data/models/cart_item.dart';
 import '../../data/services/upi_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -709,8 +712,95 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('प्रिंटर और स्टॉक सेटिंग्स', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const Row(
+                      children: [
+                        Icon(Icons.print, color: AppColors.primary, size: 20),
+                        SizedBox(width: 8),
+                        Text('थर्मल प्रिंटर और बिल सेटिंग्स', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      ],
+                    ),
                     const SizedBox(height: 12),
+
+                    // Bluetooth Printer Guide Box
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.bluetooth_searching, color: Colors.blue.shade800, size: 18),
+                              const SizedBox(width: 6),
+                              Text(
+                                'ब्लूटूथ थर्मल प्रिंटर कनेक्ट करने का तरीका:',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue.shade900),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          const Text(
+                            '1. अपने ब्लूटूथ थर्मल प्रिंटर (58mm या 80mm) को ऑन करें।\n'
+                            '2. अपने फ़ोन / टैबलेट की Bluetooth Settings खोलकर प्रिंटर को Pair करें (Default PIN: 0000 या 1234)।\n'
+                            '3. बिल बनने के बाद "प्रिंट बिल" पर टैप करें और लिस्ट से अपने ब्लूटूथ प्रिंटर को चुनें।',
+                            style: TextStyle(fontSize: 11, height: 1.4, color: AppColors.lightTextPrimary),
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.print_outlined, size: 16),
+                              label: const Text('प्रिंटर टेस्ट करें (Test Thermal Print)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.blue.shade900,
+                                side: BorderSide(color: Colors.blue.shade400),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                              onPressed: () async {
+                                final testSale = Sale(
+                                  id: 'test-print-${DateTime.now().millisecondsSinceEpoch}',
+                                  shopId: currentShop.id,
+                                  billNo: 101,
+                                  createdAt: DateTime.now(),
+                                  paymentMode: 'cash',
+                                  subtotal: 140.0,
+                                  discount: 0.0,
+                                  total: 140.0,
+                                  paid: 140.0,
+                                  due: 0.0,
+                                  items: [
+                                    CartItem(
+                                      productId: 'test-1',
+                                      name: 'चावल (Basmati Rice 1kg)',
+                                      unit: 'kg',
+                                      price: 90.0,
+                                      qty: 1,
+                                    ),
+                                    CartItem(
+                                      productId: 'test-2',
+                                      name: 'चीनी (Sugar 1kg)',
+                                      unit: 'kg',
+                                      price: 50.0,
+                                      qty: 1,
+                                    ),
+                                  ],
+                                );
+                                await ReceiptPrintService.printReceipt(
+                                  sale: testSale,
+                                  shop: currentShop.copyWith(printPaperSize: _paperSize),
+                                  shopEmail: authProvider.email,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
 
                     // Clean responsive full-width segmented button for 58mm / 80mm
                     Column(

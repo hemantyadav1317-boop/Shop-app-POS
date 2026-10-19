@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
+import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/product_provider.dart';
@@ -147,7 +148,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (ok && context.mounted) {
                   Navigator.pop(ctx);
                   if (auth.user != null) {
-                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell()));
+                    try {
+                      final shopProvider = context.read<ShopProvider>();
+                      final syncedShop = await SupabaseService.instance.syncUserShop(
+                        userId: auth.user!.id,
+                        userEmail: auth.user!.email ?? '',
+                        fallback: shopProvider.shop,
+                      );
+                      await shopProvider.setShop(syncedShop);
+                      if (context.mounted) {
+                        await context.read<ProductProvider>().loadProducts(syncedShop.id);
+                        await context.read<CustomerProvider>().loadCustomers(syncedShop.id);
+                      }
+                    } catch (_) {}
+                    if (context.mounted) {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainShell()));
+                    }
                   } else {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(

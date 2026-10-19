@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
+import '../data/services/supabase_service.dart';
+import '../providers/auth_provider.dart';
+import '../providers/customer_provider.dart';
+import '../providers/product_provider.dart';
+import '../providers/shop_provider.dart';
 import 'pos/pos_screen.dart';
 import 'bills/bills_screen.dart';
 import 'customers/customers_screen.dart';
@@ -21,10 +27,38 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    // Check for new updates in background after screen renders
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncUserCloudData();
       UpdateService.showUpdateDialogIfNeeded(context);
     });
+  }
+
+  Future<void> _syncUserCloudData() async {
+    try {
+      if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      if (auth.user != null) {
+        final shopProvider = context.read<ShopProvider>();
+        final productProvider = context.read<ProductProvider>();
+        final customerProvider = context.read<CustomerProvider>();
+
+        final syncedShop = await SupabaseService.instance.syncUserShop(
+          userId: auth.user!.id,
+          userEmail: auth.user!.email ?? '',
+          fallback: shopProvider.shop,
+        );
+
+        if (mounted) {
+          if (syncedShop.id != shopProvider.shop.id || syncedShop.name != shopProvider.shop.name) {
+            await shopProvider.setShop(syncedShop);
+          }
+          await productProvider.loadProducts(syncedShop.id);
+          await customerProvider.loadCustomers(syncedShop.id);
+        }
+      }
+    } catch (e) {
+      debugPrint("Error syncing user cloud data on start: $e");
+    }
   }
 
   final List<Widget> _screens = const [

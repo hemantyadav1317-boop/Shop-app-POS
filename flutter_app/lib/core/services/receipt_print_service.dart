@@ -14,6 +14,7 @@ class ReceiptPrintService {
   static Future<pw.Document> generateReceiptDocument({
     required Sale sale,
     required Shop shop,
+    String? shopEmail,
   }) async {
     final pdf = pw.Document();
     final is80mm = shop.printPaperSize == '80mm';
@@ -67,6 +68,14 @@ class ReceiptPrintService {
                     'Phone: ${shop.phone!}',
                     textAlign: pw.TextAlign.center,
                     style: const pw.TextStyle(fontSize: 8),
+                  ),
+                ),
+              if (shopEmail != null && shopEmail.isNotEmpty)
+                pw.Center(
+                  child: pw.Text(
+                    'Email: $shopEmail',
+                    textAlign: pw.TextAlign.center,
+                    style: const pw.TextStyle(fontSize: 7),
                   ),
                 ),
               if (shop.gstin != null && shop.gstin!.isNotEmpty)
@@ -220,6 +229,7 @@ class ReceiptPrintService {
     required Sale sale,
     required Shop shop,
     Uint8List? imageBytes,
+    String? shopEmail,
   }) async {
     if (imageBytes != null) {
       final doc = pw.Document();
@@ -243,7 +253,7 @@ class ReceiptPrintService {
       return;
     }
 
-    final pdf = await generateReceiptDocument(sale: sale, shop: shop);
+    final pdf = await generateReceiptDocument(sale: sale, shop: shop, shopEmail: shopEmail);
     final bytes = await pdf.save();
 
     await Printing.layoutPdf(
@@ -257,6 +267,7 @@ class ReceiptPrintService {
     required Sale sale,
     required Shop shop,
     Uint8List? imageBytes,
+    String? shopEmail,
   }) async {
     if (imageBytes != null) {
       final tempDir = await getTemporaryDirectory();
@@ -269,7 +280,7 @@ class ReceiptPrintService {
       return;
     }
 
-    final pdf = await generateReceiptDocument(sale: sale, shop: shop);
+    final pdf = await generateReceiptDocument(sale: sale, shop: shop, shopEmail: shopEmail);
     final bytes = await pdf.save();
 
     await Printing.sharePdf(

@@ -49,6 +49,14 @@ class ShopProvider extends ChangeNotifier {
     await prefs.setString('theme_mode', mode == ThemeMode.dark ? 'dark' : (mode == ThemeMode.light ? 'light' : 'system'));
   }
 
+  Future<void> setShop(Shop shop) async {
+    _shop = shop;
+    SupabaseService.instance.setLocalShop(shop);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
+  }
+
   Future<void> updateShop(Shop updated) async {
     _shop = updated;
     SupabaseService.instance.setLocalShop(updated);

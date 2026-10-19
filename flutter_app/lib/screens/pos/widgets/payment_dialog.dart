@@ -289,7 +289,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                         shopName: shop.name,
                         shopAddress: shop.address,
                         shopPhone: shop.phone,
-                        shopEmail: userEmail ?? 'hemantyadav1317@gmail.com',
+                        shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
                         gstin: shop.gstin,
                         billNo: displayBillNo,
                         dateString: displayDate,
