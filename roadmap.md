@@ -5,8 +5,10 @@
 - [x] UPI settings (UPI ID, payee) + dynamic amount QR on print & image
 - [x] Online pending status + "Mark paid" confirmation
 - [x] Tablet: auto-hide drawer nav, full-width workspace, fullscreen button
-- [ ] Refresh global themes, navigation, product cards and touch cart layout
-- [ ] Correct negative-stock safeguards and expose safe inventory reconciliation
-- [ ] Fix checkout receipt reset, saved-data readback and payment retry guards
-- [ ] Preserve and verify saved-bill, payment, print and image-sharing flows
-- [ ] Verify phone, tablet portrait and landscape layouts and report limitations
+- [x] Refresh global themes, navigation, product cards and touch cart layout
+- [x] Add locked aggregate sale stock checks and owner-only audited physical counts
+- [x] Fix checkout receipt reset, saved-data readback and payment retry guards
+- [x] Verify signed-in product search, blocked quantity, stock-count validation and existing-bill PNG download
+- [x] Verify small/large phone, tablet portrait/landscape and desktop without horizontal overflow
+- [ ] Verify new cash/online/credit/split sales, simultaneous overselling, retry recovery and saved-order resume — blocked on an approved isolated test shop or permission to add test transactions to live records
+- [ ] Verify physical Bluetooth output and device-native image sharing — blocked on access to the user's printer and Android device

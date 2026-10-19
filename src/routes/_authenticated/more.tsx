@@ -11,6 +11,8 @@ import { signOutAndRedirect } from "@/lib/signout";
 export const Route = createFileRoute("/_authenticated/more")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "More — Shop POS" },
       { name: "description", content: "Sabhi modules ek jagah: purchases, vendors, expenses, daybook, reports, settings." },
       { property: "og:title", content: "More — Shop POS" },
