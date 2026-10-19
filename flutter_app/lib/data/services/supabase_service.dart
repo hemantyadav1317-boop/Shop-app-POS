@@ -324,14 +324,48 @@ class SupabaseService {
     }
   }
 
+  void setLocalShop(Shop shop) {
+    _localShop = shop;
+  }
+
   // --- SHOP SETTINGS ---
   Future<Shop> updateShop(Shop shop) async {
     _localShop = shop;
     if (_isInitialized && client != null) {
+      final user = client!.auth.currentUser;
       try {
-        await client!.from('shops').update(shop.toJson()).eq('id', shop.id);
+        final payload = {
+          'name': shop.name,
+          if (shop.phone != null) 'phone': shop.phone,
+          if (shop.address != null) 'address': shop.address,
+          'gst_number': shop.gstin,
+          if (shop.upiId != null) 'upi_id': shop.upiId,
+          if (shop.upiPayeeName != null) 'upi_payee_name': shop.upiPayeeName,
+          'allow_negative_stock': shop.allowNegativeStock,
+          'print_paper_size': shop.printPaperSize,
+          'receipt_footer': shop.receiptFooter,
+          if (shop.qrImageUrl != null) 'qr_image_url': shop.qrImageUrl,
+        };
+        if (shop.id != 'demo-shop-101' && shop.id.length >= 30) {
+          await client!.from('shops').update(payload).eq('id', shop.id);
+        } else if (user != null) {
+          final existing = await client!.from('shops').select('id').eq('owner_id', user.id).maybeSingle();
+          if (existing != null && existing['id'] != null) {
+            final realId = existing['id'] as String;
+            _localShop = shop.copyWith(id: realId);
+            await client!.from('shops').update(payload).eq('id', realId);
+          } else {
+            final created = await client!.from('shops').insert({
+              ...payload,
+              'owner_id': user.id,
+            }).select().single();
+            if (created['id'] != null) {
+              _localShop = Shop.fromJson(created);
+            }
+          }
+        }
       } catch (e) {
-        debugPrint("Error updating shop settings: $e");
+        debugPrint("Error updating shop settings in cloud: $e");
       }
     }
     return _localShop;

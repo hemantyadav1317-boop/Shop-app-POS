@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'core/theme/app_theme.dart';
+import 'data/models/shop.dart';
 import 'data/services/supabase_service.dart';
 import 'providers/auth_provider.dart';
 import 'providers/shop_provider.dart';
@@ -27,12 +28,15 @@ void main() async {
   // Initialize Supabase with local fallback
   await SupabaseService.instance.initialize();
 
+  Shop initialShop = SupabaseService.instance.currentShop;
   String initialShopId = 'demo-shop-101';
   try {
     final prefs = await SharedPreferences.getInstance();
     final savedShop = prefs.getString('saved_shop_data');
     if (savedShop != null) {
       final decoded = jsonDecode(savedShop) as Map<String, dynamic>;
+      initialShop = Shop.fromJson(decoded);
+      SupabaseService.instance.setLocalShop(initialShop);
       if (decoded['id'] != null) {
         initialShopId = decoded['id'] as String;
       }
@@ -45,7 +49,7 @@ void main() async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => ShopProvider()),
+        ChangeNotifierProvider(create: (_) => ShopProvider(initialShop: initialShop)),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()..loadProducts(initialShopId)),
         ChangeNotifierProvider(create: (_) => CustomerProvider()..loadCustomers(initialShopId)),

@@ -65,6 +65,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _saveSettings() async {
+    FocusScope.of(context).unfocus();
     final currentShop = context.read<ShopProvider>().shop;
     final updated = currentShop.copyWith(
       name: _nameCtrl.text.trim().isEmpty ? 'Shop POS' : _nameCtrl.text.trim(),
@@ -82,10 +83,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await context.read<ShopProvider>().updateShop(updated);
 
     if (mounted) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.primary,
-          content: Text('सेटिंग्स सेव हो गईं! (Settings Saved)'),
+        SnackBar(
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: Row(
+            children: const [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'दुकान की जानकारी (GST/नाम/मोबाइल) सुरक्षित हो गई! ✅',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 3),
         ),
       );
     }

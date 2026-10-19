@@ -27,11 +27,11 @@ class Shop {
 
   factory Shop.fromJson(Map<String, dynamic> json) {
     return Shop(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? 'demo-shop-101',
       name: json['name'] as String? ?? 'Meri Dukan POS',
       phone: json['phone'] as String?,
       address: json['address'] as String?,
-      gstin: json['gstin'] as String?,
+      gstin: (json['gstin'] ?? json['gst_number']) as String?,
       upiId: json['upi_id'] as String?,
       upiPayeeName: json['upi_payee_name'] as String?,
       allowNegativeStock: json['allow_negative_stock'] as bool? ?? false,
@@ -48,6 +48,7 @@ class Shop {
       'phone': phone,
       'address': address,
       'gstin': gstin,
+      'gst_number': gstin,
       'upi_id': upiId,
       'upi_payee_name': upiPayeeName,
       'allow_negative_stock': allowNegativeStock,
