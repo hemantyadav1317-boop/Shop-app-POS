@@ -20,6 +20,8 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/customers")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Customers & Khata — Shop POS" },
       { name: "description", content: "Customer add karein, udhaar balance dekhein aur payment collect karein." },
       { property: "og:title", content: "Customers & Khata — Shop POS" },

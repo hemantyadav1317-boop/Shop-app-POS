@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CheckCircle2, Download, Search, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { shareBillImage } from "@/lib/bill-image";
@@ -16,6 +16,8 @@ import { BluetoothPrintButton } from "@/components/pos/BluetoothPrintButton";
 export const Route = createFileRoute("/_authenticated/bills")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Bill History — Shop POS" },
       { name: "description", content: "Purane bills, payment mode, due aur print/share ek jagah." },
       { property: "og:title", content: "Bill History — Shop POS" },
@@ -30,6 +32,8 @@ function BillsPage() {
   const { shop } = useShop();
   const { data: sales, isLoading } = useSales(shop?.id);
   const [q, setQ] = useState("");
+  const [paying, setPaying] = useState<string | null>(null);
+  const paymentLock = useRef(false);
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -43,10 +47,11 @@ function BillsPage() {
   }, [sales, q]);
 
   async function buildReceipt(saleId: string, bill: (typeof rows)[number]): Promise<ReceiptData> {
-    const { data: items } = await supabase
+    const { data: items, error } = await supabase
       .from("sale_items")
       .select("name, qty, unit, price")
       .eq("sale_id", saleId);
+    if (error || !items?.length) throw new Error("Saved bill items could not be loaded. Please retry.");
     return {
       shopName: shop?.name ?? "Shop",
       shopPhone: shop?.phone ?? null,
@@ -71,6 +76,18 @@ function BillsPage() {
       upiId: shop?.upi_id ?? null,
       upiName: shop?.upi_payee_name ?? null,
     };
+  }
+
+  async function confirmPayment(bill: (typeof rows)[number]) {
+    if (paymentLock.current || !window.confirm(`Confirm Rs ${Number(bill.due).toFixed(2)} has actually been received online for Bill #${bill.bill_no}?`)) return;
+    paymentLock.current = true;
+    setPaying(bill.id);
+    try {
+      const { error } = await supabase.rpc("confirm_sale_payment", { _sale_id: bill.id, _amount: Number(bill.due), _mode: "online" });
+      if (error) return void toast.error(error.message);
+      invalidate();
+      toast.success(`Bill #${bill.bill_no} payment recorded`);
+    } finally { paymentLock.current = false; setPaying(null); }
   }
 
   return (
@@ -119,7 +136,7 @@ function BillsPage() {
           ) : (
             <ul className="space-y-2.5">
               {rows.map((b) => (
-                <li key={b.id} className="rounded-2xl bg-card p-3 shadow-[var(--shadow-tile)]">
+                <li key={b.id} className="rounded-lg border border-border bg-card p-3">
                   <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold">
@@ -139,30 +156,22 @@ function BillsPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={async () => void shareBillImage(await buildReceipt(b.id, b))}
+                      onClick={() => void buildReceipt(b.id, b).then(shareBillImage).then((result) => { if (result === "downloaded") toast.success("Bill image downloaded"); }).catch(() => toast.error("Bill image could not be shared. Please retry."))}
                     >
                       <Share2 className="mr-1 h-4 w-4" /> Share
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={async () => downloadBill(await buildReceipt(b.id, b))}
+                      onClick={() => void buildReceipt(b.id, b).then(downloadBill).catch(() => toast.error("Bill could not be downloaded. Please retry."))}
                     >
                       <Download className="mr-1 h-4 w-4" /> Save
                     </Button>
                     {Number(b.due) > 0 && (
                       <Button
                         size="sm"
-                        onClick={async () => {
-                          const { error } = await supabase.rpc("confirm_sale_payment", {
-                            _sale_id: b.id,
-                            _amount: Number(b.due),
-                            _mode: "online",
-                          });
-                          if (error) return void toast.error(error.message);
-                          toast.success(`Bill #${b.bill_no} paid mark ho gaya`);
-                          invalidate();
-                        }}
+                        disabled={paying !== null}
+                        onClick={() => void confirmPayment(b)}
                       >
                         <CheckCircle2 className="mr-1 h-4 w-4" /> Mark paid
                       </Button>

@@ -20,6 +20,8 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/_authenticated/purchases")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Purchases — Shop POS" },
       { name: "description", content: "Maal kharidi record karein — stock aur vendor payable auto update." },
       { property: "og:title", content: "Purchases — Shop POS" },

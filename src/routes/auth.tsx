@@ -9,6 +9,8 @@ import { lovable } from "@/integrations/lovable/index";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Login — Shop POS" },
       { name: "description", content: "Apne shop account me Google se secure login karein." },
       { property: "og:title", content: "Login — Shop POS" },

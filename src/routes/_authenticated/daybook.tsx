@@ -9,6 +9,8 @@ import { useExpenses, usePayments, usePurchases, useSales } from "@/lib/queries"
 export const Route = createFileRoute("/_authenticated/daybook")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "DayBook — Shop POS" },
       { name: "description", content: "Ek din ki sale, payment, purchase aur kharche ka pura hisaab." },
       { property: "og:title", content: "DayBook — Shop POS" },
