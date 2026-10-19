@@ -19,6 +19,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { downloadCsv } from "@/lib/receipt";
 import { CATALOG, normalizeName } from "@/lib/catalog";
 import { matchesProduct } from "@/lib/product-search";
+import { parseStockCsv } from "@/lib/bulk-stock";
+import { playSound } from "@/lib/sound";
+import { Upload } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
   head: () => ({
@@ -208,6 +211,38 @@ function InventoryPage() {
     }
   }
 
+  /** CSV se bulk stock: maujooda product me stock jodta hai, naya ho to add karta hai. */
+  async function bulkImport(file: File) {
+    if (!shop) return;
+    const rows = parseStockCsv(await file.text());
+    if (!rows.length) return void toast.error("CSV me koi valid row nahi mili (name, quantity column chahiye)");
+    setBusy(true);
+    let updated = 0, added = 0, failed = 0;
+    const byName = new Map((products ?? []).map((p) => [normalizeName(p.name), p]));
+    const inserts = [];
+    for (const r of rows) {
+      const ex = byName.get(normalizeName(r.name));
+      if (ex) {
+        const patch: { stock: number; price?: number; cost_price?: number } = { stock: Number(ex.stock) + r.quantity };
+        if (r.price !== undefined) patch.price = r.price;
+        if (r.cost_price !== undefined) patch.cost_price = r.cost_price;
+        const { error } = await supabase.from("products").update(patch).eq("id", ex.id);
+        if (error) failed++; else updated++;
+      } else {
+        inserts.push({ shop_id: shop.id, name: r.name, category: r.category || "General", unit: r.unit ?? "kg", price: r.price ?? 0, cost_price: r.cost_price ?? 0, stock: r.quantity, low_stock_at: 5 });
+      }
+    }
+    if (inserts.length) {
+      const { error } = await supabase.from("products").insert(inserts);
+      if (error) failed += inserts.length; else added = inserts.length;
+    }
+    setBusy(false);
+    invalidate();
+    playSound("import");
+    if (failed) toast.error(`${updated} update, ${added} naye, ${failed} fail`);
+    else toast(`Bulk stock: ${updated} update, ${added} naye product`);
+  }
+
   /** Ek hi naam ke duplicate product hata deta hai (pehla rakhta hai). */
   async function removeDuplicates() {
     if (!shop) return;
@@ -308,12 +343,21 @@ function InventoryPage() {
               </Button>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled={busy} onClick={() => void importCatalogue()}>
                 Catalogue import
               </Button>
               <Button variant="outline" size="sm" disabled={busy} onClick={() => void removeDuplicates()}>
                 Remove duplicates
+              </Button>
+              <Button variant="outline" size="sm" disabled={busy} asChild>
+                <label className="cursor-pointer">
+                  <Upload className="mr-1 h-4 w-4" /> Bulk stock CSV
+                  <input type="file" accept=".csv,text/csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) void bulkImport(f); }} />
+                </label>
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => downloadCsv("stock-template.csv", [{ name: "Tomato", quantity: 10, category: "Vegetables", unit: "kg", price: 40, cost_price: 30 }])}>
+                Template
               </Button>
             </div>
 

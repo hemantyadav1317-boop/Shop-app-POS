@@ -120,7 +120,7 @@ export function CartPanel({ onDone }: { onDone?: () => void }) {
                     size="icon"
                     type="button"
                     aria-label={`Remove ${l.name}`}
-                    onClick={() => cart.removeLine(l.product_id, l.name)}
+                    data-sound="remove" onClick={() => cart.removeLine(l.product_id, l.name)}
                     className="rounded-lg p-1 text-muted-foreground hover:bg-muted"
                   >
                     <X className="h-4 w-4" />

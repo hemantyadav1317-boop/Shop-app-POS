@@ -38,7 +38,7 @@ export function BluetoothPrintButton({
 
   if (tile) {
     return (
-      <Button
+      <Button data-sound="print"
         type="button"
         variant="outline"
         disabled={busy}
@@ -52,7 +52,7 @@ export function BluetoothPrintButton({
   }
 
   return (
-    <Button variant="outline" className={className} disabled={busy} onClick={() => void run()}>
+    <Button data-sound="print" variant="outline" className={className} disabled={busy} onClick={() => void run()}>
       <Bluetooth className="mr-1 h-4 w-4" /> {busy ? "…" : "Print"}
     </Button>
   );

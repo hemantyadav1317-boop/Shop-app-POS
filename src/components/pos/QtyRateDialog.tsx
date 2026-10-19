@@ -1,3 +1,4 @@
+import { playSound } from "@/lib/sound";
 import { useEffect, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import {
@@ -65,6 +66,7 @@ export function QtyRateDialog({
       price: r,
       qty: q,
     });
+    playSound("add");
     onClose();
   }
 
