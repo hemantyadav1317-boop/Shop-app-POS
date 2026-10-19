@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/receipt_print_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/sale.dart';
 import '../../data/services/supabase_service.dart';
@@ -149,19 +150,27 @@ class _BillsScreenState extends State<BillsScreen> {
           ),
         ),
         actions: [
-          OutlinedButton.icon(
-            icon: const Icon(Icons.share, size: 16),
-            label: const Text('WhatsApp Share'),
-            onPressed: () {
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Bill shared on WhatsApp')),
-              );
-            },
-          ),
-          ElevatedButton(
+          TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Close'),
+          ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.share, size: 16),
+            label: const Text('Share PDF'),
+            onPressed: () async {
+              await ReceiptPrintService.shareReceipt(sale: sale, shop: shop);
+            },
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.print, size: 16),
+            label: const Text('प्रिंट बिल (Print)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              await ReceiptPrintService.printReceipt(sale: sale, shop: shop);
+            },
           ),
         ],
       ),

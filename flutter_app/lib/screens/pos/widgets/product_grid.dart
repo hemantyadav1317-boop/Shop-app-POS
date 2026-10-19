@@ -29,9 +29,10 @@ class ProductGrid extends StatelessWidget {
             itemBuilder: (context, i) {
               final cat = productProvider.categories[i];
               final isSelected = productProvider.selectedCategory == cat;
+              final count = productProvider.getProductCountForCategory(cat);
 
               return ChoiceChip(
-                label: Text(cat),
+                label: Text('$cat ($count)'),
                 selected: isSelected,
                 selectedColor: AppColors.primarySurface,
                 labelStyle: TextStyle(

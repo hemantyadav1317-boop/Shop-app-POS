@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../providers/cart_provider.dart';
@@ -97,6 +99,106 @@ class PosScreen extends StatelessWidget {
     );
   }
 
+  void _showShareShopDialog(BuildContext context) {
+    final shop = context.read<ShopProvider>().shop;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.share, color: AppColors.primary),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'दुकान शेयर करें / Family Access',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'अपने भाई, पिता या स्टाफ को अपनी दुकान का एक्सेस देने के लिए यह दुकान कोड साझा करें:',
+              style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primarySurface.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('दुकान का नाम:', style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
+                  Text(shop.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 6),
+                  const Text('दुकान कोड (Shop ID):', style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
+                  SelectableText(
+                    shop.id,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('कोड कॉपी करें', style: TextStyle(fontSize: 11)),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: shop.id));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('दुकान कोड कॉपी हो गया!')),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.share, size: 16),
+                    label: const Text('WhatsApp', style: TextStyle(fontSize: 11)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () async {
+                      final text = 'नमस्ते, हमारी दुकान "${shop.name}" का POS ऐप कोड है:\n${shop.id}\n\nऐप में लॉगिन करके "परिवार की दुकान से जुड़ें" में यह कोड डालकर दुकान कनेक्ट कर सकते हैं।';
+                      final uri = Uri.parse('whatsapp://send?text=${Uri.encodeComponent(text)}');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri);
+                      } else {
+                        Clipboard.setData(ClipboardData(text: text));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('शेयर मैसेज कॉपी हो गया!')),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final shop = context.watch<ShopProvider>().shop;
@@ -116,6 +218,13 @@ class PosScreen extends StatelessWidget {
           ],
         ),
         actions: [
+          // Share Shop / Family Access Button
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'दुकान शेयर करें (Share Shop)',
+            onPressed: () => _showShareShopDialog(context),
+          ),
+
           // Saved / Held orders button
           Stack(
             alignment: Alignment.center,

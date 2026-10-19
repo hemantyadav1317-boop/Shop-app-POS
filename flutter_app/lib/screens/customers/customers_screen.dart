@@ -169,7 +169,90 @@ class CustomersScreen extends StatelessWidget {
           ),
         ),
         actions: [
+          TextButton.icon(
+            icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.error),
+            label: const Text('ग्राहक हटाएं (Delete)', style: TextStyle(color: AppColors.error, fontSize: 12)),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _confirmDeleteCustomer(context, customer);
+            },
+          ),
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteCustomer(BuildContext context, Customer customer) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: AppColors.error),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'ग्राहक हटाएं / Delete Customer',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'क्या आप "${customer.name}" को खाता सूची से डिलीट करना चाहते हैं?',
+              style: const TextStyle(fontSize: 14),
+            ),
+            if (customer.balance > 0) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: AppColors.error, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'सावधान! इस ग्राहक पर ${CurrencyFormatter.format(customer.balance)} का उधार बकाया है। डिलीट करने पर यह खाता हट जाएगा।',
+                        style: const TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () async {
+              await context.read<CustomerProvider>().deleteCustomer(customer.id);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.error,
+                    content: Text('${customer.name} को खाता से डिलीट कर दिया गया'),
+                  ),
+                );
+              }
+            },
+            child: const Text('हाँ, डिलीट करें', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
@@ -276,24 +359,62 @@ class CustomersScreen extends StatelessWidget {
                           ),
                           title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
                           subtitle: Text(customer.phone ?? 'No mobile number'),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                CurrencyFormatter.format(customer.balance),
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 15,
-                                  color: customer.balance > 0 ? AppColors.error : AppColors.primary,
-                                ),
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    CurrencyFormatter.format(customer.balance),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: customer.balance > 0 ? AppColors.error : AppColors.primary,
+                                    ),
+                                  ),
+                                  Text(
+                                    customer.balance > 0 ? 'उधार बकाया' : 'क्लियर',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: customer.balance > 0 ? AppColors.error : AppColors.lightTextSecondary,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                customer.balance > 0 ? 'उधार बकाया' : 'क्लियर',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: customer.balance > 0 ? AppColors.error : AppColors.lightTextSecondary,
-                                ),
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert, size: 20, color: AppColors.lightTextSecondary),
+                                padding: EdgeInsets.zero,
+                                onSelected: (val) {
+                                  if (val == 'ledger') {
+                                    _showCustomerLedger(context, customer);
+                                  } else if (val == 'delete') {
+                                    _confirmDeleteCustomer(context, customer);
+                                  }
+                                },
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: 'ledger',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.menu_book, size: 18),
+                                        SizedBox(width: 8),
+                                        Text('खाता देखें (Ledger)'),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                                        SizedBox(width: 8),
+                                        Text('ग्राहक हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

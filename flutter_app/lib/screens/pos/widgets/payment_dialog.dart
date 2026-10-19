@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/receipt_print_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/sale.dart';
 import '../../../../data/services/supabase_service.dart';
@@ -233,12 +235,41 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 const Text('UPI QR कोड स्कैन करके भुगतान करें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.lightTextPrimary)),
                 const SizedBox(height: 8),
                 Center(
-                  child: QrImageView(
-                    data: upiUri,
-                    version: QrVersions.auto,
-                    size: 160.0,
-                    backgroundColor: Colors.white,
-                  ),
+                  child: shop.qrImageUrl != null && (shop.qrImageUrl as String).isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: (shop.qrImageUrl as String).startsWith('http')
+                              ? Image.network(
+                                  shop.qrImageUrl as String,
+                                  width: 170,
+                                  height: 170,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => QrImageView(
+                                    data: upiUri,
+                                    version: QrVersions.auto,
+                                    size: 160.0,
+                                    backgroundColor: Colors.white,
+                                  ),
+                                )
+                              : Image.file(
+                                  File(shop.qrImageUrl as String),
+                                  width: 170,
+                                  height: 170,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => QrImageView(
+                                    data: upiUri,
+                                    version: QrVersions.auto,
+                                    size: 160.0,
+                                    backgroundColor: Colors.white,
+                                  ),
+                                ),
+                        )
+                      : QrImageView(
+                          data: upiUri,
+                          version: QrVersions.auto,
+                          size: 160.0,
+                          backgroundColor: Colors.white,
+                        ),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -436,28 +467,60 @@ class _PaymentDialogState extends State<PaymentDialog> {
         ),
         const SizedBox(height: 16),
 
-        // Action Buttons
+        // Action Buttons: Print Bill, Share, and New Sale
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            icon: const Icon(Icons.print, size: 20),
+            label: const Text(
+              'बिल प्रिंट करें (Print Bill)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            onPressed: () async {
+              try {
+                await ReceiptPrintService.printReceipt(sale: sale, shop: shop);
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(backgroundColor: AppColors.error, content: Text('प्रिंट एरर: $e')),
+                  );
+                }
+              }
+            },
+          ),
+        ),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
                 icon: const Icon(Icons.share, size: 16),
-                label: const Text('Share Bill'),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Bill WhatsApp share ready!')),
-                  );
+                label: const Text('Share PDF'),
+                onPressed: () async {
+                  try {
+                    await ReceiptPrintService.shareReceipt(sale: sale, shop: shop);
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('शेयर एरर: $e')),
+                      );
+                    }
+                  }
                 },
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: ElevatedButton.icon(
+              child: OutlinedButton.icon(
                 icon: const Icon(Icons.add_shopping_cart, size: 16),
-                label: const Text('New Sale'),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+                label: const Text('नया बिल (Next)'),
+                onPressed: () => Navigator.pop(context),
               ),
             ),
           ],

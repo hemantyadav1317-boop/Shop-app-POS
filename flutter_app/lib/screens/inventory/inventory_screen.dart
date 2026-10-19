@@ -18,9 +18,165 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   bool _onlyLowStock = false;
 
+  void _showAddCategoryDialog(BuildContext context, [Function(String)? onCreated]) {
+    final catNameCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.category, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('नई कैटेगरी जोड़ें / Add Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'जैसे: FRUITS, VEGETABLES, DAIRY, SNACKS, SWEETS आदि',
+              style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: catNameCtrl,
+              textCapitalization: TextCapitalization.characters,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'कैटेगरी का नाम *',
+                hintText: 'उदा. COLD DRINKS',
+                prefixIcon: Icon(Icons.label_outline),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final cat = catNameCtrl.text.trim().toUpperCase();
+              if (cat.isEmpty) return;
+              await context.read<ProductProvider>().addCategory(cat);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                onCreated?.call(cat);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.primary,
+                    content: Text('कैटेगरी "$cat" सफलतापूर्वक जोड़ी गई'),
+                  ),
+                );
+              }
+            },
+            child: const Text('सेव करें (Save)'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteCategory(BuildContext context, String catName) {
+    final count = context.read<ProductProvider>().getProductCountForCategory(catName);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: AppColors.error),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('कैटेगरी हटाएं / Delete Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('क्या आप "$catName" कैटेगरी को हटाना चाहते हैं?'),
+            if (count > 0) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                ),
+                child: Text(
+                  'इस कैटेगरी में $count सामान हैं। ये सभी सामान स्वतः "GENERAL" कैटेगरी में चले जाएंगे।',
+                  style: const TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () async {
+              await context.read<ProductProvider>().deleteCategory(catName);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.error,
+                    content: Text('कैटेगरी "$catName" हटा दी गई'),
+                  ),
+                );
+              }
+            },
+            child: const Text('हटाएं (Delete)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteProduct(BuildContext context, Product product) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.delete_outline, color: AppColors.error),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text('सामान हटाएं / Delete Product', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ),
+          ],
+        ),
+        content: Text('क्या आप "${product.name}" को स्टॉक सूची से हटाना चाहते हैं?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () async {
+              await context.read<ProductProvider>().deleteProduct(product.id);
+              if (context.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: AppColors.error,
+                    content: Text('${product.name} को स्टॉक से हटा दिया गया'),
+                  ),
+                );
+              }
+            },
+            child: const Text('हटाएं (Delete)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showAddEditProductDialog(BuildContext context, [Product? existing]) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
-    final catCtrl = TextEditingController(text: existing?.category ?? 'VEGETABLES');
     final priceCtrl = TextEditingController(text: existing != null ? existing.price.toString() : '');
     final purchasePriceCtrl = TextEditingController(text: existing?.purchasePrice?.toString() ?? '');
     final stockCtrl = TextEditingController(text: existing != null ? existing.stock.toString() : '0');
@@ -29,6 +185,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
     String icon = existing?.icon ?? '📦';
     String? imageUrl = existing?.imageUrl;
     final picker = ImagePicker();
+
+    final productProvider = context.read<ProductProvider>();
+    List<String> availableCats = List.from(productProvider.allCategories);
+    String selectedCategory = existing != null ? existing.category.toUpperCase() : (availableCats.isNotEmpty ? availableCats.first : 'GENERAL');
+    if (!availableCats.contains(selectedCategory)) {
+      availableCats.insert(0, selectedCategory);
+    }
 
     showDialog(
       context: context,
@@ -211,12 +374,48 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   decoration: const InputDecoration(labelText: 'सामान का नाम *'),
                 ),
                 const SizedBox(height: 10),
+
+                // Category Dropdown with "+ Add New"
                 Row(
                   children: [
                     Expanded(
-                      child: TextField(
-                        controller: catCtrl,
-                        decoration: const InputDecoration(labelText: 'कैटेगरी / Category'),
+                      child: DropdownButtonFormField<String>(
+                        value: selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'कैटेगरी (Category) *',
+                          prefixIcon: Icon(Icons.category_outlined),
+                        ),
+                        isExpanded: true,
+                        items: [
+                          ...availableCats.map((cat) => DropdownMenuItem(
+                                value: cat,
+                                child: Text(cat, overflow: TextOverflow.ellipsis),
+                              )),
+                          const DropdownMenuItem(
+                            value: '__ADD_NEW__',
+                            child: Row(
+                              children: [
+                                Icon(Icons.add_circle_outline, size: 16, color: AppColors.primary),
+                                SizedBox(width: 6),
+                                Text('+ नई कैटेगरी बनाएं', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ),
+                        ],
+                        onChanged: (val) {
+                          if (val == '__ADD_NEW__') {
+                            _showAddCategoryDialog(context, (newCat) {
+                              setDialogState(() {
+                                if (!availableCats.contains(newCat)) {
+                                  availableCats.add(newCat);
+                                }
+                                selectedCategory = newCat;
+                              });
+                            });
+                          } else if (val != null) {
+                            setDialogState(() => selectedCategory = val);
+                          }
+                        },
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -275,6 +474,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ),
           actions: [
+            if (existing != null)
+              TextButton.icon(
+                icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 16),
+                label: const Text('हटाएं', style: TextStyle(color: AppColors.error)),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _confirmDeleteProduct(context, existing);
+                },
+              ),
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
@@ -287,7 +495,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   id: existing?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
                   shopId: shop.id,
                   name: name,
-                  category: catCtrl.text.trim().isEmpty ? 'General' : catCtrl.text.trim().toUpperCase(),
+                  category: selectedCategory.trim().toUpperCase(),
                   unit: unit,
                   price: price,
                   purchasePrice: double.tryParse(purchasePriceCtrl.text),
@@ -360,145 +568,289 @@ class _InventoryScreenState extends State<InventoryScreen> {
         : productProvider.filteredProducts;
 
     final lowStockCount = productProvider.products.where((p) => p.isLowStock).length;
+    final allCats = productProvider.allCategories;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('स्टॉक / Inventory', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_box_outlined),
-            tooltip: 'Add Product',
-            onPressed: () => _showAddEditProductDialog(context),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('स्टॉक व कैटेगरी / Inventory', style: TextStyle(fontWeight: FontWeight.bold)),
+          bottom: const TabBar(
+            indicatorColor: AppColors.primary,
+            labelColor: AppColors.primary,
+            tabs: [
+              Tab(
+                icon: Icon(Icons.inventory_2_outlined),
+                text: 'सामान स्टॉक (Products)',
+              ),
+              Tab(
+                icon: Icon(Icons.category_outlined),
+                text: 'कैटेगरी प्रबंधन (Categories)',
+              ),
+            ],
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Low stock alert filter toggle banner
-          if (lowStockCount > 0)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: _onlyLowStock ? AppColors.error : AppColors.error.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.error),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded, color: _onlyLowStock ? Colors.white : AppColors.error),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'सावधान: $lowStockCount आइटम का स्टॉक कम है!',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: _onlyLowStock ? Colors.white : AppColors.error,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      setState(() => _onlyLowStock = !_onlyLowStock);
-                    },
-                    child: Text(
-                      _onlyLowStock ? 'Show All' : 'Filter Low',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: _onlyLowStock ? Colors.white : AppColors.error,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.add_box_outlined),
+              tooltip: 'Add Product',
+              onPressed: () => _showAddEditProductDialog(context),
             ),
-
-          // Search Field
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'सामान का नाम या बारकोड खोजें...',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onChanged: (q) => productProvider.setSearchQuery(q),
-            ),
-          ),
-          const SizedBox(height: 6),
-
-          // Product List
-          Expanded(
-            child: products.isEmpty
-                ? const Center(child: Text('कोई प्रोडक्ट नहीं मिला', style: TextStyle(color: AppColors.lightTextSecondary)))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: products.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 6),
-                    itemBuilder: (context, i) {
-                      final product = products[i];
-
-                      return Card(
-                        child: ListTile(
-                          leading: ProductImageView(
-                            imageUrl: product.imageUrl,
-                            fallbackIcon: product.icon,
-                            size: 46,
-                            borderRadius: 8,
+          ],
+        ),
+        body: TabBarView(
+          children: [
+            // TAB 1: PRODUCTS INVENTORY
+            Column(
+              children: [
+                // Low stock alert filter toggle banner
+                if (lowStockCount > 0)
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _onlyLowStock ? AppColors.error : AppColors.error.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.error),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: _onlyLowStock ? Colors.white : AppColors.error),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'सावधान: $lowStockCount आइटम का स्टॉक कम है!',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: _onlyLowStock ? Colors.white : AppColors.error,
+                            ),
                           ),
-                          title: Row(
-                            children: [
-                              Expanded(
-                                child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                              if (product.isLowStock)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.error.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text('LOW STOCK', style: TextStyle(color: AppColors.error, fontSize: 9, fontWeight: FontWeight.bold)),
-                                ),
-                            ],
-                          ),
-                          subtitle: Text(
-                            'दर: ${CurrencyFormatter.format(product.price)} / ${product.unit} · Cat: ${product.category}',
-                            style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                          ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '${product.stock} ${product.unit}',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: product.isLowStock ? AppColors.error : AppColors.primary,
-                                    ),
-                                  ),
-                                  const Text('स्टॉक', style: TextStyle(fontSize: 10, color: AppColors.lightTextSecondary)),
-                                ],
-                              ),
-                              const SizedBox(width: 6),
-                              IconButton(
-                                icon: const Icon(Icons.edit_note, size: 22),
-                                tooltip: 'Adjust Stock',
-                                onPressed: () => _showStockAdjustmentDialog(context, product),
-                              ),
-                            ],
-                          ),
-                          onTap: () => _showAddEditProductDialog(context, product),
                         ),
-                      );
-                    },
+                        TextButton(
+                          onPressed: () {
+                            setState(() => _onlyLowStock = !_onlyLowStock);
+                          },
+                          child: Text(
+                            _onlyLowStock ? 'Show All' : 'Filter Low',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: _onlyLowStock ? Colors.white : AppColors.error,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-          ),
-        ],
+
+                // Search Field
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'सामान का नाम या बारकोड खोजें...',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (q) => productProvider.setSearchQuery(q),
+                  ),
+                ),
+                const SizedBox(height: 6),
+
+                // Product List
+                Expanded(
+                  child: products.isEmpty
+                      ? const Center(child: Text('कोई प्रोडक्ट नहीं मिला', style: TextStyle(color: AppColors.lightTextSecondary)))
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: products.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 6),
+                          itemBuilder: (context, i) {
+                            final product = products[i];
+
+                            return Card(
+                              child: ListTile(
+                                leading: ProductImageView(
+                                  imageUrl: product.imageUrl,
+                                  fallbackIcon: product.icon,
+                                  size: 46,
+                                  borderRadius: 8,
+                                ),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                    if (product.isLowStock)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.error.withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: const Text('LOW STOCK', style: TextStyle(color: AppColors.error, fontSize: 9, fontWeight: FontWeight.bold)),
+                                      ),
+                                  ],
+                                ),
+                                subtitle: Text(
+                                  'दर: ${CurrencyFormatter.format(product.price)} / ${product.unit} · Cat: ${product.category}',
+                                  style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '${product.stock} ${product.unit}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: product.isLowStock ? AppColors.error : AppColors.primary,
+                                          ),
+                                        ),
+                                        const Text('स्टॉक', style: TextStyle(fontSize: 10, color: AppColors.lightTextSecondary)),
+                                      ],
+                                    ),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_note, size: 22),
+                                      tooltip: 'Adjust Stock',
+                                      onPressed: () => _showStockAdjustmentDialog(context, product),
+                                    ),
+                                    PopupMenuButton<String>(
+                                      icon: const Icon(Icons.more_vert, size: 20, color: AppColors.lightTextSecondary),
+                                      padding: EdgeInsets.zero,
+                                      onSelected: (val) {
+                                        if (val == 'edit') {
+                                          _showAddEditProductDialog(context, product);
+                                        } else if (val == 'delete') {
+                                          _confirmDeleteProduct(context, product);
+                                        }
+                                      },
+                                      itemBuilder: (ctx) => const [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.edit, size: 16),
+                                              SizedBox(width: 8),
+                                              Text('एडिट करें'),
+                                            ],
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.delete_outline, size: 16, color: AppColors.error),
+                                              SizedBox(width: 8),
+                                              Text('हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                onTap: () => _showAddEditProductDialog(context, product),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+
+            // TAB 2: CATEGORIES MANAGEMENT
+            Column(
+              children: [
+                // Top header card with "+ Add Category" button
+                Container(
+                  margin: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'कुल उपलब्ध कैटेगरी',
+                            style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${allCats.length} कैटेगरी',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primaryDark),
+                          ),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('नई कैटेगरी जोड़ें', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () => _showAddCategoryDialog(context),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Category List
+                Expanded(
+                  child: allCats.isEmpty
+                      ? const Center(child: Text('कोई कैटेगरी नहीं है'))
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          itemCount: allCats.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 6),
+                          itemBuilder: (context, i) {
+                            final cat = allCats[i];
+                            final count = productProvider.getProductCountForCategory(cat);
+
+                            return Card(
+                              child: ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: AppColors.primarySurface,
+                                  child: Text(
+                                    cat.isNotEmpty ? cat.substring(0, 1) : '?',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
+                                  ),
+                                ),
+                                title: Text(
+                                  cat,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                                ),
+                                subtitle: Text(
+                                  '$count सामान (Products)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: count > 0 ? AppColors.primary : AppColors.lightTextSecondary,
+                                    fontWeight: count > 0 ? FontWeight.w600 : FontWeight.normal,
+                                  ),
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                  tooltip: 'Delete Category',
+                                  onPressed: () => _confirmDeleteCategory(context, cat),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ class Shop {
   final bool allowNegativeStock;
   final String printPaperSize; // '58mm', '80mm'
   final String? receiptFooter;
+  final String? qrImageUrl; // Custom Standee QR Image URL or path
 
   Shop({
     required this.id,
@@ -21,6 +22,7 @@ class Shop {
     this.allowNegativeStock = false,
     this.printPaperSize = '58mm',
     this.receiptFooter = 'धन्यवाद! फिर पधारें 🙏',
+    this.qrImageUrl,
   });
 
   factory Shop.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class Shop {
       allowNegativeStock: json['allow_negative_stock'] as bool? ?? false,
       printPaperSize: json['print_paper_size'] as String? ?? '58mm',
       receiptFooter: json['receipt_footer'] as String? ?? 'धन्यवाद! फिर पधारें 🙏',
+      qrImageUrl: json['qr_image_url'] as String?,
     );
   }
 
@@ -50,6 +53,7 @@ class Shop {
       'allow_negative_stock': allowNegativeStock,
       'print_paper_size': printPaperSize,
       'receipt_footer': receiptFooter,
+      if (qrImageUrl != null) 'qr_image_url': qrImageUrl,
     };
   }
 
@@ -64,6 +68,7 @@ class Shop {
     bool? allowNegativeStock,
     String? printPaperSize,
     String? receiptFooter,
+    String? qrImageUrl,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -76,6 +81,7 @@ class Shop {
       allowNegativeStock: allowNegativeStock ?? this.allowNegativeStock,
       printPaperSize: printPaperSize ?? this.printPaperSize,
       receiptFooter: receiptFooter ?? this.receiptFooter,
+      qrImageUrl: qrImageUrl ?? this.qrImageUrl,
     );
   }
 }

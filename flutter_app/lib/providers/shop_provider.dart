@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/shop.dart';
@@ -25,6 +26,17 @@ class ShopProvider extends ChangeNotifier {
     } else {
       _themeMode = ThemeMode.system;
     }
+
+    final savedShopJson = prefs.getString('saved_shop_data');
+    if (savedShopJson != null) {
+      try {
+        final decoded = jsonDecode(savedShopJson) as Map<String, dynamic>;
+        _shop = Shop.fromJson(decoded);
+      } catch (e) {
+        debugPrint("Error decoding saved shop: $e");
+      }
+    }
+
     notifyListeners();
   }
 
@@ -38,6 +50,17 @@ class ShopProvider extends ChangeNotifier {
   Future<void> updateShop(Shop updated) async {
     _shop = updated;
     notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_shop_data', jsonEncode(updated.toJson()));
     await SupabaseService.instance.updateShop(updated);
+  }
+
+  Future<Shop> joinShop(String shopCode) async {
+    final joined = await SupabaseService.instance.joinShop(shopCode);
+    _shop = joined;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_shop_data', jsonEncode(joined.toJson()));
+    return joined;
   }
 }

@@ -151,6 +151,17 @@ class SupabaseService {
     }
   }
 
+  Future<void> deleteProduct(String productId) async {
+    _localProducts.removeWhere((p) => p.id == productId);
+    if (isInitialized && client != null) {
+      try {
+        await client!.from('products').delete().eq('id', productId);
+      } catch (e) {
+        debugPrint("Error deleting product in cloud: $e");
+      }
+    }
+  }
+
   // --- CUSTOMERS ---
   Future<List<Customer>> getCustomers(String shopId) async {
     if (_isInitialized && client != null) {
@@ -195,6 +206,17 @@ class SupabaseService {
         await client!.from('customers').update({'balance': newBalance}).eq('id', customerId);
       } catch (e) {
         debugPrint("Error updating customer balance: $e");
+      }
+    }
+  }
+
+  Future<void> deleteCustomer(String customerId) async {
+    _localCustomers.removeWhere((c) => c.id == customerId);
+    if (_isInitialized && client != null) {
+      try {
+        await client!.from('customers').delete().eq('id', customerId);
+      } catch (e) {
+        debugPrint("Error deleting customer: $e");
       }
     }
   }
@@ -312,6 +334,51 @@ class SupabaseService {
         debugPrint("Error updating shop settings: $e");
       }
     }
+    return _localShop;
+  }
+
+  Future<Shop?> getShop(String shopId) async {
+    if (_isInitialized && client != null) {
+      try {
+        final res = await client!.from('shops').select('*').eq('id', shopId).maybeSingle();
+        if (res != null) {
+          _localShop = Shop.fromJson(res);
+          return _localShop;
+        }
+      } catch (e) {
+        debugPrint("Error getting shop from cloud: $e");
+      }
+    }
+    return _localShop;
+  }
+
+  Future<Shop> joinShop(String shopCode) async {
+    final cleanCode = shopCode.trim();
+    if (_isInitialized && client != null) {
+      try {
+        final res = await client!.from('shops').select('*').eq('id', cleanCode).maybeSingle();
+        if (res != null) {
+          _localShop = Shop.fromJson(res);
+          final user = client!.auth.currentUser;
+          if (user != null) {
+            try {
+              await client!.from('shop_members').upsert({
+                'shop_id': cleanCode,
+                'user_id': user.id,
+                'role': 'cashier',
+              });
+            } catch (err) {
+              debugPrint("upsert shop_members err: $err");
+            }
+          }
+          return _localShop;
+        }
+      } catch (e) {
+        debugPrint("Error joining shop from cloud: $e");
+      }
+    }
+
+    _localShop = _localShop.copyWith(id: cleanCode);
     return _localShop;
   }
 }

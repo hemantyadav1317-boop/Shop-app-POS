@@ -83,6 +83,13 @@ CREATE TABLE IF NOT EXISTS public.shops (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS upi_id text;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS upi_payee_name text;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS qr_image_url text;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS allow_negative_stock boolean DEFAULT false;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS print_paper_size text DEFAULT '58mm';
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS receipt_footer text DEFAULT 'धन्यवाद! फिर पधारें 🙏';
+
 CREATE TABLE IF NOT EXISTS public.shop_members (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id uuid NOT NULL REFERENCES public.shops(id) ON DELETE CASCADE,

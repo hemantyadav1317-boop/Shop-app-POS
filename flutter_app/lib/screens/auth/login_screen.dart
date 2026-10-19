@@ -4,6 +4,8 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../../providers/product_provider.dart';
+import '../../providers/customer_provider.dart';
 import '../main_shell.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -171,6 +173,78 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void _showJoinShopDialog(BuildContext context) {
+    final codeCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.store, color: AppColors.primary),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'दुकान से जुड़ें / Join Shop',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'यदि आपके भाई या पिता ने अपनी दुकान बनाई हुई है, तो उनसे उनकी दुकान का कोड मांगें और यहाँ डालें:',
+              style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: codeCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'दुकान कोड (Shop ID) *',
+                hintText: 'उदा. demo-shop-101 या शॉप UUID',
+                prefixIcon: Icon(Icons.vpn_key_outlined),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final code = codeCtrl.text.trim();
+              if (code.isEmpty) return;
+
+              final auth = context.read<AuthProvider>();
+              await auth.continueOffline();
+
+              if (context.mounted) {
+                final shopProv = context.read<ShopProvider>();
+                await shopProv.joinShop(code);
+                if (context.mounted) {
+                  await context.read<ProductProvider>().loadProducts(code);
+                  if (context.mounted) {
+                    await context.read<CustomerProvider>().loadCustomers(code);
+                    Navigator.pop(ctx);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MainShell()),
+                    );
+                  }
+                }
+              }
+            },
+            child: const Text('दुकान से जुड़ें (Join)'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -321,11 +395,27 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 12),
 
+                  // Join Existing Shop Button for Family / Staff
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.group_add, color: AppColors.primary, size: 20),
+                    label: const Text(
+                      '🔗 परिवार या पार्टनर की दुकान से जुड़ें (Join Shop)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      side: const BorderSide(color: AppColors.primary, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => _showJoinShopDialog(context),
+                  ),
+                  const SizedBox(height: 12),
+
                   // Quick Shop Setup / Direct Entry Button
                   ElevatedButton.icon(
                     icon: const Icon(Icons.storefront_outlined, size: 18),
                     label: const Text(
-                      'दुकान का नाम दर्ज करके शुरू करें',
+                      'नई दुकान बनाएं / Create Shop',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     style: ElevatedButton.styleFrom(

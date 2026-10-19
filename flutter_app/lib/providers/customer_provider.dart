@@ -53,4 +53,10 @@ class CustomerProvider extends ChangeNotifier {
       await SupabaseService.instance.updateCustomerBalance(customerId, updated.balance);
     }
   }
+
+  Future<void> deleteCustomer(String customerId) async {
+    _customers.removeWhere((c) => c.id == customerId);
+    notifyListeners();
+    await SupabaseService.instance.deleteCustomer(customerId);
+  }
 }
