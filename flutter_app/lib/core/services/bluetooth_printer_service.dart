@@ -30,6 +30,8 @@ class BluetoothPrinterService {
 
   static Future<List<BluetoothInfo>> getPairedDevices() async {
     try {
+      // Ensure Android Nearby Devices / Bluetooth permission is prompted
+      await isPermissionGranted();
       final List<BluetoothInfo> list = await PrintBluetoothThermal.pairedBluetooths;
       return list;
     } catch (e) {
@@ -118,7 +120,11 @@ class BluetoothPrinterService {
         if (decoded != null) {
           final targetWidth = is80mm ? 576 : 384;
           img.Image resized = img.copyResize(decoded, width: targetWidth);
-          bytes += generator.imageRaster(resized, align: PosAlign.center);
+          // Solid white background to prevent transparent artifacts on thermal printers
+          img.Image whiteBg = img.Image(width: resized.width, height: resized.height);
+          img.fill(whiteBg, color: img.ColorRgb8(255, 255, 255));
+          img.compositeImage(whiteBg, resized);
+          bytes += generator.imageRaster(whiteBg, align: PosAlign.center);
         }
       } else {
         // Text mode fallback

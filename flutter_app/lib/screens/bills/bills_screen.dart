@@ -111,6 +111,8 @@ class _BillsScreenState extends State<BillsScreen> {
                       gstin: shop.gstin,
                       billNo: '${sale.billNo}',
                       dateString: dateFormat.format(sale.createdAt),
+                      customerName: sale.customerName,
+                      customerPhone: sale.customerPhone,
                       items: sale.items,
                       subtotal: sale.subtotal,
                       discount: sale.discount,

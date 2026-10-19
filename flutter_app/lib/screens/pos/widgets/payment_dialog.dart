@@ -294,6 +294,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
                         gstin: shop.gstin,
                         billNo: displayBillNo,
                         dateString: displayDate,
+                        customerName: _completedSale?.customerName ?? cart.customer?.name,
+                        customerPhone: _completedSale?.customerPhone ?? cart.customer?.phone,
                         items: displayItems,
                         subtotal: displaySubtotal,
                         discount: displayDiscount,

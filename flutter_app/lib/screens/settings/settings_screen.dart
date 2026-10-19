@@ -9,6 +9,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/services/bluetooth_printer_service.dart';
+import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/cart_item.dart';
 import '../../data/services/upi_service.dart';
@@ -76,18 +77,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _selectBluetoothPrinter() async {
-    final isEnabled = await BluetoothPrinterService.isBluetoothEnabled();
-    if (!isEnabled && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.warning,
-          content: Text('कृपया फ़ोन का Bluetooth ऑन करें और प्रिंटर को Pair करें।'),
-        ),
-      );
-      return;
+    setState(() => _isConnectingBt = true);
+
+    // 1. Request Android Nearby Devices / Bluetooth permission prompt
+    try {
+      await BluetoothPrinterService.isPermissionGranted();
+    } catch (_) {}
+
+    // 2. Fetch paired devices
+    List<BluetoothInfo> devices = [];
+    try {
+      devices = await BluetoothPrinterService.getPairedDevices();
+    } catch (e) {
+      debugPrint("Error fetching devices: $e");
     }
 
-    final devices = await BluetoothPrinterService.getPairedDevices();
+    if (mounted) {
+      setState(() => _isConnectingBt = false);
+    }
     if (!mounted) return;
 
     if (devices.isEmpty) {
@@ -95,13 +102,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('कोई ब्लूटूथ प्रिंटर नहीं मिला'),
-          content: const Text(
-            'कृपया पहले अपने फ़ोन / टैबलेट की Bluetooth Settings में जाएं और अपने प्रिंटर (POS-58, MTP-2) को Pair करें (Default PIN: 0000 या 1234)। इसके बाद यहाँ आकर चुनें।',
-            style: TextStyle(fontSize: 13),
+          title: const Row(
+            children: [
+              Icon(Icons.bluetooth_searching, color: AppColors.primary),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Niyama BT-58 प्रिंटर नहीं मिला',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Niyama BT-58 प्रिंटर को कनेक्ट करने का आसान तरीका:\n',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              Text(
+                '1. अपने Niyama प्रिंटर का पावर बटन ऑन करें (Green light ऑन होगी)।\n'
+                '2. अपने फ़ोन / टैबलेट की Bluetooth Settings खोलें।\n'
+                '3. "Pair new device" में "BT-58" या "Niyama" दिखेगा, उस पर टैप करके Pair करें (PIN: 0000 या 1234 डालें)।\n'
+                '4. फ़ोन में Pair होने के बाद वापस इस ऐप में आकर "प्रिंटर खोजें" दबाएं।',
+                style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.lightTextPrimary),
+              ),
+            ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('समझ गया (OK)')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('समझ गया (OK)'),
+            ),
           ],
         ),
       );
