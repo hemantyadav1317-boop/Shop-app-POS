@@ -234,7 +234,7 @@ export function PaymentDialog({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void shareBillImage(receipt).then((r) => r === "downloaded" && toast.success("Bill image download ho gayi")).catch(() => toast.error("Bill image could not be shared. Please retry."))}
+                data-sound="share" onClick={() => void shareBillImage(receipt).then((r) => r === "downloaded" && toast.success("Bill image download ho gayi")).catch(() => toast.error("Bill image could not be shared. Please retry."))}
                 className="h-auto flex-col gap-1.5 px-2 py-3 text-xs font-semibold"
               >
                 <Share2 className="h-6 w-6 text-primary" />
