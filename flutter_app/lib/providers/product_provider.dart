@@ -145,6 +145,16 @@ class ProductProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> addProductsBatch(List<Product> newProducts) async {
+    if (newProducts.isEmpty) return;
+    final saved = await SupabaseService.instance.addProductsBatch(newProducts);
+    for (final p in saved) {
+      _products.removeWhere((item) => item.id == p.id);
+      _products.add(p);
+    }
+    notifyListeners();
+  }
+
   Future<void> updateProduct(Product p) async {
     await SupabaseService.instance.updateProduct(p);
     final idx = _products.indexWhere((prod) => prod.id == p.id);

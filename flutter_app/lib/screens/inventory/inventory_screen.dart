@@ -7,6 +7,7 @@ import '../../data/models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
+import 'widgets/bulk_import_dialog.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -590,11 +591,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ],
           ),
           actions: [
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              icon: const Icon(Icons.upload_file, size: 16),
+              label: const Text('बल्क जोड़ें', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (_) => const BulkImportDialog(),
+                );
+              },
+            ),
+            const SizedBox(width: 4),
             IconButton(
-              icon: const Icon(Icons.add_box_outlined),
+              icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 28),
               tooltip: 'Add Product',
               onPressed: () => _showAddEditProductDialog(context),
             ),
+            const SizedBox(width: 8),
           ],
         ),
         body: TabBarView(
@@ -651,6 +671,28 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       prefixIcon: Icon(Icons.search),
                     ),
                     onChanged: (q) => productProvider.setSearchQuery(q),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                      ),
+                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                      label: const Text('📥 Excel / CSV / बिल से 50-100+ सामान एक साथ चढ़ाएं (बल्क अपलोड)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => const BulkImportDialog(),
+                        );
+                      },
+                    ),
                   ),
                 ),
                 const SizedBox(height: 6),

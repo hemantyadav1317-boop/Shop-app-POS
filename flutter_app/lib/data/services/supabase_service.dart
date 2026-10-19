@@ -271,6 +271,33 @@ class SupabaseService {
     return saved;
   }
 
+  Future<List<Product>> addProductsBatch(List<Product> products) async {
+    if (products.isEmpty) return [];
+    final List<Product> savedList = [];
+    if (isInitialized && client != null && products.first.shopId != 'demo-shop-101') {
+      try {
+        final payload = products.map((p) => p.toSupabaseJson()).toList();
+        final res = await client!.from('products').insert(payload).select();
+        final list = (res as List).map((e) => Product.fromJson(e)).toList();
+        savedList.addAll(list);
+      } catch (e) {
+        debugPrint("Error batch inserting products in cloud: $e");
+        savedList.addAll(products);
+      }
+    } else {
+      savedList.addAll(products);
+    }
+
+    for (final p in savedList) {
+      _localProducts.removeWhere((item) => item.id == p.id);
+      _localProducts.add(p);
+    }
+    if (products.isNotEmpty) {
+      _saveCachedProducts(products.first.shopId, _localProducts);
+    }
+    return savedList;
+  }
+
   Future<void> updateProduct(Product product) async {
     final index = _localProducts.indexWhere((p) => p.id == product.id);
     if (index != -1) {

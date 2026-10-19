@@ -309,8 +309,11 @@ class _CartPanelState extends State<CartPanel> {
         ),
 
         // Bottom Billing Summary
-        Container(
-          padding: const EdgeInsets.all(14),
+        SafeArea(
+          top: false,
+          bottom: true,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
           decoration: BoxDecoration(
             color: Theme.of(context).cardColor,
             border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
@@ -419,6 +422,7 @@ class _CartPanelState extends State<CartPanel> {
               ),
             ],
           ),
+        ),
         ),
       ],
     );

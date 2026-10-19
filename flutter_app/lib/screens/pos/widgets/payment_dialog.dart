@@ -227,8 +227,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 440, maxHeight: 720),
+      child: SafeArea(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 720),
         child: Column(
           children: [
             // Header Bar matching user's photo
@@ -572,6 +573,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

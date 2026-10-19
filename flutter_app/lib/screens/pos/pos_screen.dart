@@ -17,11 +17,12 @@ class PosScreen extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (_) => FractionallySizedBox(
-        heightFactor: 0.88,
+        heightFactor: 0.90,
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: Scaffold(
@@ -35,8 +36,11 @@ class PosScreen extends StatelessWidget {
                 ),
               ],
             ),
-            body: CartPanel(
-              onCompleted: () => Navigator.pop(context),
+            body: SafeArea(
+              top: false,
+              child: CartPanel(
+                onCompleted: () => Navigator.pop(context),
+              ),
             ),
           ),
         ),
