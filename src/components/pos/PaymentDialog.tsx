@@ -1,3 +1,4 @@
+import { playSound } from "@/lib/sound";
 import { useEffect, useRef, useState } from "react";
 import { Check, Home, Share2 } from "lucide-react";
 import { toast } from "sonner";
@@ -151,7 +152,7 @@ export function PaymentDialog({
       setReceipt(data);
       cart.clear();
       invalidate();
-      toast.success("Sale completed successfully");
+      playSound("sale"); toast("Sale completed successfully");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String(e.message) : "Sale failed");
       lock.current = false;
