@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 import '../models/product.dart';
 import '../models/customer.dart';
 import '../models/sale.dart';
@@ -111,6 +112,20 @@ class SupabaseService {
     _localShop = shop;
   }
 
+  /// Automatically ensures that if a user is logged in, their data is attached
+  /// to their real Supabase Cloud shop UUID rather than staying trapped in demo-shop-101.
+  Future<String> _ensureValidShopId(String currentShopId) async {
+    if (currentShopId != 'demo-shop-101' && currentShopId.length >= 30) {
+      return currentShopId;
+    }
+    final user = client?.auth.currentUser;
+    if (user != null) {
+      final synced = await syncUserShop(userId: user.id, userEmail: user.email ?? '');
+      return synced.id;
+    }
+    return currentShopId;
+  }
+
   // --- MULTI-DEVICE CLOUD SHOP SYNC ---
   /// Ensures the logged in user has a persistent UUID shop in Supabase
   /// and downloads that shop's data to the device so mobile and tablet match 100%.
@@ -124,15 +139,16 @@ class SupabaseService {
     }
 
     try {
-      // 1. Try to find shop owned by this user
+      final prefs = await SharedPreferences.getInstance();
+
+      // 1. Try to find existing shop owned by this user
       final owned = await client!.from('shops').select('*').eq('owner_id', userId).maybeSingle();
       if (owned != null) {
         final shop = Shop.fromJson(owned);
         _localShop = shop;
-        final prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
-        
-        // If user created products offline before logging in, upload them to cloud shop!
+
+        // Migrate any offline cached products to cloud shop
         final offlineCached = prefs.getString('cached_products_demo-shop-101');
         if (offlineCached != null) {
           try {
@@ -140,38 +156,58 @@ class SupabaseService {
                 .map((e) => Product.fromJson(e as Map<String, dynamic>))
                 .toList();
             if (list.isNotEmpty) {
-              final toMigrate = list.map((p) => p.copyWith(shopId: shop.id)).toList();
+              final toMigrate = list.map((p) => p.copyWith(
+                id: p.id.startsWith('demo-') ? const Uuid().v4() : p.id,
+                shopId: shop.id,
+              )).toList();
               await addProductsBatch(toMigrate);
               await prefs.remove('cached_products_demo-shop-101');
-              debugPrint("Migrated ${toMigrate.length} offline products to cloud shop ${shop.id}");
+              debugPrint("Migrated ${toMigrate.length} offline cached products to cloud shop ${shop.id}");
             }
           } catch (e) {
-            debugPrint("Error migrating offline products: $e");
+            debugPrint("Error migrating offline cached products: $e");
           }
+        }
+
+        // Migrate any in-memory demo products
+        if (_localProducts.isNotEmpty && _localProducts.any((p) => p.shopId == 'demo-shop-101')) {
+          final toMigrate = _localProducts
+              .where((p) => p.shopId == 'demo-shop-101')
+              .map((p) => p.copyWith(
+                    id: p.id.startsWith('demo-') ? const Uuid().v4() : p.id,
+                    shopId: shop.id,
+                  ))
+              .toList();
+          await addProductsBatch(toMigrate);
         }
 
         return shop;
       }
 
       // 2. Try to find shop where user is a member
-      final member = await client!.from('shop_members').select('shop_id').eq('user_id', userId).maybeSingle();
-      if (member != null && member['shop_id'] != null) {
-        final memberShop = await client!.from('shops').select('*').eq('id', member['shop_id']).maybeSingle();
-        if (memberShop != null) {
-          final shop = Shop.fromJson(memberShop);
-          _localShop = shop;
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
-          return shop;
+      try {
+        final member = await client!.from('shop_members').select('shop_id').eq('user_id', userId).maybeSingle();
+        if (member != null && member['shop_id'] != null) {
+          final memberShop = await client!.from('shops').select('*').eq('id', member['shop_id']).maybeSingle();
+          if (memberShop != null) {
+            final shop = Shop.fromJson(memberShop);
+            _localShop = shop;
+            await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
+            return shop;
+          }
         }
+      } catch (memErr) {
+        debugPrint("Check shop_members error: $memErr");
       }
 
-      // 3. User does not have a shop in cloud yet -> create one with a real UUID
+      // 3. User does not have a shop in cloud yet -> create one with a client-generated UUID
       final shopName = (fallback?.name != null && fallback!.name.isNotEmpty && fallback.name != 'मेरी दुकान (My Store)')
           ? fallback.name
           : 'Meri Dukan (${userEmail.split('@').first})';
 
+      final newShopId = const Uuid().v4();
       final newShopPayload = {
+        'id': newShopId,
         'owner_id': userId,
         'name': shopName,
         if (fallback?.phone != null) 'phone': fallback!.phone,
@@ -184,8 +220,41 @@ class SupabaseService {
         'allow_negative_stock': fallback?.allowNegativeStock ?? true,
       };
 
-      final created = await client!.from('shops').insert(newShopPayload).select().single();
-      final shop = Shop.fromJson(created);
+      Shop shop;
+      try {
+        final created = await client!.from('shops').insert(newShopPayload).select().maybeSingle();
+        if (created != null) {
+          shop = Shop.fromJson(created);
+        } else {
+          shop = Shop(
+            id: newShopId,
+            name: shopName,
+            phone: fallback?.phone ?? '',
+            address: fallback?.address ?? '',
+            gstin: fallback?.gstin ?? '',
+            upiId: fallback?.upiId ?? '',
+            upiPayeeName: fallback?.upiPayeeName ?? '',
+            allowNegativeStock: fallback?.allowNegativeStock ?? true,
+            printPaperSize: fallback?.printPaperSize ?? '58mm',
+            receiptFooter: fallback?.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏',
+          );
+        }
+      } catch (insertErr) {
+        debugPrint("Direct insert shops error (fallback to assigned UUID): $insertErr");
+        shop = Shop(
+          id: newShopId,
+          name: shopName,
+          phone: fallback?.phone ?? '',
+          address: fallback?.address ?? '',
+          gstin: fallback?.gstin ?? '',
+          upiId: fallback?.upiId ?? '',
+          upiPayeeName: fallback?.upiPayeeName ?? '',
+          allowNegativeStock: fallback?.allowNegativeStock ?? true,
+          printPaperSize: fallback?.printPaperSize ?? '58mm',
+          receiptFooter: fallback?.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏',
+        );
+      }
+
       _localShop = shop;
 
       // Join as owner in shop_members
@@ -209,13 +278,50 @@ class SupabaseService {
         debugPrint("Error seeding initial catalog to cloud: $e");
       }
 
-      final prefs = await SharedPreferences.getInstance();
       await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
       return shop;
     } catch (e) {
       debugPrint("Error in syncUserShop: $e");
       return _localShop;
     }
+  }
+
+  /// Complete 1-Tap Cloud Sync: Fetches all fresh data from Supabase
+  /// and returns count summary for user confirmation.
+  Future<Map<String, int>> syncAllCloudData(String shopId) async {
+    final validShopId = await _ensureValidShopId(shopId);
+    int prods = 0;
+    int custs = 0;
+    int sales = 0;
+
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
+      try {
+        final pList = await getProducts(validShopId);
+        prods = pList.length;
+      } catch (e) {
+        debugPrint("Sync products err: $e");
+      }
+
+      try {
+        final cList = await getCustomers(validShopId);
+        custs = cList.length;
+      } catch (e) {
+        debugPrint("Sync customers err: $e");
+      }
+
+      try {
+        final sList = await getSales(validShopId);
+        sales = sList.length;
+      } catch (e) {
+        debugPrint("Sync sales err: $e");
+      }
+    }
+
+    return {
+      'products': prods,
+      'customers': custs,
+      'sales': sales,
+    };
   }
 
   // --- PRODUCTS ---
@@ -275,61 +381,67 @@ class SupabaseService {
   }
 
   Future<Product> addProduct(Product product) async {
-    Product saved = product;
-    if (isInitialized && client != null && product.shopId != 'demo-shop-101') {
+    final validShopId = await _ensureValidShopId(product.shopId);
+    final targetProduct = product.shopId != validShopId ? product.copyWith(shopId: validShopId) : product;
+    Product saved = targetProduct;
+    if (isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
-        final res = await client!.from('products').insert(product.toSupabaseJson()).select().single();
+        final res = await client!.from('products').insert(targetProduct.toSupabaseJson()).select().single();
         saved = Product.fromJson(res);
       } catch (e) {
         debugPrint("Error inserting product in cloud: $e");
       }
     }
-    _localProducts.removeWhere((p) => p.id == product.id);
+    _localProducts.removeWhere((p) => p.id == targetProduct.id);
     _localProducts.add(saved);
-    _saveCachedProducts(product.shopId, _localProducts);
+    _saveCachedProducts(validShopId, _localProducts);
     return saved;
   }
 
   Future<List<Product>> addProductsBatch(List<Product> products) async {
     if (products.isEmpty) return [];
+    final validShopId = await _ensureValidShopId(products.first.shopId);
+    final List<Product> targetProducts = products.map((p) => p.shopId != validShopId ? p.copyWith(shopId: validShopId) : p).toList();
     final List<Product> savedList = [];
-    if (isInitialized && client != null && products.first.shopId != 'demo-shop-101') {
+    if (isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
-        final payload = products.map((p) => p.toSupabaseJson()).toList();
+        final payload = targetProducts.map((p) => p.toSupabaseJson()).toList();
         final res = await client!.from('products').insert(payload).select();
         final list = (res as List).map((e) => Product.fromJson(e)).toList();
         savedList.addAll(list);
       } catch (e) {
         debugPrint("Error batch inserting products in cloud: $e");
-        savedList.addAll(products);
+        savedList.addAll(targetProducts);
       }
     } else {
-      savedList.addAll(products);
+      savedList.addAll(targetProducts);
     }
 
     for (final p in savedList) {
       _localProducts.removeWhere((item) => item.id == p.id);
       _localProducts.add(p);
     }
-    if (products.isNotEmpty) {
-      _saveCachedProducts(products.first.shopId, _localProducts);
+    if (targetProducts.isNotEmpty) {
+      _saveCachedProducts(validShopId, _localProducts);
     }
     return savedList;
   }
 
   Future<void> updateProduct(Product product) async {
-    final index = _localProducts.indexWhere((p) => p.id == product.id);
+    final validShopId = await _ensureValidShopId(product.shopId);
+    final targetProduct = product.shopId != validShopId ? product.copyWith(shopId: validShopId) : product;
+    final index = _localProducts.indexWhere((p) => p.id == targetProduct.id);
     if (index != -1) {
-      _localProducts[index] = product;
+      _localProducts[index] = targetProduct;
     }
-    if (isInitialized && client != null && product.shopId != 'demo-shop-101') {
+    if (isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
-        await client!.from('products').update(product.toSupabaseJson()).eq('id', product.id);
+        await client!.from('products').update(targetProduct.toSupabaseJson()).eq('id', targetProduct.id);
       } catch (e) {
         debugPrint("Error updating product in cloud: $e");
       }
     }
-    _saveCachedProducts(product.shopId, _localProducts);
+    _saveCachedProducts(validShopId, _localProducts);
   }
 
   Future<void> deleteProduct(String productId) async {
@@ -385,18 +497,20 @@ class SupabaseService {
   }
 
   Future<Customer> addCustomer(Customer customer) async {
-    Customer saved = customer;
-    if (_isInitialized && client != null && customer.shopId != 'demo-shop-101') {
+    final validShopId = await _ensureValidShopId(customer.shopId);
+    final targetCustomer = customer.shopId != validShopId ? customer.copyWith(shopId: validShopId) : customer;
+    Customer saved = targetCustomer;
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
-        final res = await client!.from('customers').insert(customer.toJson()).select().single();
+        final res = await client!.from('customers').insert(targetCustomer.toJson()).select().single();
         saved = Customer.fromJson(res);
       } catch (e) {
         debugPrint("Error adding customer to cloud: $e");
       }
     }
-    _localCustomers.removeWhere((c) => c.id == customer.id);
+    _localCustomers.removeWhere((c) => c.id == targetCustomer.id);
     _localCustomers.add(saved);
-    _saveCachedCustomers(customer.shopId, _localCustomers);
+    _saveCachedCustomers(validShopId, _localCustomers);
     return saved;
   }
 
@@ -469,10 +583,12 @@ class SupabaseService {
   }
 
   Future<Sale> createSale(Sale sale) async {
-    _localSales.insert(0, sale);
+    final validShopId = await _ensureValidShopId(sale.shopId);
+    final targetSale = sale.shopId != validShopId ? sale.copyWith(shopId: validShopId) : sale;
+    _localSales.insert(0, targetSale);
 
     // Deduct stock locally
-    for (final item in sale.items) {
+    for (final item in targetSale.items) {
       if (item.productId != null) {
         final pIndex = _localProducts.indexWhere((p) => p.id == item.productId);
         if (pIndex != -1) {
@@ -483,18 +599,18 @@ class SupabaseService {
     }
 
     // Add to customer Khata if credit
-    if (sale.due > 0 && sale.customerId != null) {
-      final cIndex = _localCustomers.indexWhere((c) => c.id == sale.customerId);
+    if (targetSale.due > 0 && targetSale.customerId != null) {
+      final cIndex = _localCustomers.indexWhere((c) => c.id == targetSale.customerId);
       if (cIndex != -1) {
         final c = _localCustomers[cIndex];
-        _localCustomers[cIndex] = c.copyWith(balance: c.balance + sale.due);
+        _localCustomers[cIndex] = c.copyWith(balance: c.balance + targetSale.due);
       }
     }
 
-    if (_isInitialized && client != null && sale.shopId != 'demo-shop-101') {
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
         // 1. Try calling official Supabase RPC create_sale
-        final formattedItems = sale.items.map((i) => {
+        final formattedItems = targetSale.items.map((i) => {
           'product_id': (i.productId != null && i.productId!.length >= 30) ? i.productId : null,
           'name': i.name,
           'unit': (i.unit == 'kg') ? 'kg' : 'pc',
@@ -502,21 +618,21 @@ class SupabaseService {
           'qty': i.qty,
         }).toList();
 
-        final validMode = ['cash', 'online', 'credit', 'split', 'set_later'].contains(sale.paymentMode)
-            ? sale.paymentMode
+        final validMode = ['cash', 'online', 'credit', 'split', 'set_later'].contains(targetSale.paymentMode)
+            ? targetSale.paymentMode
             : 'cash';
 
-        final custId = (sale.customerId != null && sale.customerId!.length >= 30) ? sale.customerId : null;
+        final custId = (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null;
 
         await client!.rpc('create_sale', params: {
-          '_shop_id': sale.shopId,
+          '_shop_id': validShopId,
           '_items': formattedItems,
-          '_discount': sale.discount,
+          '_discount': targetSale.discount,
           '_payment_mode': validMode,
-          '_paid': sale.paid,
+          '_paid': targetSale.paid,
           '_customer_id': custId,
-          '_customer_name': sale.customerName,
-          '_customer_phone': sale.customerPhone,
+          '_customer_name': targetSale.customerName,
+          '_customer_phone': targetSale.customerPhone,
           '_note': null,
         });
         debugPrint("Sale successfully synced to cloud via create_sale RPC");
@@ -524,28 +640,28 @@ class SupabaseService {
         debugPrint("RPC create_sale fallback to direct table insert: $e");
         try {
           final salePayload = {
-            'id': sale.id,
-            'shop_id': sale.shopId,
-            'bill_no': sale.billNo > 0 ? sale.billNo : 1,
-            'customer_id': (sale.customerId != null && sale.customerId!.length >= 30) ? sale.customerId : null,
-            'customer_name': sale.customerName,
-            'customer_phone': sale.customerPhone,
-            'sub_total': sale.subtotal,
-            'discount': sale.discount,
-            'total': sale.total,
-            'paid': sale.paid,
-            'due': sale.due,
-            'payment_mode': ['cash', 'online', 'credit', 'split', 'set_later'].contains(sale.paymentMode)
-                ? sale.paymentMode
+            'id': targetSale.id,
+            'shop_id': validShopId,
+            'bill_no': targetSale.billNo > 0 ? targetSale.billNo : 1,
+            'customer_id': (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null,
+            'customer_name': targetSale.customerName,
+            'customer_phone': targetSale.customerPhone,
+            'sub_total': targetSale.subtotal,
+            'discount': targetSale.discount,
+            'total': targetSale.total,
+            'paid': targetSale.paid,
+            'due': targetSale.due,
+            'payment_mode': ['cash', 'online', 'credit', 'split', 'set_later'].contains(targetSale.paymentMode)
+                ? targetSale.paymentMode
                 : 'cash',
           };
           await client!.from('sales').insert(salePayload);
 
-          for (final item in sale.items) {
+          for (final item in targetSale.items) {
             try {
               await client!.from('sale_items').insert({
-                'shop_id': sale.shopId,
-                'sale_id': sale.id,
+                'shop_id': validShopId,
+                'sale_id': targetSale.id,
                 'product_id': (item.productId != null && item.productId!.length >= 30) ? item.productId : null,
                 'name': item.name,
                 'unit': (item.unit == 'kg') ? 'kg' : 'pc',
@@ -561,8 +677,8 @@ class SupabaseService {
       }
     }
 
-    _saveCachedSales(sale.shopId, _localSales);
-    return sale;
+    _saveCachedSales(validShopId, _localSales);
+    return targetSale;
   }
 
   /// Update an existing bill in Cloud and local cache

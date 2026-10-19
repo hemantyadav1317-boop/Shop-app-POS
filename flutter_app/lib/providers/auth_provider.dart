@@ -50,6 +50,9 @@ class AuthProvider extends ChangeNotifier {
         // Listen to auth state changes
         client.auth.onAuthStateChange.listen((data) {
           _user = data.session?.user;
+          if (_user != null) {
+            _isGuestMode = false;
+          }
           notifyListeners();
         });
       }

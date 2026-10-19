@@ -12,7 +12,9 @@ import '../../core/services/bluetooth_printer_service.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/cart_item.dart';
+import '../../data/models/shop.dart';
 import '../../data/services/upi_service.dart';
+import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
@@ -42,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _btPrinterMac;
   bool _btIsConnected = false;
   bool _isConnectingBt = false;
+  bool _isSyncingCloud = false;
 
   @override
   void initState() {
@@ -263,6 +266,66 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _handleManualCloudSync() async {
+    setState(() => _isSyncingCloud = true);
+    try {
+      final auth = context.read<AuthProvider>();
+      final shopProvider = context.read<ShopProvider>();
+      final productProvider = context.read<ProductProvider>();
+      final customerProvider = context.read<CustomerProvider>();
+
+      Shop targetShop = shopProvider.shop;
+      final u = auth.user;
+      if (u != null) {
+        targetShop = await SupabaseService.instance.syncUserShop(
+          userId: u.id,
+          userEmail: u.email ?? '',
+          fallback: targetShop,
+        );
+        if (targetShop.id != shopProvider.shop.id) {
+          await shopProvider.setShop(targetShop);
+        }
+      }
+
+      final summary = await SupabaseService.instance.syncAllCloudData(targetShop.id);
+      await productProvider.loadProducts(targetShop.id);
+      await customerProvider.loadCustomers(targetShop.id);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.green.shade700,
+            content: Row(
+              children: [
+                const Icon(Icons.cloud_done, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'क्लाउड सिंक सफल! प्रोडक्ट्स: ${summary['products']}, ग्राहक: ${summary['customers']}, बिल: ${summary['sales']}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text('सिंक एरर: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncingCloud = false);
+      }
+    }
+  }
+
   void _showJoinShopDialog(BuildContext context) {
     final codeCtrl = TextEditingController();
 
@@ -466,6 +529,152 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       },
                       child: const Text('लॉगआउट', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ☁️ Multi-Device Cloud Sync Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: (currentShop.id.length >= 30)
+                      ? Colors.green.shade400
+                      : Colors.orange.shade400,
+                  width: 1.2,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.cloud_sync,
+                          color: (currentShop.id.length >= 30)
+                              ? Colors.green.shade700
+                              : Colors.orange.shade800,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'मल्टी-डिवाइस क्लाउड सिंक स्थिति',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Theme.of(context).textTheme.titleMedium?.color,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: (currentShop.id.length >= 30)
+                                ? Colors.green.shade50
+                                : Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: (currentShop.id.length >= 30)
+                                  ? Colors.green.shade300
+                                  : Colors.orange.shade300,
+                            ),
+                          ),
+                          child: Text(
+                            (currentShop.id.length >= 30) ? '🟢 लाइव सिंक' : '🟠 ऑफ़लाइन / डेमो',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: (currentShop.id.length >= 30)
+                                  ? Colors.green.shade800
+                                  : Colors.orange.shade900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.black26
+                            : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text('लॉगिन ईमेल: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              Expanded(
+                                child: Text(
+                                  authProvider.email ?? 'लॉगिन नहीं है (Guest Mode)',
+                                  style: const TextStyle(fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Text('User ID: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              Expanded(
+                                child: Text(
+                                  authProvider.user?.id ?? 'लोकल (Not Logged In)',
+                                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Text('दुकान ID: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                              Expanded(
+                                child: Text(
+                                  currentShop.id,
+                                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: _isSyncingCloud ? null : _handleManualCloudSync,
+                        icon: _isSyncingCloud
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.sync, size: 18),
+                        label: Text(
+                          _isSyncingCloud ? 'क्लाउड से डेटा सिंक हो रहा है...' : 'अभी डेटा सिंक करें (Sync Data Now)',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
                     ),
                   ],
                 ),
