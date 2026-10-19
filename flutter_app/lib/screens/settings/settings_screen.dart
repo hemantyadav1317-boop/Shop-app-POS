@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
 import '../../core/services/receipt_print_service.dart';
+import '../../core/services/bluetooth_printer_service.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/cart_item.dart';
 import '../../data/services/upi_service.dart';
@@ -36,6 +37,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _allowNegativeStock;
   String? _qrImageUrl;
 
+  String? _btPrinterName;
+  String? _btPrinterMac;
+  bool _btIsConnected = false;
+  bool _isConnectingBt = false;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +59,119 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     _upiIdCtrl.addListener(() => setState(() {}));
     _upiNameCtrl.addListener(() => setState(() {}));
+    _loadBtPrinterInfo();
+  }
+
+  Future<void> _loadBtPrinterInfo() async {
+    final mac = await BluetoothPrinterService.getSavedPrinterMac();
+    final name = await BluetoothPrinterService.getSavedPrinterName();
+    final connected = await BluetoothPrinterService.isConnected();
+    if (mounted) {
+      setState(() {
+        _btPrinterMac = mac;
+        _btPrinterName = name;
+        _btIsConnected = connected;
+      });
+    }
+  }
+
+  Future<void> _selectBluetoothPrinter() async {
+    final isEnabled = await BluetoothPrinterService.isBluetoothEnabled();
+    if (!isEnabled && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.warning,
+          content: Text('कृपया फ़ोन का Bluetooth ऑन करें और प्रिंटर को Pair करें।'),
+        ),
+      );
+      return;
+    }
+
+    final devices = await BluetoothPrinterService.getPairedDevices();
+    if (!mounted) return;
+
+    if (devices.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('कोई ब्लूटूथ प्रिंटर नहीं मिला'),
+          content: const Text(
+            'कृपया पहले अपने फ़ोन / टैबलेट की Bluetooth Settings में जाएं और अपने प्रिंटर (POS-58, MTP-2) को Pair करें (Default PIN: 0000 या 1234)। इसके बाद यहाँ आकर चुनें।',
+            style: TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('समझ गया (OK)')),
+          ],
+        ),
+      );
+      return;
+    }
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.print, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  const Text('उपलब्ध ब्लूटूथ प्रिंटर चुनें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Spacer(),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                ],
+              ),
+              const Divider(),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 280),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: devices.length,
+                  itemBuilder: (ctx, i) {
+                    final d = devices[i];
+                    final isSelected = d.macAdress == _btPrinterMac;
+                    return ListTile(
+                      leading: Icon(Icons.bluetooth, color: isSelected ? AppColors.primary : Colors.grey),
+                      title: Text(d.name.isNotEmpty ? d.name : 'Unknown Thermal Printer', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(d.macAdress, style: const TextStyle(fontSize: 11)),
+                      trailing: isSelected
+                          ? const Chip(label: Text('चुना हुआ', style: TextStyle(fontSize: 11, color: Colors.green)), backgroundColor: Color(0xFFE8F5E9))
+                          : const Icon(Icons.chevron_right),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        setState(() => _isConnectingBt = true);
+                        final ok = await BluetoothPrinterService.connectPrinter(d.macAdress);
+                        await BluetoothPrinterService.saveSelectedPrinter(d.macAdress, d.name);
+                        if (mounted) {
+                          setState(() {
+                            _btPrinterMac = d.macAdress;
+                            _btPrinterName = d.name;
+                            _btIsConnected = ok;
+                            _isConnectingBt = false;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: ok ? AppColors.primary : AppColors.warning,
+                              content: Text(ok ? '${d.name} प्रिंटर सफलतापूर्वक कनेक्ट हो गया!' : '${d.name} सेव हो गया (प्रिंट करते समय कनेक्ट होगा)'),
+                            ),
+                          );
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -721,81 +840,146 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Bluetooth Printer Guide Box
+                    // Interactive Bluetooth Printer Setup Box
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.blue.shade200),
+                        color: _btPrinterMac != null ? Colors.green.shade50 : Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _btPrinterMac != null ? Colors.green.shade200 : Colors.blue.shade200,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Icon(Icons.bluetooth_searching, color: Colors.blue.shade800, size: 18),
-                              const SizedBox(width: 6),
-                              Text(
-                                'ब्लूटूथ थर्मल प्रिंटर कनेक्ट करने का तरीका:',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blue.shade900),
+                              Icon(
+                                _btPrinterMac != null ? Icons.bluetooth_connected : Icons.bluetooth,
+                                color: _btPrinterMac != null ? Colors.green.shade800 : Colors.blue.shade800,
+                                size: 20,
                               ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _btPrinterMac != null
+                                      ? 'प्रिंटर: ${_btPrinterName ?? "Thermal Printer"}'
+                                      : 'ब्लूटूथ थर्मल प्रिंटर सेट करें (Direct Print)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: _btPrinterMac != null ? Colors.green.shade900 : Colors.blue.shade900,
+                                  ),
+                                ),
+                              ),
+                              if (_btPrinterMac != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade100,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _btIsConnected ? 'कनेक्टेड / Online' : 'सक्रिय / Saved',
+                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
+                                  ),
+                                ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          const Text(
-                            '1. अपने ब्लूटूथ थर्मल प्रिंटर (58mm या 80mm) को ऑन करें।\n'
-                            '2. अपने फ़ोन / टैबलेट की Bluetooth Settings खोलकर प्रिंटर को Pair करें (Default PIN: 0000 या 1234)।\n'
-                            '3. बिल बनने के बाद "प्रिंट बिल" पर टैप करें और लिस्ट से अपने ब्लूटूथ प्रिंटर को चुनें।',
-                            style: TextStyle(fontSize: 11, height: 1.4, color: AppColors.lightTextPrimary),
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              icon: const Icon(Icons.print_outlined, size: 16),
-                              label: const Text('प्रिंटर टेस्ट करें (Test Thermal Print)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.blue.shade900,
-                                side: BorderSide(color: Colors.blue.shade400),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                              ),
-                              onPressed: () async {
-                                final testSale = Sale(
-                                  id: 'test-print-${DateTime.now().millisecondsSinceEpoch}',
-                                  shopId: currentShop.id,
-                                  billNo: 101,
-                                  createdAt: DateTime.now(),
-                                  paymentMode: 'cash',
-                                  subtotal: 140.0,
-                                  discount: 0.0,
-                                  total: 140.0,
-                                  paid: 140.0,
-                                  due: 0.0,
-                                  items: [
-                                    CartItem(
-                                      productId: 'test-1',
-                                      name: 'चावल (Basmati Rice 1kg)',
-                                      unit: 'kg',
-                                      price: 90.0,
-                                      qty: 1,
-                                    ),
-                                    CartItem(
-                                      productId: 'test-2',
-                                      name: 'चीनी (Sugar 1kg)',
-                                      unit: 'kg',
-                                      price: 50.0,
-                                      qty: 1,
-                                    ),
-                                  ],
-                                );
-                                await ReceiptPrintService.printReceipt(
-                                  sale: testSale,
-                                  shop: currentShop.copyWith(printPaperSize: _paperSize),
-                                  shopEmail: authProvider.email,
-                                );
-                              },
+                          if (_btPrinterMac != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'MAC Address: $_btPrinterMac',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                             ),
+                          ],
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              ElevatedButton.icon(
+                                icon: _isConnectingBt
+                                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Icon(Icons.bluetooth_searching, size: 16),
+                                label: Text(_btPrinterMac == null ? 'प्रिंटर खोजें व कनेक्ट करें' : 'प्रिंटर बदलें'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: _isConnectingBt ? null : _selectBluetoothPrinter,
+                              ),
+                              if (_btPrinterMac != null)
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.link_off, size: 16, color: Colors.red),
+                                  label: const Text('हटाएं', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: Colors.red),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  onPressed: () async {
+                                    await BluetoothPrinterService.forgetPrinter();
+                                    setState(() {
+                                      _btPrinterMac = null;
+                                      _btPrinterName = null;
+                                      _btIsConnected = false;
+                                    });
+                                  },
+                                ),
+                              ElevatedButton.icon(
+                                icon: const Icon(Icons.print, size: 16),
+                                label: const Text('टेस्ट प्रिंट (Slip)'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.teal,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () async {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('प्रिंटर को टेस्ट प्रिंट भेजा जा रहा है...')),
+                                  );
+                                  final directOk = await BluetoothPrinterService.printTestReceipt(
+                                    currentShop.copyWith(printPaperSize: _paperSize),
+                                  );
+                                  if (directOk && mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        backgroundColor: Colors.green,
+                                        content: Text('✅ टेस्ट प्रिंट सफलतापूर्वक निकल गया!'),
+                                      ),
+                                    );
+                                  } else if (mounted) {
+                                    // Fallback to receipt print
+                                    final testSale = Sale(
+                                      id: 'test-print-${DateTime.now().millisecondsSinceEpoch}',
+                                      shopId: currentShop.id,
+                                      billNo: 101,
+                                      createdAt: DateTime.now(),
+                                      paymentMode: 'cash',
+                                      subtotal: 140.0,
+                                      discount: 0.0,
+                                      total: 140.0,
+                                      paid: 140.0,
+                                      due: 0.0,
+                                      items: [
+                                        CartItem(productId: 'test-1', name: 'चावल (Rice 1kg)', unit: 'kg', price: 90.0, qty: 1),
+                                        CartItem(productId: 'test-2', name: 'चीनी (Sugar 1kg)', unit: 'kg', price: 50.0, qty: 1),
+                                      ],
+                                    );
+                                    await ReceiptPrintService.printReceipt(
+                                      sale: testSale,
+                                      shop: currentShop.copyWith(printPaperSize: _paperSize),
+                                      shopEmail: authProvider.email,
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),

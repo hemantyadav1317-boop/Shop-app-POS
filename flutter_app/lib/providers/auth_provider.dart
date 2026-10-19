@@ -10,24 +10,25 @@ class AuthProvider extends ChangeNotifier {
   String? _lastError;
   String _customOwnerName = 'दुकानदार';
 
-  User? get user => _user;
+  User? get user => _user ?? SupabaseService.instance.client?.auth.currentUser;
   bool get isGuestMode => _isGuestMode;
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
-  bool get isAuthenticated => _user != null || _isGuestMode;
+  bool get isAuthenticated => user != null || _isGuestMode;
 
   String get displayName {
-    if (_user != null) {
-      final meta = _user!.userMetadata;
+    final u = user;
+    if (u != null) {
+      final meta = u.userMetadata;
       if (meta != null && meta['full_name'] != null) {
         return meta['full_name'] as String;
       }
-      return _user!.email ?? 'User';
+      return u.email ?? 'User';
     }
     return _customOwnerName;
   }
 
-  String? get email => _user?.email;
+  String? get email => user?.email;
 
   AuthProvider() {
     _initAuth();

@@ -356,10 +356,27 @@ class _LoginScreenState extends State<LoginScreen> {
                         : () async {
                             final success = await auth.signInWithGoogle();
                             if (success && context.mounted) {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (_) => const MainShell()),
-                              );
+                              if (auth.user != null) {
+                                try {
+                                  final shopProvider = context.read<ShopProvider>();
+                                  final syncedShop = await SupabaseService.instance.syncUserShop(
+                                    userId: auth.user!.id,
+                                    userEmail: auth.user!.email ?? '',
+                                    fallback: shopProvider.shop,
+                                  );
+                                  await shopProvider.setShop(syncedShop);
+                                  if (context.mounted) {
+                                    await context.read<ProductProvider>().loadProducts(syncedShop.id);
+                                    await context.read<CustomerProvider>().loadCustomers(syncedShop.id);
+                                  }
+                                } catch (_) {}
+                              }
+                              if (context.mounted) {
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const MainShell()),
+                                );
+                              }
                             } else if (auth.lastError != null && context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

@@ -39,8 +39,9 @@ class Sale {
 
   factory Sale.fromJson(Map<String, dynamic> json) {
     List<CartItem> parsedItems = [];
-    if (json['items'] is List) {
-      parsedItems = (json['items'] as List)
+    final rawItems = json['items'] ?? json['sale_items'];
+    if (rawItems is List) {
+      parsedItems = (rawItems as List)
           .map((item) => CartItem.fromJson(Map<String, dynamic>.from(item as Map)))
           .toList();
     }
@@ -53,7 +54,7 @@ class Sale {
       customerName: json['customer_name'] as String?,
       customerPhone: json['customer_phone'] as String?,
       items: parsedItems,
-      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+      subtotal: ((json['subtotal'] ?? json['sub_total']) as num?)?.toDouble() ?? 0.0,
       discount: (json['discount'] as num?)?.toDouble() ?? 0.0,
       total: (json['total'] as num?)?.toDouble() ?? 0.0,
       paid: (json['paid'] as num?)?.toDouble() ?? 0.0,

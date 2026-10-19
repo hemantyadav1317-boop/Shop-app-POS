@@ -131,6 +131,25 @@ class SupabaseService {
         _localShop = shop;
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
+        
+        // If user created products offline before logging in, upload them to cloud shop!
+        final offlineCached = prefs.getString('cached_products_demo-shop-101');
+        if (offlineCached != null) {
+          try {
+            final list = (jsonDecode(offlineCached) as List)
+                .map((e) => Product.fromJson(e as Map<String, dynamic>))
+                .toList();
+            if (list.isNotEmpty) {
+              final toMigrate = list.map((p) => p.copyWith(shopId: shop.id)).toList();
+              await addProductsBatch(toMigrate);
+              await prefs.remove('cached_products_demo-shop-101');
+              debugPrint("Migrated ${toMigrate.length} offline products to cloud shop ${shop.id}");
+            }
+          } catch (e) {
+            debugPrint("Error migrating offline products: $e");
+          }
+        }
+
         return shop;
       }
 
@@ -414,7 +433,7 @@ class SupabaseService {
       try {
         final response = await client!
             .from('sales')
-            .select('*')
+            .select('*, sale_items(*)')
             .eq('shop_id', shopId)
             .order('created_at', ascending: false)
             .limit(200);
@@ -474,25 +493,70 @@ class SupabaseService {
 
     if (_isInitialized && client != null && sale.shopId != 'demo-shop-101') {
       try {
-        // Try calling RPC create_sale_once if available
-        await client!.rpc('create_sale_once', params: {
-          '_client_ref': sale.clientRef ?? sale.id,
+        // 1. Try calling official Supabase RPC create_sale
+        final formattedItems = sale.items.map((i) => {
+          'product_id': (i.productId != null && i.productId!.length >= 30) ? i.productId : null,
+          'name': i.name,
+          'unit': (i.unit == 'kg') ? 'kg' : 'pc',
+          'price': i.price,
+          'qty': i.qty,
+        }).toList();
+
+        final validMode = ['cash', 'online', 'credit', 'split', 'set_later'].contains(sale.paymentMode)
+            ? sale.paymentMode
+            : 'cash';
+
+        final custId = (sale.customerId != null && sale.customerId!.length >= 30) ? sale.customerId : null;
+
+        await client!.rpc('create_sale', params: {
           '_shop_id': sale.shopId,
-          '_items': sale.items.map((i) => i.toJson()).toList(),
+          '_items': formattedItems,
           '_discount': sale.discount,
-          '_payment_mode': sale.paymentMode,
+          '_payment_mode': validMode,
           '_paid': sale.paid,
-          '_customer_id': sale.customerId,
+          '_customer_id': custId,
           '_customer_name': sale.customerName,
           '_customer_phone': sale.customerPhone,
           '_note': null,
         });
+        debugPrint("Sale successfully synced to cloud via create_sale RPC");
       } catch (e) {
-        debugPrint("RPC create_sale_once fallback to direct table insert: $e");
+        debugPrint("RPC create_sale fallback to direct table insert: $e");
         try {
-          await client!.from('sales').insert(sale.toJson());
+          final salePayload = {
+            'id': sale.id,
+            'shop_id': sale.shopId,
+            'bill_no': sale.billNo > 0 ? sale.billNo : 1,
+            'customer_id': (sale.customerId != null && sale.customerId!.length >= 30) ? sale.customerId : null,
+            'customer_name': sale.customerName,
+            'customer_phone': sale.customerPhone,
+            'sub_total': sale.subtotal,
+            'discount': sale.discount,
+            'total': sale.total,
+            'paid': sale.paid,
+            'due': sale.due,
+            'payment_mode': ['cash', 'online', 'credit', 'split', 'set_later'].contains(sale.paymentMode)
+                ? sale.paymentMode
+                : 'cash',
+          };
+          await client!.from('sales').insert(salePayload);
+
+          for (final item in sale.items) {
+            try {
+              await client!.from('sale_items').insert({
+                'shop_id': sale.shopId,
+                'sale_id': sale.id,
+                'product_id': (item.productId != null && item.productId!.length >= 30) ? item.productId : null,
+                'name': item.name,
+                'unit': (item.unit == 'kg') ? 'kg' : 'pc',
+                'price': item.price,
+                'qty': item.qty,
+                'line_total': item.price * item.qty,
+              });
+            } catch (_) {}
+          }
         } catch (inner) {
-          debugPrint("Failed to write sale to cloud: $inner");
+          debugPrint("Failed to write sale directly to cloud: $inner");
         }
       }
     }

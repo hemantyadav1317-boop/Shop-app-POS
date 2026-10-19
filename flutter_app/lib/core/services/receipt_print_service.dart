@@ -8,6 +8,7 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
+import 'bluetooth_printer_service.dart';
 
 class ReceiptPrintService {
   /// Generate PDF document for thermal receipt (58mm or 80mm) with Hindi Unicode support
@@ -224,13 +225,30 @@ class ReceiptPrintService {
     return pdf;
   }
 
-  /// Print receipt directly or open system print dialog
-  static Future<void> printReceipt({
+  /// Print receipt directly via Bluetooth thermal printer or open system print dialog
+  static Future<bool> printReceipt({
     required Sale sale,
     required Shop shop,
     Uint8List? imageBytes,
     String? shopEmail,
   }) async {
+    // 1. Try Direct Bluetooth Thermal Printing if a printer is saved / connected
+    try {
+      final isConnected = await BluetoothPrinterService.isConnected();
+      final savedMac = await BluetoothPrinterService.getSavedPrinterMac();
+      if (isConnected || (savedMac != null && savedMac.isNotEmpty)) {
+        final success = await BluetoothPrinterService.printReceiptDirect(
+          sale: sale,
+          shop: shop,
+          imageBytes: imageBytes,
+        );
+        if (success) {
+          return true;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Fallback to Android System Print / PDF Spooler
     if (imageBytes != null) {
       final doc = pw.Document();
       final img = pw.MemoryImage(imageBytes);
@@ -250,7 +268,7 @@ class ReceiptPrintService {
         onLayout: (PdfPageFormat format) async => bytes,
         name: 'Invoice_${sale.billNo}',
       );
-      return;
+      return false;
     }
 
     final pdf = await generateReceiptDocument(sale: sale, shop: shop, shopEmail: shopEmail);
@@ -260,6 +278,7 @@ class ReceiptPrintService {
       onLayout: (PdfPageFormat format) async => bytes,
       name: 'Invoice_${sale.billNo}',
     );
+    return false;
   }
 
   /// Share receipt image or PDF on WhatsApp or other apps

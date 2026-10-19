@@ -23,6 +23,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
+  AuthProvider? _authProvider;
 
   @override
   void initState() {
@@ -33,18 +34,43 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final auth = context.read<AuthProvider>();
+    if (_authProvider != auth) {
+      _authProvider?.removeListener(_onAuthChanged);
+      _authProvider = auth;
+      _authProvider?.addListener(_onAuthChanged);
+    }
+  }
+
+  void _onAuthChanged() {
+    if (mounted) {
+      _syncUserCloudData();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authProvider?.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
   Future<void> _syncUserCloudData() async {
     try {
       if (!mounted) return;
       final auth = context.read<AuthProvider>();
-      if (auth.user != null) {
+      final u = auth.user;
+      if (u != null) {
+        debugPrint("Syncing user cloud data for: ${u.email} (id: ${u.id})");
         final shopProvider = context.read<ShopProvider>();
         final productProvider = context.read<ProductProvider>();
         final customerProvider = context.read<CustomerProvider>();
 
         final syncedShop = await SupabaseService.instance.syncUserShop(
-          userId: auth.user!.id,
-          userEmail: auth.user!.email ?? '',
+          userId: u.id,
+          userEmail: u.email ?? '',
           fallback: shopProvider.shop,
         );
 
@@ -54,6 +80,7 @@ class _MainShellState extends State<MainShell> {
           }
           await productProvider.loadProducts(syncedShop.id);
           await customerProvider.loadCustomers(syncedShop.id);
+          debugPrint("Cloud sync complete: Shop=${syncedShop.id} Products=${productProvider.products.length}");
         }
       }
     } catch (e) {
