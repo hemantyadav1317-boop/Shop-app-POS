@@ -23,6 +23,8 @@ import { matchesProduct } from "@/lib/product-search";
 export const Route = createFileRoute("/_authenticated/inventory")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Inventory / Stock — Shop POS" },
       { name: "description", content: "Product aur category add/edit karein, stock aur low-stock alert dekhein." },
       { property: "og:title", content: "Inventory / Stock — Shop POS" },

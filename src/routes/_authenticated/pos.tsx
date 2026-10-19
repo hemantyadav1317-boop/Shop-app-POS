@@ -12,6 +12,8 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 export const Route = createFileRoute("/_authenticated/pos")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "New Sale — Shop POS" },
       { name: "description", content: "Tez billing: product, cart, discount aur payment ek screen par." },
       { property: "og:title", content: "New Sale — Shop POS" },
@@ -31,7 +33,8 @@ function PosPage() {
 
   return (
     <PosShell title="New Sale">
-      <div className="flex h-full min-h-0">
+      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1">
             <ProductGrid />
@@ -66,6 +69,8 @@ function PosPage() {
           <span className="truncate text-left text-sm font-semibold">{lines.length} items</span>
           <span className="shrink-0 text-base font-black">Rs {total.toFixed(2)}</span>
         </Button>
+      </div>
+
       </div>
 
       <Sheet open={cartOpen} onOpenChange={setCartOpen}>

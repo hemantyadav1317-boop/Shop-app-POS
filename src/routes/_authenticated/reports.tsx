@@ -12,6 +12,8 @@ import { downloadCsv } from "@/lib/receipt";
 export const Route = createFileRoute("/_authenticated/reports")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Reports — Shop POS" },
       { name: "description", content: "Sale, purchase, kharcha aur profit ka summary report — CSV export ke saath." },
       { property: "og:title", content: "Reports — Shop POS" },

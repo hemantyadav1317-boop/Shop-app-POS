@@ -13,6 +13,8 @@ import { savedOrderTotal } from "@/lib/checkout-rules";
 export const Route = createFileRoute("/_authenticated/saved")({
   head: () => ({
     meta: [
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
       { title: "Saved Orders — Shop POS" },
       { name: "description", content: "Adhoore orders save karein aur baad me resume karein." },
       { property: "og:title", content: "Saved Orders — Shop POS" },
