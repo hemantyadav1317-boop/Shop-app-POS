@@ -135,6 +135,7 @@ function AuthSync() {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => { void import("../lib/sound").then((m) => m.installGlobalSounds()); }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

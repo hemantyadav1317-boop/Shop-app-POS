@@ -65,6 +65,7 @@ export function QtyRateDialog({
       price: r,
       qty: q,
     });
+    playSound("add");
     onClose();
   }
 
