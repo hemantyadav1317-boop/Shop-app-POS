@@ -1,3 +1,6 @@
+import { printSize, setPrintSize, type PrintSize } from "@/lib/bt-print";
+import { Switch } from "@/components/ui/switch";
+import { playSound, setSoundEnabled, soundEnabled } from "@/lib/sound";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { LogOut } from "lucide-react";
@@ -49,6 +52,20 @@ function SettingsPage() {
   }, [shop]);
 
   const canEdit = role === "owner" || role === "manager";
+  const [policyBusy, setPolicyBusy] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+  const [pSize, setPSize] = useState<PrintSize>("large");
+  useEffect(() => { setSoundOn(soundEnabled()); setPSize(printSize()); }, []);
+
+  async function setPolicy(enabled: boolean) {
+    if (!shop || role !== "owner") return;
+    setPolicyBusy(true);
+    const { error } = await supabase.rpc("set_negative_stock_policy", { _shop_id: shop.id, _enabled: enabled });
+    setPolicyBusy(false);
+    if (error) return void toast.error(error.message);
+    await refresh?.();
+    toast.success(enabled ? "Negative stock sale ON" : "Negative stock sale OFF");
+  }
 
   async function save() {
     if (!shop) return;
@@ -156,6 +173,29 @@ function SettingsPage() {
               {saving ? "Saving…" : "Save changes"}
             </Button>
           )}
+        </section>
+
+        <section className="mt-3 rounded-2xl bg-card p-4 shadow-[var(--shadow-tile)]">
+          <h2 className="text-sm font-bold">Billing rules & sound</h2>
+          <label className="mt-3 flex min-h-11 items-center justify-between gap-3">
+            <span className="text-sm">
+              Negative stock me sale allow karein
+              <span className="block text-xs text-muted-foreground">Stock 0 ya kam hone par bhi bill banega (sirf owner badal sakta hai).</span>
+            </span>
+            <Switch checked={!!shop?.allow_negative_stock} disabled={role !== "owner" || policyBusy} onCheckedChange={(v) => void setPolicy(v)} />
+          </label>
+          <div className="mt-3">
+            <p className="text-sm">Print bill text size</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {([["normal", "Normal"], ["large", "Bada"], ["xl", "Bahut bada"]] as const).map(([v, l]) => (
+                <Button key={v} type="button" variant={pSize === v ? "default" : "outline"} className="h-11" onClick={() => { setPrintSize(v); setPSize(v); }}>{l}</Button>
+              ))}
+            </div>
+          </div>
+          <label className="mt-3 flex min-h-11 items-center justify-between gap-3">
+            <span className="text-sm">App sounds<span className="block text-xs text-muted-foreground">Har action ki alag awaaz.</span></span>
+            <Switch checked={soundOn} onCheckedChange={(v) => { setSoundEnabled(v); setSoundOn(v); if (v) playSound("success"); }} />
+          </label>
         </section>
 
         <section className="mt-3 rounded-2xl bg-card p-4 shadow-[var(--shadow-tile)]">

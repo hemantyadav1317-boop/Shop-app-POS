@@ -115,8 +115,30 @@ function canvasToEscPos(canvas: HTMLCanvasElement) {
 
 /** Bill ko Bluetooth thermal printer par print karta hai. */
 export async function printViaBluetooth(d: ReceiptData) {
-  const bytes = canvasToEscPos(await renderBillCanvas(d, DOTS, 1));
+  // Narrower logical layout scaled up to full printer width = bigger, readable text.
+  const scale = PRINT_SCALES[printSize()];
+  const canvas = await renderBillCanvas(d, Math.round(DOTS / scale), scale);
+  const bytes = canvasToEscPos(fitWidth(canvas));
   await send(bytes);
+}
+
+export type PrintSize = "normal" | "large" | "xl";
+const PRINT_SCALES: Record<PrintSize, number> = { normal: 1, large: 1.4, xl: 1.75 };
+const SIZE_KEY = "pos.printer.size";
+export function printSize(): PrintSize {
+  try { const v = localStorage.getItem(SIZE_KEY); return v === "normal" || v === "xl" ? v : "large"; } catch { return "large"; }
+}
+export function setPrintSize(v: PrintSize) { try { localStorage.setItem(SIZE_KEY, v); } catch { /* ignore */ } }
+
+/** Raster width must be exactly the printer width (multiple of 8). */
+function fitWidth(src: HTMLCanvasElement) {
+  if (src.width === DOTS) return src;
+  const c = document.createElement("canvas");
+  c.width = DOTS; c.height = Math.ceil(src.height * DOTS / src.width);
+  const ctx = c.getContext("2d")!;
+  ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(src, 0, 0, c.width, c.height);
+  return c;
 }
 
 /** Printer pehle se pair hai ya nahi — UI label ke liye. */

@@ -33,15 +33,15 @@ export function receiptHtml(d: ReceiptData, qr?: string | null, status?: string)
   return `<!doctype html><html><head><meta charset="utf-8"><title>Bill #${d.billNo}</title>
 <style>
   *{font-family:ui-monospace,Menlo,Consolas,monospace;box-sizing:border-box}
-  body{margin:0;padding:12px;color:#000;background:#fff;font-size:12px}
-  h1{font-size:16px;margin:0 0 2px;text-align:center}
+  body{margin:0;padding:12px;color:#000;background:#fff;font-size:16px;font-weight:600}
+  h1{font-size:22px;margin:0 0 2px;text-align:center}
   .c{text-align:center}.r{text-align:right}
   table{width:100%;border-collapse:collapse;margin-top:8px}
   td,th{padding:2px 0}
-  thead th{border-bottom:1px dashed #000;text-align:left;font-size:11px}
+  thead th{border-bottom:1px dashed #000;text-align:left;font-size:14px}
   .tot{border-top:1px dashed #000;margin-top:8px;padding-top:6px}
   .row{display:flex;justify-content:space-between}
-  .big{font-size:14px;font-weight:700}
+  .big{font-size:20px;font-weight:700}
   @media print{@page{margin:4mm}}
 </style></head><body>
 <h1>${escapeHtml(d.shopName)}</h1>
