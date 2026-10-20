@@ -64,7 +64,7 @@ export function installGlobalSounds() {
   const t = toast as unknown as Record<string, (...a: unknown[]) => unknown>;
   const wrap = (name: string, kind: SoundKind) => {
     const orig = t[name];
-    t[name] = (...a: unknown[]) => { playSound(kind); return orig(...a); };
+    t[name] = (...a: unknown[]) => { playSound(kind); return orig?.(...a); };
   };
   wrap("success", "success");
   wrap("error", "error");
@@ -72,8 +72,8 @@ export function installGlobalSounds() {
   wrap("info", "nav");
   document.addEventListener("click", (e) => {
     const el = (e.target as HTMLElement | null)?.closest("button, a, [role=button]") as HTMLElement | null;
-    if (!el || el.dataset.sound === "none") return;
-    const kind = (el.dataset.sound as SoundKind | undefined) ?? (el.tagName === "A" ? "nav" : "tap");
+    if (!el || el.dataset["sound"] === "none") return;
+    const kind = (el.dataset["sound"] as SoundKind | undefined) ?? (el.tagName === "A" ? "nav" : "tap");
     playSound(kind);
   }, { capture: true });
 }
