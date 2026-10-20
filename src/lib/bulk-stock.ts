@@ -1,4 +1,4 @@
-export type StockRow = { name: string; quantity: number; category?: string; unit?: "kg" | "pc"; price?: number; cost_price?: number };
+export type StockRow = { name: string; quantity: number; category?: string | undefined; unit?: "kg" | "pc" | undefined; price?: number | undefined; cost_price?: number | undefined };
 
 function splitLine(line: string): string[] {
   const out: string[] = []; let cur = ""; let q = false;
@@ -17,7 +17,7 @@ const num = (v?: string) => { if (v === undefined || v === "") return undefined;
 export function parseStockCsv(text: string): StockRow[] {
   const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
-  const head = splitLine(lines[0]).map((h) => h.toLowerCase().replace(/\s+/g, "_"));
+  const head = splitLine(lines[0] ?? "").map((h) => h.toLowerCase().replace(/\s+/g, "_"));
   const idx = (...names: string[]) => head.findIndex((h) => names.includes(h));
   const iName = idx("name", "product", "item"), iQty = idx("quantity", "qty", "stock");
   if (iName < 0 || iQty < 0) return [];
