@@ -8,7 +8,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCart } from "@/lib/cart";
 import { productIcon } from "@/lib/catalog";
@@ -39,11 +38,15 @@ export function QtyRateDialog({
   const { shop } = useShop();
   const [qty, setQty] = useState("1");
   const [rate, setRate] = useState("0");
+  const [field, setField] = useState<"qty" | "rate">("qty");
+  const [fresh, setFresh] = useState(true);
 
   useEffect(() => {
     if (target) {
       setQty(String(target.inCartQty && target.inCartQty > 0 ? target.inCartQty : target.unit === "kg" ? 1 : 1));
       setRate(String(target.price));
+      setField("qty");
+      setFresh(true);
     }
   }, [target]);
 
@@ -54,6 +57,21 @@ export function QtyRateDialog({
   const valid = Number.isFinite(r) && r >= 0 && (target.stock === undefined ? q > 0 : canSellStock(target.stock, q, shop?.allow_negative_stock));
   const steps = target.unit === "kg" ? KG_STEPS : PC_STEPS;
   const bump = (d: number) => setQty(String(Math.max(0, +(q + d).toFixed(3))));
+
+  function pick(f: "qty" | "rate") { setField(f); setFresh(true); }
+  function press(k: string) {
+    const set = field === "qty" ? setQty : setRate;
+    const cur = field === "qty" ? qty : rate;
+    if (k === "C") { set("0"); setFresh(true); return; }
+    if (k === "⌫") { set(fresh ? "0" : cur.slice(0, -1) || "0"); setFresh(false); return; }
+    let base = fresh ? "" : cur === "0" ? "" : cur;
+    if (k === "." && base.includes(".")) return;
+    if (k === "." && !base) base = "0";
+    const next = base + (k === "00" && !base ? "0" : k);
+    if (next.length > 9) return;
+    set(next);
+    setFresh(false);
+  }
 
   function save() {
     if (!target) return;
@@ -72,7 +90,7 @@ export function QtyRateDialog({
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-sm">
+      <DialogContent className="max-h-[95dvh] overflow-y-auto sm:max-w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-left">
             <span aria-hidden className="text-2xl">
@@ -96,14 +114,15 @@ export function QtyRateDialog({
               >
                 <Minus className="h-5 w-5" />
               </Button>
-              <Input
+              <button
+                type="button"
                 id="qr-qty"
-                inputMode="decimal"
-                value={qty}
-                onFocus={(e) => e.target.select()}
-                onChange={(e) => setQty(e.target.value)}
-                className="h-12 text-center text-lg font-bold"
-              />
+                data-sound="none"
+                onClick={() => pick("qty")}
+                className={`flex h-12 w-full items-center justify-center rounded-md border-2 bg-background text-lg font-bold ${field === "qty" ? "border-primary ring-2 ring-primary/30" : "border-input"}`}
+              >
+                {qty}{field === "qty" && <span aria-hidden className="ml-0.5 animate-pulse text-primary">|</span>}
+              </button>
               <Button
                 type="button"
                 variant="outline"
@@ -120,7 +139,7 @@ export function QtyRateDialog({
                 <Button variant="outline"
                   key={s}
                   type="button"
-                  onClick={() => setQty(String(s))}
+                  onClick={() => { setQty(String(s)); setField("qty"); setFresh(true); }}
                   className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold"
                 >
                   {s} {target.unit}
@@ -131,14 +150,24 @@ export function QtyRateDialog({
 
           <div>
             <Label htmlFor="qr-rate">Rate (Rs per {target.unit})</Label>
-            <Input
-              id="qr-rate"
-              inputMode="decimal"
-              value={rate}
-              onFocus={(e) => e.target.select()}
-              onChange={(e) => setRate(e.target.value)}
-              className="mt-1 h-12 text-lg font-bold"
-            />
+            <div className="mt-1"><button
+                type="button"
+                id="qr-rate"
+                data-sound="none"
+                onClick={() => pick("rate")}
+                className={`flex h-12 w-full items-center justify-center rounded-md border-2 bg-background text-lg font-bold ${field === "rate" ? "border-primary ring-2 ring-primary/30" : "border-input"}`}
+              >
+                {rate}{field === "rate" && <span aria-hidden className="ml-0.5 animate-pulse text-primary">|</span>}
+              </button></div>
+          </div>
+
+          <div className="grid grid-cols-4 gap-2" aria-label="Number keypad">
+            {["7", "8", "9", "⌫", "4", "5", "6", "C", "1", "2", "3", ".", "0", "00"].map((k) => (
+              <Button key={k} type="button" variant={k === "⌫" || k === "C" ? "secondary" : "outline"} data-sound="tap"
+                className={`h-14 text-xl font-bold ${k === "0" ? "col-span-2" : ""} ${k === "00" ? "col-span-2" : ""}`}
+                aria-label={k === "⌫" ? "Backspace" : k === "C" ? "Clear" : k}
+                onClick={() => press(k)}>{k}</Button>
+            ))}
           </div>
 
           <div className="flex items-center justify-between rounded-xl bg-muted p-3">
