@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/customer.dart';
@@ -38,9 +39,10 @@ class CustomersScreen extends StatelessWidget {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
 
+              final shop = context.read<ShopProvider>().shop;
               final newCust = Customer(
-                id: DateTime.now().millisecondsSinceEpoch.toString(),
-                shopId: 'shop1',
+                id: const Uuid().v4(),
+                shopId: shop.id,
                 name: name,
                 phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
                 address: addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim(),

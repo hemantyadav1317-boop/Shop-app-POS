@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/product.dart';
@@ -492,8 +493,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 if (name.isEmpty || price <= 0) return;
 
                 final shop = context.read<ShopProvider>().shop;
+                final existingId = existing?.id;
+                final hasValidUuid = existingId != null &&
+                    RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+                        .hasMatch(existingId);
                 final prod = Product(
-                  id: existing?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+                  id: hasValidUuid ? existingId : const Uuid().v4(),
                   shopId: shop.id,
                   name: name,
                   category: selectedCategory.trim().toUpperCase(),

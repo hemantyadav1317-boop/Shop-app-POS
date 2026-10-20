@@ -335,6 +335,16 @@ class SupabaseService {
             .eq('is_active', true)
             .order('name');
         final list = (response as List).map((e) => Product.fromJson(e)).toList();
+
+        // Check if there are local products (like newly added custom products) that need to be pushed to cloud
+        final cloudNames = list.map((p) => p.name.trim().toLowerCase()).toSet();
+        final unUploaded = _localProducts.where((lp) => !cloudNames.contains(lp.name.trim().toLowerCase())).toList();
+        if (unUploaded.isNotEmpty) {
+          debugPrint("Auto-syncing ${unUploaded.length} un-uploaded local products to cloud...");
+          final newlyUploaded = await addProductsBatch(unUploaded);
+          list.addAll(newlyUploaded);
+        }
+
         if (list.isNotEmpty) {
           _localProducts.clear();
           _localProducts.addAll(list);
@@ -344,11 +354,11 @@ class SupabaseService {
           // Empty in cloud -> Seed catalog once
           final seed = CatalogData.getInitialProducts(shopId);
           try {
-            await client!.from('products').insert(seed.map((p) => p.toSupabaseJson()).toList());
+            final savedSeed = await addProductsBatch(seed);
             _localProducts.clear();
-            _localProducts.addAll(seed);
-            _saveCachedProducts(shopId, seed);
-            return seed;
+            _localProducts.addAll(savedSeed.isNotEmpty ? savedSeed : seed);
+            _saveCachedProducts(shopId, _localProducts);
+            return _localProducts;
           } catch (_) {}
         }
       } catch (e) {
@@ -360,7 +370,8 @@ class SupabaseService {
     if (_localProducts.isEmpty) {
       try {
         final prefs = await SharedPreferences.getInstance();
-        final cached = prefs.getString('cached_products_$shopId');
+        final cached = prefs.getString('cached_products_$shopId') ??
+            prefs.getString('cached_products_demo-shop-101');
         if (cached != null) {
           final list = (jsonDecode(cached) as List).map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
           _localProducts.addAll(list);
@@ -382,7 +393,11 @@ class SupabaseService {
 
   Future<Product> addProduct(Product product) async {
     final validShopId = await _ensureValidShopId(product.shopId);
-    final targetProduct = product.shopId != validShopId ? product.copyWith(shopId: validShopId) : product;
+    final isValidUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(product.id);
+    final targetProduct = product.copyWith(
+      id: isValidUuid ? product.id : const Uuid().v4(),
+      shopId: validShopId,
+    );
     Product saved = targetProduct;
     if (isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
@@ -392,7 +407,7 @@ class SupabaseService {
         debugPrint("Error inserting product in cloud: $e");
       }
     }
-    _localProducts.removeWhere((p) => p.id == targetProduct.id);
+    _localProducts.removeWhere((p) => p.id == product.id || p.id == targetProduct.id);
     _localProducts.add(saved);
     _saveCachedProducts(validShopId, _localProducts);
     return saved;
@@ -401,7 +416,13 @@ class SupabaseService {
   Future<List<Product>> addProductsBatch(List<Product> products) async {
     if (products.isEmpty) return [];
     final validShopId = await _ensureValidShopId(products.first.shopId);
-    final List<Product> targetProducts = products.map((p) => p.shopId != validShopId ? p.copyWith(shopId: validShopId) : p).toList();
+    final List<Product> targetProducts = products.map((p) {
+      final isValidUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(p.id);
+      return p.copyWith(
+        id: isValidUuid ? p.id : const Uuid().v4(),
+        shopId: validShopId,
+      );
+    }).toList();
     final List<Product> savedList = [];
     if (isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
@@ -458,6 +479,20 @@ class SupabaseService {
 
   // --- CUSTOMERS ---
   Future<List<Customer>> getCustomers(String shopId) async {
+    // Load any offline/cached customers first to prevent data loss
+    if (_localCustomers.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('cached_customers_$shopId') ??
+            prefs.getString('cached_customers_demo-shop-101') ??
+            prefs.getString('cached_customers_shop1');
+        if (cached != null) {
+          final list = (jsonDecode(cached) as List).map((e) => Customer.fromJson(e as Map<String, dynamic>)).toList();
+          _localCustomers.addAll(list);
+        }
+      } catch (_) {}
+    }
+
     if (_isInitialized && client != null && shopId != 'demo-shop-101') {
       try {
         final response = await client!
@@ -465,25 +500,25 @@ class SupabaseService {
             .select('*')
             .eq('shop_id', shopId)
             .order('name');
-        final list = (response as List).map((e) => Customer.fromJson(e)).toList();
+        final cloudList = (response as List).map((e) => Customer.fromJson(e)).toList();
+
+        // Auto-sync any local customers that are not in cloud yet
+        final cloudNames = cloudList.map((c) => c.name.trim().toLowerCase()).toSet();
+        for (final localCust in List<Customer>.from(_localCustomers)) {
+          if (!cloudNames.contains(localCust.name.trim().toLowerCase())) {
+            debugPrint("Auto-syncing un-synced customer to cloud: ${localCust.name}");
+            final saved = await addCustomer(localCust.copyWith(shopId: shopId));
+            cloudList.add(saved);
+          }
+        }
+
         _localCustomers.clear();
-        _localCustomers.addAll(list);
-        _saveCachedCustomers(shopId, list);
-        return list;
+        _localCustomers.addAll(cloudList);
+        _saveCachedCustomers(shopId, cloudList);
+        return cloudList;
       } catch (e) {
         debugPrint("Error fetching customers from cloud: $e");
       }
-    }
-
-    if (_localCustomers.isEmpty) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final cached = prefs.getString('cached_customers_$shopId');
-        if (cached != null) {
-          final list = (jsonDecode(cached) as List).map((e) => Customer.fromJson(e as Map<String, dynamic>)).toList();
-          _localCustomers.addAll(list);
-        }
-      } catch (_) {}
     }
 
     return List.from(_localCustomers);
@@ -498,17 +533,22 @@ class SupabaseService {
 
   Future<Customer> addCustomer(Customer customer) async {
     final validShopId = await _ensureValidShopId(customer.shopId);
-    final targetCustomer = customer.shopId != validShopId ? customer.copyWith(shopId: validShopId) : customer;
+    final isValidUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(customer.id);
+    final targetCustomer = customer.copyWith(
+      id: isValidUuid ? customer.id : const Uuid().v4(),
+      shopId: validShopId,
+    );
     Customer saved = targetCustomer;
     if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
-        final res = await client!.from('customers').insert(targetCustomer.toJson()).select().single();
+        final payload = targetCustomer.toSupabaseJson();
+        final res = await client!.from('customers').insert(payload).select().single();
         saved = Customer.fromJson(res);
       } catch (e) {
         debugPrint("Error adding customer to cloud: $e");
       }
     }
-    _localCustomers.removeWhere((c) => c.id == targetCustomer.id);
+    _localCustomers.removeWhere((c) => c.id == customer.id || c.id == targetCustomer.id);
     _localCustomers.add(saved);
     _saveCachedCustomers(validShopId, _localCustomers);
     return saved;
@@ -543,6 +583,19 @@ class SupabaseService {
 
   // --- SALES & BILLING (CREATE, READ, UPDATE, DELETE) ---
   Future<List<Sale>> getSales(String shopId) async {
+    // Load offline cached sales first to prevent loss
+    if (_localSales.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('cached_sales_$shopId') ??
+            prefs.getString('cached_sales_demo-shop-101');
+        if (cached != null) {
+          final list = (jsonDecode(cached) as List).map((e) => Sale.fromJson(e as Map<String, dynamic>)).toList();
+          _localSales.addAll(list);
+        }
+      } catch (_) {}
+    }
+
     if (_isInitialized && client != null && shopId != 'demo-shop-101') {
       try {
         final response = await client!
@@ -551,25 +604,26 @@ class SupabaseService {
             .eq('shop_id', shopId)
             .order('created_at', ascending: false)
             .limit(200);
-        final list = (response as List).map((e) => Sale.fromJson(e)).toList();
+        final cloudList = (response as List).map((e) => Sale.fromJson(e)).toList();
+
+        // Auto-sync any local sales not yet in cloud
+        final cloudBillNos = cloudList.map((s) => s.billNo).toSet();
+        for (final localSale in List<Sale>.from(_localSales)) {
+          if (!cloudBillNos.contains(localSale.billNo)) {
+            debugPrint("Auto-syncing un-synced sale to cloud: Bill #${localSale.billNo}");
+            try {
+              await createSale(localSale.copyWith(shopId: shopId));
+            } catch (_) {}
+          }
+        }
+
         _localSales.clear();
-        _localSales.addAll(list);
-        _saveCachedSales(shopId, list);
-        return list;
+        _localSales.addAll(cloudList);
+        _saveCachedSales(shopId, cloudList);
+        return cloudList;
       } catch (e) {
         debugPrint("Error fetching sales from cloud: $e");
       }
-    }
-
-    if (_localSales.isEmpty) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final cached = prefs.getString('cached_sales_$shopId');
-        if (cached != null) {
-          final list = (jsonDecode(cached) as List).map((e) => Sale.fromJson(e as Map<String, dynamic>)).toList();
-          _localSales.addAll(list);
-        }
-      } catch (_) {}
     }
 
     return List.from(_localSales);
@@ -639,8 +693,10 @@ class SupabaseService {
       } catch (e) {
         debugPrint("RPC create_sale fallback to direct table insert: $e");
         try {
+          final isValidSaleUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(targetSale.id);
+          final saleId = isValidSaleUuid ? targetSale.id : const Uuid().v4();
           final salePayload = {
-            'id': targetSale.id,
+            'id': saleId,
             'shop_id': validShopId,
             'bill_no': targetSale.billNo > 0 ? targetSale.billNo : 1,
             'customer_id': (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null,
@@ -661,7 +717,7 @@ class SupabaseService {
             try {
               await client!.from('sale_items').insert({
                 'shop_id': validShopId,
-                'sale_id': targetSale.id,
+                'sale_id': saleId,
                 'product_id': (item.productId != null && item.productId!.length >= 30) ? item.productId : null,
                 'name': item.name,
                 'unit': (item.unit == 'kg') ? 'kg' : 'pc',

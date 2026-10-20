@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/customer.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/customer_provider.dart';
+import '../../../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'payment_dialog.dart';
 
@@ -130,10 +132,11 @@ class _CartPanelState extends State<CartPanel> {
             onPressed: () async {
               final name = nameCtrl.text.trim();
               if (name.isEmpty) return;
+              final shop = context.read<ShopProvider>().shop;
               final cust = await context.read<CustomerProvider>().addCustomer(
                     Customer(
-                      id: DateTime.now().millisecondsSinceEpoch.toString(),
-                      shopId: 'shop1',
+                      id: const Uuid().v4(),
+                      shopId: shop.id,
                       name: name,
                       phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
                       createdAt: DateTime.now(),

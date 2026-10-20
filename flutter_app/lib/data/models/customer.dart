@@ -43,6 +43,19 @@ class Customer {
     };
   }
 
+  Map<String, dynamic> toSupabaseJson() {
+    final isValidUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(id);
+    return {
+      if (isValidUuid) 'id': id,
+      'shop_id': shopId,
+      'name': name,
+      if (phone != null && phone!.isNotEmpty) 'phone': phone,
+      if (address != null && address!.isNotEmpty) 'address': address,
+      'balance': balance,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
   Customer copyWith({
     String? id,
     String? shopId,

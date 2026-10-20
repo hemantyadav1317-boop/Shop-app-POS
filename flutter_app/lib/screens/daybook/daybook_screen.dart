@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/sale.dart';
@@ -81,7 +82,7 @@ class _DaybookScreenState extends State<DaybookScreen> {
 
               await SupabaseService.instance.addExpense(
                 Expense(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  id: const Uuid().v4(),
                   shopId: shop.id,
                   category: catCtrl.text.trim(),
                   amount: amt,

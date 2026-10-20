@@ -87,8 +87,9 @@ class Product {
   }
 
   Map<String, dynamic> toSupabaseJson() {
+    final isValidUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(id);
     return {
-      'id': id,
+      if (isValidUuid) 'id': id,
       'shop_id': shopId,
       'name': name,
       if (nameEn != null && nameEn!.isNotEmpty) 'name_en': nameEn,

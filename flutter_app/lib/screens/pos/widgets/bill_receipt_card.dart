@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../data/models/cart_item.dart';
 
-/// Thermal-style dashed divider line (black dots for thermal printers)
+/// Clean thermal dashed divider line
 class DashedDivider extends StatelessWidget {
   final double height;
   final Color color;
@@ -10,9 +10,9 @@ class DashedDivider extends StatelessWidget {
 
   const DashedDivider({
     super.key,
-    this.height = 1,
-    this.color = Colors.black87,
-    this.dashWidth = 4.0,
+    this.height = 1.2,
+    this.color = Colors.black,
+    this.dashWidth = 5.0,
     this.dashSpace = 3.0,
   });
 
@@ -23,7 +23,7 @@ class DashedDivider extends StatelessWidget {
         final boxWidth = constraints.constrainWidth();
         final dashCount = (boxWidth / (dashWidth + dashSpace)).floor();
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: List.generate(dashCount, (_) {
@@ -42,7 +42,8 @@ class DashedDivider extends StatelessWidget {
   }
 }
 
-/// A pixel-perfect Thermal Invoice Receipt widget matching the Indian POS receipt format
+/// A pixel-perfect Thermal Invoice Receipt widget matching the clean Indian POS receipt format
+/// Fixed at 384px width to utilize 100% of standard 58mm thermal printer roll width
 class BillReceiptCard extends StatelessWidget {
   final String shopName;
   final String? shopAddress;
@@ -83,328 +84,352 @@ class BillReceiptCard extends StatelessWidget {
     this.footerMessage,
   });
 
-  String _formatBillNo(String no) {
-    final cleaned = no.replaceAll(RegExp(r'[^0-9]'), '');
-    if (cleaned.isNotEmpty && cleaned.length < 6) {
-      return cleaned.padLeft(6, '0');
-    }
-    return no;
-  }
-
   String _formatPaymentMode(String mode) {
     switch (mode.toLowerCase()) {
       case 'online':
-        return 'UPI / Online';
+        return 'Online';
       case 'credit':
-        return 'उधार (Khata)';
+        return 'उधार (Credit)';
       case 'split':
-        return 'Split (नकद + ऑनलाइन)';
+        return 'Split';
       default:
-        return 'नकद (Cash)';
+        return 'Cash';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final formattedBill = _formatBillNo(billNo);
+    final cleanBillNo = billNo.replaceAll(RegExp(r'[^0-9A-Za-z]'), '');
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300, width: 1),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      width: 384, // Exact 58mm POS thermal dot width
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // 1. Store Header with Store Icon
+          // 1. Store Header (Centered, Large Bold)
           Center(
             child: Column(
               children: [
-                const Icon(Icons.storefront, size: 36, color: Colors.black87),
-                const SizedBox(height: 4),
                 Text(
-                  shopName.toUpperCase(),
+                  shopName,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 22,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 0.5,
+                    letterSpacing: 0.3,
                     color: Colors.black,
+                    height: 1.15,
                   ),
                 ),
-                if (shopAddress != null && shopAddress!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      shopAddress!,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 11, color: Colors.black87),
+                if (shopAddress != null && shopAddress!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    shopAddress!.trim(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                      height: 1.2,
                     ),
                   ),
-                if (shopPhone != null && shopPhone!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: Text(
-                      'Mo. ${shopPhone!}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87),
+                ],
+                if (shopPhone != null && shopPhone!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Tel: ${shopPhone!.trim()}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
                     ),
                   ),
-                if (gstin != null && gstin!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 1),
-                    child: Text(
-                      'GSTIN: $gstin',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 10, color: Colors.black87),
+                ],
+                if (shopEmail != null && shopEmail!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'Email: ${shopEmail!.trim()}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
                     ),
                   ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 6),
-          const DashedDivider(),
-
-          // 2. Receipt Type Title: भुगतान रसीद / Payment Receipt
-          Center(
-            child: Column(
-              children: const [
-                Text(
-                  'भुगतान रसीद',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.black,
+                ],
+                if (gstin != null && gstin!.trim().isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'GSTIN: ${gstin!.trim()}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
                   ),
-                ),
-                Text(
-                  'Payment Receipt',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          // 3. Receipt Metadata with Aligned Colons
-          _buildInfoRow('रसीद नं.', formattedBill),
-          _buildInfoRow('दिनांक', dateString),
-          if (customerName != null && customerName!.isNotEmpty)
-            _buildInfoRow('ग्राहक नाम', customerName!),
-          if (customerPhone != null && customerPhone!.isNotEmpty)
-            _buildInfoRow('मोबाइल', customerPhone!),
-
-          const DashedDivider(),
-
-          // 4. Items Table (if items are present)
-          if (items.isNotEmpty) ...[
-            const Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Text('सामान (Item)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text('मात्रा', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text('दर', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text('रुपये', textAlign: TextAlign.right, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
-                ),
-              ],
-            ),
-            const DashedDivider(),
-            ...items.map((item) {
-              final qtyStr = item.qty % 1 == 0 ? item.qty.toInt().toString() : item.qty.toStringAsFixed(2);
-              final rateStr = item.price % 1 == 0 ? item.price.toInt().toString() : item.price.toStringAsFixed(2);
-              final totStr = item.total % 1 == 0 ? item.total.toInt().toString() : item.total.toStringAsFixed(2);
-
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2.5),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      flex: 5,
-                      child: Text(
-                        item.name,
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.black),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text(
-                        '$qtyStr${item.unit}',
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 11, color: Colors.black87),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Text(
-                        rateStr,
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 11, color: Colors.black87),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 3,
-                      child: Text(
-                        '₹$totStr',
-                        textAlign: TextAlign.right,
-                        style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }),
-            const DashedDivider(),
-          ],
-
-          // 5. Billing & Amount Breakdown Block (As per user's reference image)
-          if (discount > 0)
-            _buildAmountRow('छूट (Discount)', '₹${discount.toStringAsFixed(2)}', isNegative: true),
-
-          _buildAmountRow('कुल राशि (Total)', '₹${total.toStringAsFixed(2)}', isBold: false),
-          _buildAmountRow('जमा राशि (Paid)', '₹${paid.toStringAsFixed(2)}', isBold: false),
-
-          const DashedDivider(),
-
-          // 6. Highlighted Balance / Due Line
-          _buildAmountRow(
-            due > 0 ? 'शेष बकाया (Due)' : 'बकाया राशि',
-            '₹${due.toStringAsFixed(2)}',
-            isBold: true,
-            fontSize: 14,
-          ),
-
-          const DashedDivider(),
-
-          // 7. Payment Mode
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
-            child: Row(
-              children: [
-                const Text('भुगतान का तरीका : ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black87)),
-                Expanded(
-                  child: Text(
-                    _formatPaymentMode(paymentMode),
-                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black),
-                  ),
-                ),
+                ],
               ],
             ),
           ),
 
           const SizedBox(height: 8),
 
-          // 8. Classic Centered Footer Ornament & Greetings (Matching Reference Image)
+          // 2. INVOICE Title
+          const Center(
+            child: Text(
+              'INVOICE',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2.0,
+                color: Colors.black,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 6),
+
+          // 3. Date & Invoice No
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                dateString,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              Text(
+                'Invoice $cleanBillNo',
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+            ],
+          ),
+          if (customerName != null && customerName!.trim().isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Customer: ${customerName!.trim()}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black),
+                ),
+                if (customerPhone != null && customerPhone!.trim().isNotEmpty)
+                  Text(
+                    customerPhone!.trim(),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black),
+                  ),
+              ],
+            ),
+          ],
+
+          const DashedDivider(),
+
+          // 4. Items Table Header
+          const Row(
+            children: [
+              Expanded(
+                flex: 5,
+                child: Text(
+                  'ITEM',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Colors.black),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'QTY',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Colors.black),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(
+                  'PRICE',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Colors.black),
+                ),
+              ),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  'TOTAL',
+                  textAlign: TextAlign.right,
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w900, color: Colors.black),
+                ),
+              ),
+            ],
+          ),
+
+          const DashedDivider(),
+
+          // 5. Item Rows (Matching lower clean receipt: Name on line 1, Qty/Rate/Total on line 2)
+          ...items.map((item) {
+            final qtyStr = item.qty % 1 == 0 ? item.qty.toInt().toString() : item.qty.toStringAsFixed(2);
+            final priceStr = item.price % 1 == 0 ? item.price.toInt().toString() : item.price.toStringAsFixed(2);
+            final totStr = item.total % 1 == 0 ? item.total.toInt().toString() : item.total.toStringAsFixed(2);
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2.5),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    item.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.black,
+                      height: 1.15,
+                    ),
+                  ),
+                  const SizedBox(height: 1.5),
+                  Row(
+                    children: [
+                      const Expanded(flex: 3, child: SizedBox()),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          '$qtyStr${item.unit}',
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.black),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          priceStr,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.black),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Text(
+                          totStr,
+                          textAlign: TextAlign.right,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Colors.black),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
+
+          const DashedDivider(),
+
+          // 6. Subtotal & Items Count
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Items : ${items.length}',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black),
+              ),
+              Text(
+                'Sub Total : Rs ${subtotal.toStringAsFixed(2)}',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black),
+              ),
+            ],
+          ),
+
+          if (discount > 0) ...[
+            const SizedBox(height: 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Discount :',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.black),
+                ),
+                Text(
+                  '- Rs ${discount.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: Colors.black),
+                ),
+              ],
+            ),
+          ],
+
+          const DashedDivider(),
+
+          // 7. GRAND TOTAL (Huge & Bold, matching user photo)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Center(
+              child: Text(
+                'Total : Rs ${total.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  fontSize: 23,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+          ),
+
+          const DashedDivider(),
+
+          // 8. Payment Mode
           Center(
             child: Column(
               children: [
                 const Text(
-                  'धन्यवाद!',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black),
+                  'Payment Mode',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.black),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  footerMessage ?? 'आपका विश्वास ही हमारी पहचान है',
+                  '${_formatPaymentMode(paymentMode)} : ${paid.toStringAsFixed(2)}',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Colors.black),
+                ),
+                if (due > 0) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    'Due : Rs ${due.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.black),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const DashedDivider(),
+
+          // 9. Clean Footer Greetings
+          const SizedBox(height: 4),
+          Center(
+            child: Column(
+              children: [
+                Text(
+                  footerMessage ?? 'Thank you! Visit again 🙏',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: Colors.black87),
+                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Colors.black),
                 ),
-                const SizedBox(height: 4),
-                // Decorative ornament line
+                const SizedBox(height: 2),
                 const Text(
-                  '—— • ❖ • ——',
-                  style: TextStyle(fontSize: 10, color: Colors.black54, letterSpacing: 2),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Thank You!',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black87),
-                ),
-                const Text(
-                  'Visit Again',
-                  style: TextStyle(fontSize: 10, color: Colors.black54),
+                  'धन्यवाद! फिर पधारें',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 85,
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Colors.black87),
-            ),
-          ),
-          const Text(' :  ', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black)),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.black),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAmountRow(String label, String value, {bool isBold = false, bool isNegative = false, double fontSize = 12}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SizedBox(
-            width: 140,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-          const Text(' :  ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black)),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: isBold ? FontWeight.w900 : FontWeight.bold,
-                color: isNegative ? Colors.red.shade800 : Colors.black,
-              ),
-            ),
-          ),
+          const SizedBox(height: 6),
         ],
       ),
     );
