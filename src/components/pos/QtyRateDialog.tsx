@@ -67,7 +67,7 @@ export function QtyRateDialog({
     let base = fresh ? "" : cur === "0" ? "" : cur;
     if (k === "." && base.includes(".")) return;
     if (k === "." && !base) base = "0";
-    const next = base + k;
+    const next = base + (k === "00" && !base ? "0" : k);
     if (next.length > 9) return;
     set(next);
     setFresh(false);
@@ -166,7 +166,7 @@ export function QtyRateDialog({
               <Button key={k} type="button" variant={k === "⌫" || k === "C" ? "secondary" : "outline"} data-sound="tap"
                 className={`h-14 text-xl font-bold ${k === "0" ? "col-span-2" : ""} ${k === "00" ? "col-span-2" : ""}`}
                 aria-label={k === "⌫" ? "Backspace" : k === "C" ? "Clear" : k}
-                onClick={() => (k === "00" ? (press("0"), press("0")) : press(k))}>{k}</Button>
+                onClick={() => press(k)}>{k}</Button>
             ))}
           </div>
 
