@@ -1,3 +1,4 @@
+import { printSize, setPrintSize, type PrintSize } from "@/lib/bt-print";
 import { Switch } from "@/components/ui/switch";
 import { playSound, setSoundEnabled, soundEnabled } from "@/lib/sound";
 import { createFileRoute } from "@tanstack/react-router";
@@ -53,7 +54,8 @@ function SettingsPage() {
   const canEdit = role === "owner" || role === "manager";
   const [policyBusy, setPolicyBusy] = useState(false);
   const [soundOn, setSoundOn] = useState(true);
-  useEffect(() => setSoundOn(soundEnabled()), []);
+  const [pSize, setPSize] = useState<PrintSize>("large");
+  useEffect(() => { setSoundOn(soundEnabled()); setPSize(printSize()); }, []);
 
   async function setPolicy(enabled: boolean) {
     if (!shop || role !== "owner") return;
@@ -182,6 +184,14 @@ function SettingsPage() {
             </span>
             <Switch checked={!!shop?.allow_negative_stock} disabled={role !== "owner" || policyBusy} onCheckedChange={(v) => void setPolicy(v)} />
           </label>
+          <div className="mt-3">
+            <p className="text-sm">Print bill text size</p>
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              {([["normal", "Normal"], ["large", "Bada"], ["xl", "Bahut bada"]] as const).map(([v, l]) => (
+                <Button key={v} type="button" variant={pSize === v ? "default" : "outline"} className="h-11" onClick={() => { setPrintSize(v); setPSize(v); }}>{l}</Button>
+              ))}
+            </div>
+          </div>
           <label className="mt-3 flex min-h-11 items-center justify-between gap-3">
             <span className="text-sm">App sounds<span className="block text-xs text-muted-foreground">Har action ki alag awaaz.</span></span>
             <Switch checked={soundOn} onCheckedChange={(v) => { setSoundEnabled(v); setSoundOn(v); if (v) playSound("success"); }} />
