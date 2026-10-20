@@ -157,10 +157,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
   Future<void> _handlePrint() async {
     final shop = context.read<ShopProvider>().shop;
     final cart = context.read<CartProvider>();
-    final sale = _buildCurrentSale(shop, cart);
+    final sale = _completedSale ?? _buildCurrentSale(shop, cart);
 
     try {
-      // Capture rendered widget screenshot for 100% pixel-perfect Hindi & Emoji support
       final imageBytes = await _screenshotController.capture(pixelRatio: 2.0);
       await ReceiptPrintService.printReceipt(
         sale: sale,
@@ -179,7 +178,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   Future<void> _handleShare() async {
     final shop = context.read<ShopProvider>().shop;
     final cart = context.read<CartProvider>();
-    final sale = _buildCurrentSale(shop, cart);
+    final sale = _completedSale ?? _buildCurrentSale(shop, cart);
 
     try {
       final imageBytes = await _screenshotController.capture(pixelRatio: 2.0);
@@ -207,16 +206,6 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final changeDue = (paidAmount - cart.total) > 0 ? (paidAmount - cart.total) : 0.0;
     final remainingUdhar = (cart.total - paidAmount) > 0 ? (cart.total - paidAmount) : 0.0;
 
-    final displayItems = _completedSale != null ? _completedSale!.items : cart.lines;
-    final displaySubtotal = _completedSale != null ? _completedSale!.subtotal : cart.subtotal;
-    final displayDiscount = _completedSale != null ? _completedSale!.discount : cart.discount;
-    final displayTotal = _completedSale != null ? _completedSale!.total : cart.total;
-    final displayPaid = _completedSale != null ? _completedSale!.paid : (paidAmount > cart.total ? cart.total : paidAmount);
-    final displayDue = _completedSale != null ? _completedSale!.due : remainingUdhar;
-    final displayMode = _completedSale != null ? _completedSale!.paymentMode : _paymentMode;
-    final displayBillNo = _completedSale != null ? '${_completedSale!.billNo}' : 'APRIL$_billNo';
-    final displayDate = DateFormat('dd-MM-yyyy h:mm a').format(_completedSale?.createdAt ?? DateTime.now());
-
     final upiUri = UpiService.generateUpiUri(
       upiId: shop.upiId ?? '9876543210@upi',
       payeeName: shop.upiPayeeName ?? shop.name,
@@ -230,353 +219,496 @@ class _PaymentDialogState extends State<PaymentDialog> {
       child: SafeArea(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 440, maxHeight: 720),
-        child: Column(
-          children: [
-            // Header Bar matching user's photo
-            Padding(
-              padding: const EdgeInsets.fromLTRB(18, 14, 10, 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          child: _completedSale == null
+              ? _buildCheckoutStep(
+                  context: context,
+                  cart: cart,
+                  shop: shop,
+                  changeDue: changeDue,
+                  remainingUdhar: remainingUdhar,
+                  upiUri: upiUri,
+                )
+              : _buildCompletedReceiptStep(
+                  context: context,
+                  shop: shop,
+                  userEmail: userEmail,
+                ),
+        ),
+      ),
+    );
+  }
+
+  /// STEP 1: PAYMENT & CHECKOUT VIEW (Only payment options + Complete Bill button)
+  Widget _buildCheckoutStep({
+    required BuildContext context,
+    required CartProvider cart,
+    required Shop shop,
+    required double changeDue,
+    required double remainingUdhar,
+    required String upiUri,
+  }) {
+    return Column(
+      children: [
+        // 1. Header Bar
+        Padding(
+          padding: const EdgeInsets.fromLTRB(18, 14, 10, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Row(
                 children: [
-                  const Text(
-                    'Sale Invoice Receipt',
+                  Icon(Icons.payment, size: 20, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Text(
+                    'चेकआउट व भुगतान (Payment)',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF1E293B),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
-                    onPressed: () => Navigator.pop(context),
-                  ),
                 ],
               ),
-            ),
-            const Divider(height: 1),
+              IconButton(
+                icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
 
-            // Scrollable Receipt Body
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Column(
-                  children: [
-                    if (_completedSale != null) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.shade300),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.check_circle, color: Colors.green, size: 18),
-                            SizedBox(width: 8),
-                            Text(
-                              'बिल सफलतापूर्वक पूरा हो गया!',
-                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-
-                    // Capture-able Bill Receipt Card
-                    Screenshot(
-                      controller: _screenshotController,
-                      child: BillReceiptCard(
-                        shopName: shop.name,
-                        shopAddress: shop.address,
-                        shopPhone: shop.phone,
-                        shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
-                        gstin: shop.gstin,
-                        billNo: displayBillNo,
-                        dateString: displayDate,
-                        customerName: _completedSale?.customerName ?? cart.customer?.name,
-                        customerPhone: _completedSale?.customerPhone ?? cart.customer?.phone,
-                        items: displayItems,
-                        subtotal: displaySubtotal,
-                        discount: displayDiscount,
-                        total: displayTotal,
-                        paid: displayPaid,
-                        due: displayDue,
-                        paymentMode: displayMode,
-                        footerMessage: shop.receiptFooter,
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // If Checkout in progress, show Payment Mode Selector & Options
-                    if (_completedSale == null) ...[
-                      // Payment Mode Tabs
-                      Row(
+        // 2. Scrollable Body
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Total Payable Card
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildModeTab('cash', 'नकद (Cash)'),
-                          const SizedBox(width: 6),
-                          _buildModeTab('online', 'ऑनलाइन (UPI)'),
-                          const SizedBox(width: 6),
-                          _buildModeTab('credit', 'उधार (Khata)'),
-                          const SizedBox(width: 6),
-                          _buildModeTab('split', 'Split'),
+                          const Text(
+                            'कुल देय राशि (Total Payable)',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            CurrencyFormatter.format(cart.total),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.primary,
+                            ),
+                          ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-
-                      // Online UPI QR Mode Details
-                      if (_paymentMode == 'online' || (_paymentMode == 'split' && remainingUdhar > 0)) ...[
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue.shade200),
-                          ),
-                          child: Column(
-                            children: [
-                              const Text('UPI QR कोड स्कैन करें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue)),
-                              const SizedBox(height: 8),
-                              Center(
-                                child: shop.qrImageUrl != null && shop.qrImageUrl!.isNotEmpty
-                                    ? ClipRRect(
-                                        borderRadius: BorderRadius.circular(8),
-                                        child: shop.qrImageUrl!.startsWith('http')
-                                            ? Image.network(
-                                                shop.qrImageUrl!,
-                                                width: 150,
-                                                height: 150,
-                                                fit: BoxFit.contain,
-                                                errorBuilder: (_, __, ___) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
-                                              )
-                                            : Image.file(
-                                                File(shop.qrImageUrl!),
-                                                width: 150,
-                                                height: 150,
-                                                fit: BoxFit.contain,
-                                                errorBuilder: (_, __, ___) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
-                                              ),
-                                      )
-                                    : QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                CurrencyFormatter.format(_paymentMode == 'split' ? remainingUdhar : cart.total),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
-                              ),
-                              Text('UPI ID: ${shop.upiId ?? "9876543210@upi"}', style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-                              const SizedBox(height: 6),
-                              CheckboxListTile(
-                                title: const Text('Payment प्राप्त हो गया (Verified)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                value: _onlinePaymentVerified,
-                                onChanged: (val) {
-                                  setState(() {
-                                    _onlinePaymentVerified = val ?? false;
-                                  });
-                                },
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                controlAffinity: ListTileControlAffinity.leading,
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // Khata Mode Notice
-                      if (_paymentMode == 'credit') ...[
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.amber.shade300),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.info_outline, color: Colors.amber, size: 18),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  cart.customer != null
-                                      ? 'ग्राहक: ${cart.customer!.name} के खाते में ${CurrencyFormatter.format(cart.total)} जुड़ेगा।'
-                                      : 'कृपया पहले ग्राहक (Customer) सेलेक्ट करें।',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // Cash Input
-                      if (_paymentMode == 'cash' || _paymentMode == 'split') ...[
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(_paymentMode == 'split' ? 'Cash प्राप्त' : 'Customer दिया Cash', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                  const SizedBox(height: 4),
-                                  TextField(
-                                    controller: _paidController,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                    decoration: const InputDecoration(
-                                      prefixText: '₹ ',
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    ),
-                                    onChanged: (_) => setState(() {}),
-                                  ),
-                                ],
-                              ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                             ),
-                            if (_paymentMode == 'cash' && changeDue > 0) ...[
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.blue.shade200),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Change वापसी:', style: TextStyle(fontSize: 11, color: Colors.blue)),
-                                      Text(CurrencyFormatter.format(changeDue), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue)),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                      ],
-
-                      // Complete Bill Button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            child: Text(
+                              '${cart.lines.length} सामान (Items)',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                            ),
                           ),
-                          onPressed: _isSaving ? null : _processCheckout,
-                          child: _isSaving
-                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : Text(
-                                  'बिल पूरा करें · ${CurrencyFormatter.format(cart.total)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-            const Divider(height: 1),
-
-            // Bottom 3 Action Buttons matching photo exactly: [Back] [Share Bill] [Print Bill]
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: Colors.grey.shade50,
-              child: Row(
-                children: [
-                  // Back / New Sale Button
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => Navigator.pop(context),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.reply, color: Color(0xFF2563EB), size: 24),
+                          if (cart.customer != null) ...[
                             const SizedBox(height: 4),
                             Text(
-                              _completedSale != null ? 'New Sale' : 'Back',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B),
-                              ),
+                              'ग्राहक: ${cart.customer!.name}',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
                             ),
                           ],
-                        ),
+                        ],
                       ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Payment Mode Selection Title
+                const Text(
+                  'भुगतान का तरीका चुनें (Payment Mode):',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF334155)),
+                ),
+                const SizedBox(height: 8),
+
+                // Payment Mode Tabs
+                Row(
+                  children: [
+                    _buildModeTab('cash', 'नकद (Cash)'),
+                    const SizedBox(width: 6),
+                    _buildModeTab('online', 'ऑनलाइन (UPI)'),
+                    const SizedBox(width: 6),
+                    _buildModeTab('credit', 'उधार (Khata)'),
+                    const SizedBox(width: 6),
+                    _buildModeTab('split', 'Split'),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Mode Specific Views:
+                // 1. Online UPI QR
+                if (_paymentMode == 'online' || (_paymentMode == 'split' && remainingUdhar > 0)) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text('UPI QR कोड स्कैन करें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue)),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: shop.qrImageUrl != null && shop.qrImageUrl!.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: shop.qrImageUrl!.startsWith('http')
+                                      ? Image.network(
+                                          shop.qrImageUrl!,
+                                          width: 150,
+                                          height: 150,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                                        )
+                                      : Image.file(
+                                          File(shop.qrImageUrl!),
+                                          width: 150,
+                                          height: 150,
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                                        ),
+                                )
+                              : QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          CurrencyFormatter.format(_paymentMode == 'split' ? remainingUdhar : cart.total),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
+                        ),
+                        Text('UPI ID: ${shop.upiId ?? "9876543210@upi"}', style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
+                        const SizedBox(height: 6),
+                        CheckboxListTile(
+                          title: const Text('Payment प्राप्त हो गया (Verified)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          value: _onlinePaymentVerified,
+                          onChanged: (val) {
+                            setState(() {
+                              _onlinePaymentVerified = val ?? false;
+                            });
+                          },
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      ],
                     ),
                   ),
+                  const SizedBox(height: 12),
+                ],
 
-                  // Share Bill Button
-                  Expanded(
-                    child: InkWell(
-                      onTap: _handleShare,
+                // 2. Khata Notice
+                if (_paymentMode == 'credit') ...[
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
                       borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: const Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.share, color: Color(0xFF2563EB), size: 24),
-                            SizedBox(height: 4),
-                            Text(
-                              'Share Bill',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B),
-                              ),
-                            ),
-                          ],
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.amber, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            cart.customer != null
+                                ? 'ग्राहक: ${cart.customer!.name} के खाते में ${CurrencyFormatter.format(cart.total)} जुड़ेगा।'
+                                : 'कृपया पहले ग्राहक (Customer) सेलेक्ट करें।',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
+                  const SizedBox(height: 12),
+                ],
 
-                  // Print Bill Button
-                  Expanded(
-                    child: InkWell(
-                      onTap: _handlePrint,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: const Column(
-                          mainAxisSize: MainAxisSize.min,
+                // 3. Cash Inputs
+                if (_paymentMode == 'cash' || _paymentMode == 'split') ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.print, color: Color(0xFF2563EB), size: 24),
-                            SizedBox(height: 4),
                             Text(
-                              'Print Bill',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1E293B),
+                              _paymentMode == 'split' ? 'Cash प्राप्त (₹)' : 'Customer दिया Cash (₹)',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                            ),
+                            const SizedBox(height: 4),
+                            TextField(
+                              controller: _paidController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              decoration: const InputDecoration(
+                                prefixText: '₹ ',
+                                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                               ),
+                              onChanged: (_) => setState(() {}),
                             ),
                           ],
                         ),
                       ),
+                      if (_paymentMode == 'cash' && changeDue > 0) ...[
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.blue.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Change वापसी:', style: TextStyle(fontSize: 11, color: Colors.blue)),
+                                Text(CurrencyFormatter.format(changeDue), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ],
+            ),
+          ),
+        ),
+
+        const Divider(height: 1),
+
+        // 3. Bottom Action Bar for Step 1: Cancel + Big Complete Bill Button
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          color: Colors.grey.shade50,
+          child: Row(
+            children: [
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () => Navigator.pop(context),
+                child: const Text('रद्द करें (Cancel)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 1,
+                  ),
+                  onPressed: _isSaving ? null : _processCheckout,
+                  child: _isSaving
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text(
+                          'बिल पूरा करें · ${CurrencyFormatter.format(cart.total)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                        ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// STEP 2: BILL COMPLETED VIEW (Shows full BillReceiptCard + Print/Share/New Sale buttons)
+  Widget _buildCompletedReceiptStep({
+    required BuildContext context,
+    required Shop shop,
+    required String? userEmail,
+  }) {
+    final sale = _completedSale!;
+    final dateString = DateFormat('dd-MM-yyyy h:mm a').format(sale.createdAt);
+
+    return Column(
+      children: [
+        // 1. Header Bar with Success Badge
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 10, 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green, size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    'बिल पूरा हो गया (Invoice #${sale.billNo})',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1E293B),
                     ),
                   ),
                 ],
               ),
-            ),
-          ],
+              IconButton(
+                icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
         ),
-      ),
-      ),
+        const Divider(height: 1),
+
+        // 2. Scrollable Bill Receipt Card
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Screenshot(
+              controller: _screenshotController,
+              child: BillReceiptCard(
+                shopName: shop.name,
+                shopAddress: shop.address,
+                shopPhone: shop.phone,
+                shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
+                gstin: shop.gstin,
+                billNo: '${sale.billNo}',
+                dateString: dateString,
+                customerName: sale.customerName,
+                customerPhone: sale.customerPhone,
+                items: sale.items,
+                subtotal: sale.subtotal,
+                discount: sale.discount,
+                total: sale.total,
+                paid: sale.paid,
+                due: sale.due,
+                paymentMode: sale.paymentMode,
+                footerMessage: shop.receiptFooter,
+              ),
+            ),
+          ),
+        ),
+
+        const Divider(height: 1),
+
+        // 3. Bottom 3 Action Buttons (Only shown AFTER bill is completed!)
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          color: Colors.grey.shade50,
+          child: Row(
+            children: [
+              // New Sale Button (Closes dialog and readies next cart)
+              Expanded(
+                child: InkWell(
+                  onTap: () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_shopping_cart, color: Color(0xFF2563EB), size: 24),
+                        SizedBox(height: 4),
+                        Text(
+                          'नया बिल (New Sale)',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Share Bill Button
+              Expanded(
+                child: InkWell(
+                  onTap: _handleShare,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.share, color: Color(0xFF2563EB), size: 24),
+                        SizedBox(height: 4),
+                        Text(
+                          'शेयर (Share Bill)',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Print Bill Button
+              Expanded(
+                child: InkWell(
+                  onTap: _handlePrint,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.print, color: Color(0xFF2563EB), size: 24),
+                        SizedBox(height: 4),
+                        Text(
+                          'प्रिंट (Print Bill)',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1E293B),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
