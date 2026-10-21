@@ -22,11 +22,11 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '1.1.4';
+  static const String currentVersion = '1.1.5';
 
-  // GitHub repositories for auto updates (checks hemantyadav1317-boop/Shop-app-POS first, then Vinay0775/pos-yadavstore)
+  // GitHub repository for auto updates
   static String githubRepo = 'hemantyadav1317-boop/Shop-app-POS';
-  static String fallbackRepo = 'Vinay0775/pos-yadavstore';
+  static String fallbackRepo = '';
 
   /// Compares semantic versions (e.g., '1.0.1' > '1.0.0')
   static bool isNewerVersion(String current, String latest) {
@@ -47,21 +47,11 @@ class UpdateService {
   /// Checks if a new release is available on GitHub
   static Future<UpdateInfo?> checkForUpdate({String? customRepo}) async {
     final repo = customRepo ?? githubRepo;
-    final info = await _checkRepo(repo);
-    if (info != null && (info.hasUpdate || customRepo != null)) {
-      return info;
-    }
-    // Try fallback repo if primary has no releases
-    if (customRepo == null && fallbackRepo.isNotEmpty) {
-      final fallbackInfo = await _checkRepo(fallbackRepo);
-      if (fallbackInfo != null && fallbackInfo.hasUpdate) {
-        return fallbackInfo;
-      }
-    }
-    return info;
+    return await _checkRepo(repo);
   }
 
   static Future<UpdateInfo?> _checkRepo(String repo) async {
+    // 1. Try official GitHub JSON API with 15-second timeout
     try {
       final url = Uri.parse('https://api.github.com/repos/$repo/releases/latest');
       final res = await http.get(
@@ -70,7 +60,7 @@ class UpdateService {
           'User-Agent': 'ShopPOS-App',
           'Accept': 'application/vnd.github.v3+json',
         },
-      ).timeout(const Duration(seconds: 6));
+      ).timeout(const Duration(seconds: 15));
 
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
@@ -96,19 +86,33 @@ class UpdateService {
           downloadUrl: downloadUrl,
           releaseNotes: body,
         );
-      } else if (res.statusCode == 404) {
-        // 404 on GitHub means no newer release exists yet
+      }
+    } catch (e) {
+      debugPrint("Update check API error: $e");
+    }
+
+    // 2. High-reliability fallback: GitHub Web Release Redirect (No API Rate Limit!)
+    try {
+      final client = http.Client();
+      final request = http.Request('GET', Uri.parse('https://github.com/$repo/releases/latest'))..followRedirects = false;
+      final streamedResponse = await client.send(request).timeout(const Duration(seconds: 15));
+      final location = streamedResponse.headers['location'];
+      if (location != null && location.contains('/releases/tag/')) {
+        final tagName = location.split('/releases/tag/').last.trim().replaceAll('v', '');
+        final hasNew = isNewerVersion(currentVersion, tagName);
+        final downloadUrl = 'https://github.com/$repo/releases/download/v$tagName/ShopPOS-Release.apk';
         return UpdateInfo(
-          hasUpdate: false,
+          hasUpdate: hasNew,
           currentVersion: currentVersion,
-          latestVersion: currentVersion,
-          downloadUrl: 'https://github.com/$repo/releases',
-          releaseNotes: 'आप नवीनतम वर्जन पर हैं।',
+          latestVersion: tagName,
+          downloadUrl: downloadUrl,
+          releaseNotes: 'नया अपडेट v$tagName उपलब्ध है।',
         );
       }
     } catch (e) {
-      debugPrint("Update check error: $e");
+      debugPrint("Update check redirect fallback error: $e");
     }
+
     return null;
   }
 
