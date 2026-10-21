@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
 
@@ -26,13 +28,28 @@ class ProductImageView extends StatelessWidget {
 
     if (hasImage) {
       final url = imageUrl!.trim();
-      if (url.startsWith('http://') || url.startsWith('https://')) {
+      if (url.startsWith('data:image')) {
+        try {
+          final commaIndex = url.indexOf(',');
+          final base64Data = commaIndex != -1 ? url.substring(commaIndex + 1) : url;
+          final bytes = base64Decode(base64Data);
+          imageContent = Image.memory(
+            bytes,
+            width: size,
+            height: size,
+            fit: fit,
+            errorBuilder: (context, error, stackTrace) => _buildFallback(),
+          );
+        } catch (_) {
+          imageContent = _buildFallback();
+        }
+      } else if (url.startsWith('http://') || url.startsWith('https://')) {
         imageContent = Image.network(
           url,
           width: size,
           height: size,
           fit: fit,
-          errorBuilder: (_, __, ___) => _buildFallback(),
+          errorBuilder: (context, error, stackTrace) => _buildFallback(),
           loadingBuilder: (ctx, child, progress) {
             if (progress == null) return child;
             return Container(
@@ -49,20 +66,26 @@ class ProductImageView extends StatelessWidget {
             );
           },
         );
-      } else {
-        // Local file
-        final file = File(url);
-        if (file.existsSync()) {
-          imageContent = Image.file(
-            file,
-            width: size,
-            height: size,
-            fit: fit,
-            errorBuilder: (_, __, ___) => _buildFallback(),
-          );
-        } else {
+      } else if (!kIsWeb) {
+        // Local file on mobile/desktop
+        try {
+          final file = File(url);
+          if (file.existsSync()) {
+            imageContent = Image.file(
+              file,
+              width: size,
+              height: size,
+              fit: fit,
+              errorBuilder: (context, error, stackTrace) => _buildFallback(),
+            );
+          } else {
+            imageContent = _buildFallback();
+          }
+        } catch (_) {
           imageContent = _buildFallback();
         }
+      } else {
+        imageContent = _buildFallback();
       }
     } else {
       imageContent = _buildFallback();

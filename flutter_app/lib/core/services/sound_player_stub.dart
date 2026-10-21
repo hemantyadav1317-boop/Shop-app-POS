@@ -48,10 +48,14 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
   @override
   void playDot() {
     try {
+      HapticFeedback.mediumImpact();
       _player.stop();
-      _player.play(AssetSource('sounds/click.wav'));
+      _player.play(AssetSource('sounds/click.wav'), volume: 1.0);
     } catch (_) {
-      SystemSound.play(SystemSoundType.click);
+      try {
+        HapticFeedback.mediumImpact();
+        SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
     }
   }
 }

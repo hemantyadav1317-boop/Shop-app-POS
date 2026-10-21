@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -21,76 +22,246 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   bool _onlyLowStock = false;
 
-  void _showAddCategoryDialog(BuildContext context, [Function(String)? onCreated]) {
-    final catNameCtrl = TextEditingController();
+  void _showAddCategoryDialog(BuildContext context, [Function(String)? onCreated, String? existingCat]) {
+    final catNameCtrl = TextEditingController(text: existingCat ?? '');
     final catImgCtrl = TextEditingController();
+    String? selectedImageUrl = existingCat != null
+        ? context.read<ProductProvider>().getCategoryImage(existingCat)
+        : null;
+    if (selectedImageUrl != null) {
+      catImgCtrl.text = selectedImageUrl!;
+    }
+    final picker = ImagePicker();
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.category, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('नई कैटेगरी जोड़ें / Add Category', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'जैसे: FRUITS, VEGETABLES, DAIRY, SNACKS, SWEETS आदि',
-              style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: catNameCtrl,
-              textCapitalization: TextCapitalization.characters,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'कैटेगरी का नाम *',
-                hintText: 'उदा. COLD DRINKS',
-                prefixIcon: Icon(Icons.label_outline),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.category, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  existingCat != null
+                      ? 'कैटेगरी फोटो बदलें / Edit Category'
+                      : 'नई कैटेगरी जोड़ें / Add Category',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: catImgCtrl,
-              decoration: const InputDecoration(
-                labelText: 'कैटेगरी फोटो / इमेज URL (वैकल्पिक)',
-                hintText: 'https://images.unsplash.com/...',
-                prefixIcon: Icon(Icons.image_outlined),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final cat = catNameCtrl.text.trim().toUpperCase();
-              if (cat.isEmpty) return;
-              final provider = context.read<ProductProvider>();
-              await provider.addCategory(cat);
-              if (catImgCtrl.text.trim().isNotEmpty) {
-                await provider.setCategoryImage(cat, catImgCtrl.text.trim());
-              }
-              if (context.mounted) {
-                Navigator.pop(ctx);
-                onCreated?.call(cat);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: AppColors.primary,
-                    content: Text('कैटेगरी "$cat" सफलतापूर्वक जोड़ी गई'),
-                  ),
-                );
-              }
-            },
-            child: const Text('सेव करें (Save)'),
+            ],
           ),
-        ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (existingCat == null) ...[
+                  const Text(
+                    'जैसे: FRUITS, VEGETABLES, DAIRY, SNACKS, SWEETS आदि',
+                    style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: catNameCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'कैटेगरी का नाम *',
+                      hintText: 'उदा. COLD DRINKS',
+                      prefixIcon: Icon(Icons.label_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ] else ...[
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySurface.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'कैटेगरी: $existingCat',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+
+                // Category Image Upload Card
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ProductImageView(
+                        imageUrl: selectedImageUrl,
+                        fallbackIcon: catNameCtrl.text.isNotEmpty ? catNameCtrl.text.substring(0, 1) : '📁',
+                        size: 64,
+                        borderRadius: 12,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              selectedImageUrl != null && selectedImageUrl!.trim().isNotEmpty
+                                  ? 'कैटेगरी फोटो सेट है'
+                                  : 'कोई फोटो नहीं (खाली)',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            const SizedBox(height: 3),
+                            const Text(
+                              'कैमरा या गैलरी से फोटो अपलोड करें:',
+                              style: TextStyle(fontSize: 10, color: AppColors.lightTextSecondary),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.photo_library, size: 14),
+                                  label: const Text('गैलरी (Upload)', style: TextStyle(fontSize: 11)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () async {
+                                    try {
+                                      final img = await picker.pickImage(
+                                        source: ImageSource.gallery,
+                                        maxWidth: 400,
+                                        maxHeight: 400,
+                                        imageQuality: 80,
+                                      );
+                                      if (img != null) {
+                                        final bytes = await img.readAsBytes();
+                                        final b64 = base64Encode(bytes);
+                                        final dataUrl = 'data:image/jpeg;base64,$b64';
+                                        setDialogState(() {
+                                          selectedImageUrl = dataUrl;
+                                          catImgCtrl.text = dataUrl;
+                                        });
+                                      }
+                                    } catch (e) {
+                                      debugPrint("Category gallery error: $e");
+                                    }
+                                  },
+                                ),
+                                ElevatedButton.icon(
+                                  icon: const Icon(Icons.camera_alt, size: 14),
+                                  label: const Text('कैमरा (Photo)', style: TextStyle(fontSize: 11)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  onPressed: () async {
+                                    try {
+                                      final img = await picker.pickImage(
+                                        source: ImageSource.camera,
+                                        maxWidth: 400,
+                                        maxHeight: 400,
+                                        imageQuality: 80,
+                                      );
+                                      if (img != null) {
+                                        final bytes = await img.readAsBytes();
+                                        final b64 = base64Encode(bytes);
+                                        final dataUrl = 'data:image/jpeg;base64,$b64';
+                                        setDialogState(() {
+                                          selectedImageUrl = dataUrl;
+                                          catImgCtrl.text = dataUrl;
+                                        });
+                                      }
+                                    } catch (e) {
+                                      debugPrint("Category camera error: $e");
+                                    }
+                                  },
+                                ),
+                                if (selectedImageUrl != null && selectedImageUrl!.trim().isNotEmpty)
+                                  OutlinedButton.icon(
+                                    icon: const Icon(Icons.close, size: 13, color: AppColors.error),
+                                    label: const Text('हटाएं', style: TextStyle(fontSize: 11, color: AppColors.error)),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      visualDensity: VisualDensity.compact,
+                                      side: const BorderSide(color: AppColors.error),
+                                    ),
+                                    onPressed: () {
+                                      setDialogState(() {
+                                        selectedImageUrl = '';
+                                        catImgCtrl.clear();
+                                      });
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: catImgCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'या इमेज का लिंक/URL डालें (वैकल्पिक)',
+                    hintText: 'https://...',
+                    prefixIcon: Icon(Icons.link, size: 18),
+                    isDense: true,
+                  ),
+                  onChanged: (val) {
+                    setDialogState(() {
+                      selectedImageUrl = val.trim();
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('रद्द करें (Cancel)')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () async {
+                final cat = catNameCtrl.text.trim().toUpperCase();
+                if (cat.isEmpty) return;
+                final provider = context.read<ProductProvider>();
+                if (existingCat == null) {
+                  await provider.addCategory(cat);
+                }
+                final finalImg = (selectedImageUrl ?? catImgCtrl.text.trim()).trim();
+                await provider.setCategoryImage(cat, finalImg);
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                  onCreated?.call(cat);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: AppColors.primary,
+                      content: Text('कैटेगरी "$cat" की फोटो व विवरण सुरक्षित हो गया'),
+                    ),
+                  );
+                }
+              },
+              child: const Text('सेव करें (Save)'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -914,15 +1085,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           itemBuilder: (context, i) {
                             final cat = allCats[i];
                             final count = productProvider.getProductCountForCategory(cat);
+                            final catImg = productProvider.getCategoryImage(cat);
 
                             return Card(
                               child: ListTile(
-                                leading: CircleAvatar(
-                                  backgroundColor: AppColors.primarySurface,
-                                  child: Text(
-                                    cat.isNotEmpty ? cat.substring(0, 1) : '?',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary),
-                                  ),
+                                leading: ProductImageView(
+                                  imageUrl: catImg,
+                                  fallbackIcon: cat.isNotEmpty ? cat.substring(0, 1) : '📁',
+                                  size: 42,
+                                  borderRadius: 8,
                                 ),
                                 title: Text(
                                   cat,
@@ -936,10 +1107,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     fontWeight: count > 0 ? FontWeight.w600 : FontWeight.normal,
                                   ),
                                 ),
-                                trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                                  tooltip: 'Delete Category',
-                                  onPressed: () => _confirmDeleteCategory(context, cat),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.add_a_photo_outlined, color: AppColors.primary),
+                                      tooltip: 'फोटो जोड़ें / बदलें',
+                                      onPressed: () => _showAddCategoryDialog(context, null, cat),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                      tooltip: 'Delete Category',
+                                      onPressed: () => _confirmDeleteCategory(context, cat),
+                                    ),
+                                  ],
                                 ),
                               ),
                             );

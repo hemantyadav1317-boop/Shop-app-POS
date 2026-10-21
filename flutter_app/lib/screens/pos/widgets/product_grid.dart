@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../../core/services/sound_service.dart';
@@ -17,6 +18,58 @@ class ProductGrid extends StatefulWidget {
 }
 
 class _ProductGridState extends State<ProductGrid> {
+  Widget _buildCategoryIconWidget({
+    required String? catImg,
+    required IconData icon,
+    required bool isSelected,
+    required bool isDark,
+  }) {
+    if (catImg != null && catImg.trim().isNotEmpty) {
+      final clean = catImg.trim();
+      if (clean.startsWith('data:image')) {
+        try {
+          final commaIndex = clean.indexOf(',');
+          final base64Data = commaIndex != -1 ? clean.substring(commaIndex + 1) : clean;
+          final bytes = base64Decode(base64Data);
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.memory(
+              bytes,
+              width: 24,
+              height: 24,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Icon(
+                icon,
+                size: 22,
+                color: isSelected ? Colors.white : const Color(0xFF00875A),
+              ),
+            ),
+          );
+        } catch (_) {}
+      } else {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            clean,
+            width: 24,
+            height: 24,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Icon(
+              icon,
+              size: 22,
+              color: isSelected ? Colors.white : const Color(0xFF00875A),
+            ),
+          ),
+        );
+      }
+    }
+    return Icon(
+      icon,
+      size: 22,
+      color: isSelected ? Colors.white : const Color(0xFF00875A),
+    );
+  }
+
   IconData _getCategoryIcon(String cat) {
     final lower = cat.toLowerCase();
     if (lower.contains('veg') || lower.contains('सब्जी')) return Icons.eco_rounded;
@@ -136,7 +189,6 @@ class _ProductGridState extends State<ProductGrid> {
                 final count = productProvider.getProductCountForCategory(cat);
                 final icon = _getCategoryIcon(cat);
                 final catImg = productProvider.getCategoryImage(cat);
-                final hasImage = cat != 'All' && catImg != null && catImg.isNotEmpty;
 
                 return InkWell(
                   onTap: () {
@@ -172,26 +224,12 @@ class _ProductGridState extends State<ProductGrid> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        hasImage
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image.network(
-                                  catImg,
-                                  width: 24,
-                                  height: 24,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Icon(
-                                    icon,
-                                    size: 22,
-                                    color: isSelected ? Colors.white : const Color(0xFF00875A),
-                                  ),
-                                ),
-                              )
-                            : Icon(
-                                icon,
-                                size: 22,
-                                color: isSelected ? Colors.white : const Color(0xFF00875A),
-                              ),
+                        _buildCategoryIconWidget(
+                          catImg: catImg,
+                          icon: icon,
+                          isSelected: isSelected,
+                          isDark: isDark,
+                        ),
                         const SizedBox(height: 4),
                         Text(
                           cat,
