@@ -7,13 +7,37 @@ import '../data/services/supabase_service.dart';
 class ShopProvider extends ChangeNotifier {
   late Shop _shop;
   ThemeMode _themeMode = ThemeMode.system;
+  bool _showProductBadges = false; // Default: OFF (Hidden)
+  String? _currentUserId;
 
   Shop get shop => _shop;
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
+  bool get showProductBadges => _showProductBadges;
+
+  static Shop get defaultShop => Shop(
+        id: 'demo-shop-101',
+        name: 'मेरी दुकान (My Store)',
+        phone: null,
+        address: null,
+        gstin: null,
+        upiId: null,
+        upiPayeeName: null,
+        allowNegativeStock: false,
+        printPaperSize: '58mm',
+        receiptFooter: 'धन्यवाद! फिर पधारें 🙏',
+        qrImageUrl: null,
+      );
+
+  static String _shopStorageKey(String? uid) {
+    if (uid != null && uid.trim().isNotEmpty) {
+      return 'saved_shop_data_${uid.trim()}';
+    }
+    return 'saved_shop_data_guest';
+  }
 
   ShopProvider({Shop? initialShop}) {
-    _shop = initialShop ?? SupabaseService.instance.currentShop;
+    _shop = initialShop ?? defaultShop;
     _loadPreferences();
   }
 
@@ -28,7 +52,11 @@ class ShopProvider extends ChangeNotifier {
       _themeMode = ThemeMode.system;
     }
 
-    final savedShopJson = prefs.getString('saved_shop_data');
+    _showProductBadges = prefs.getBool('show_product_badges') ?? false;
+
+    // Load user-specific shop or guest shop
+    final key = _shopStorageKey(_currentUserId);
+    final savedShopJson = prefs.getString(key);
     if (savedShopJson != null) {
       try {
         final decoded = jsonDecode(savedShopJson) as Map<String, dynamic>;
@@ -40,6 +68,57 @@ class ShopProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+  }
+
+  Future<void> loadForUser(String? userId, {String? defaultName}) async {
+    _currentUserId = userId;
+    final prefs = await SharedPreferences.getInstance();
+    final key = _shopStorageKey(userId);
+    final savedShopJson = prefs.getString(key);
+
+    if (savedShopJson != null) {
+      try {
+        final decoded = jsonDecode(savedShopJson) as Map<String, dynamic>;
+        _shop = Shop.fromJson(decoded);
+        SupabaseService.instance.setLocalShop(_shop);
+        notifyListeners();
+        return;
+      } catch (e) {
+        debugPrint("Error decoding user shop: $e");
+      }
+    }
+
+    // New user with no saved local profile -> initialize fresh isolated shop
+    _shop = Shop(
+      id: userId != null ? 'shop-$userId' : 'demo-shop-101',
+      name: defaultName ?? 'मेरी दुकान (My Store)',
+      phone: null,
+      address: null,
+      gstin: null,
+      upiId: null,
+      upiPayeeName: null,
+      allowNegativeStock: false,
+      printPaperSize: '58mm',
+      receiptFooter: 'धन्यवाद! फिर पधारें 🙏',
+      qrImageUrl: null,
+    );
+    SupabaseService.instance.setLocalShop(_shop);
+    await prefs.setString(key, jsonEncode(_shop.toJson()));
+    notifyListeners();
+  }
+
+  Future<void> resetToGuest() async {
+    _currentUserId = null;
+    _shop = defaultShop;
+    SupabaseService.instance.setLocalShop(_shop);
+    notifyListeners();
+  }
+
+  Future<void> setShowProductBadges(bool value) async {
+    _showProductBadges = value;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_product_badges', value);
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
@@ -54,7 +133,8 @@ class ShopProvider extends ChangeNotifier {
     SupabaseService.instance.setLocalShop(shop);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
+    final key = _shopStorageKey(_currentUserId);
+    await prefs.setString(key, jsonEncode(shop.toJson()));
   }
 
   Future<void> updateShop(Shop updated) async {
@@ -63,7 +143,10 @@ class ShopProvider extends ChangeNotifier {
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('saved_shop_data', jsonEncode(updated.toJson()));
+    final key = _shopStorageKey(_currentUserId);
+    await prefs.setString(key, jsonEncode(updated.toJson()));
+
+    // Keep primary SharedPreferences keys updated for backward compatibility
     await prefs.setString('shop_name', updated.name);
     if (updated.phone != null) await prefs.setString('shop_phone', updated.phone!);
     if (updated.address != null) await prefs.setString('shop_address', updated.address!);
@@ -78,7 +161,7 @@ class ShopProvider extends ChangeNotifier {
     final synced = await SupabaseService.instance.updateShop(updated);
     if (synced.id != _shop.id) {
       _shop = synced;
-      await prefs.setString('saved_shop_data', jsonEncode(synced.toJson()));
+      await prefs.setString(key, jsonEncode(synced.toJson()));
       notifyListeners();
     }
   }
@@ -88,7 +171,8 @@ class ShopProvider extends ChangeNotifier {
     _shop = joined;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('saved_shop_data', jsonEncode(joined.toJson()));
+    final key = _shopStorageKey(_currentUserId);
+    await prefs.setString(key, jsonEncode(joined.toJson()));
     return joined;
   }
 }

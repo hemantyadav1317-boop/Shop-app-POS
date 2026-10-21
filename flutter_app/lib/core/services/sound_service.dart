@@ -63,8 +63,39 @@ class SoundService {
   void playDot() {
     if (!_enabled) return;
     try {
-      HapticFeedback.selectionClick();
+      HapticFeedback.mediumImpact();
       _player.playDot();
+    } catch (_) {}
+  }
+
+  void playButtonClick() {
+    if (!_enabled) return;
+    try {
+      HapticFeedback.selectionClick();
+      _player.playButtonClick();
+    } catch (_) {}
+  }
+
+  void playProductAdd() {
+    if (!_enabled) return;
+    try {
+      HapticFeedback.lightImpact();
+      _player.playProductAdd();
+    } catch (_) {}
+  }
+
+  void playNumberKey() {
+    if (!_enabled) return;
+    try {
+      HapticFeedback.selectionClick();
+      _player.playNumberKey();
+    } catch (_) {}
+  }
+
+  void playAppStartup() {
+    if (!_enabled) return;
+    try {
+      _player.playAppStartup();
     } catch (_) {}
   }
 }

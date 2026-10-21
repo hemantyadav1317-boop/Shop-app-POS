@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -388,21 +390,31 @@ class _PaymentDialogState extends State<PaymentDialog> {
                           child: shop.qrImageUrl != null && shop.qrImageUrl!.isNotEmpty
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: shop.qrImageUrl!.startsWith('http')
-                                      ? Image.network(
-                                          shop.qrImageUrl!,
+                                  child: shop.qrImageUrl!.startsWith('data:image')
+                                      ? Image.memory(
+                                          base64Decode(shop.qrImageUrl!.split(',').last),
                                           width: 150,
                                           height: 150,
                                           fit: BoxFit.contain,
                                           errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
                                         )
-                                      : Image.file(
-                                          File(shop.qrImageUrl!),
-                                          width: 150,
-                                          height: 150,
-                                          fit: BoxFit.contain,
-                                          errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
-                                        ),
+                                      : shop.qrImageUrl!.startsWith('http')
+                                          ? Image.network(
+                                              shop.qrImageUrl!,
+                                              width: 150,
+                                              height: 150,
+                                              fit: BoxFit.contain,
+                                              errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                                            )
+                                          : (!kIsWeb
+                                              ? Image.file(
+                                                  File(shop.qrImageUrl!),
+                                                  width: 150,
+                                                  height: 150,
+                                                  fit: BoxFit.contain,
+                                                  errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                                                )
+                                              : QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)),
                                 )
                               : QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
                         ),

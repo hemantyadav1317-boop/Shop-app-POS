@@ -57,7 +57,7 @@ class CartProvider extends ChangeNotifier {
     } else {
       _lines.add(item);
     }
-    SoundService.instance.playBeep();
+    SoundService.instance.playProductAdd();
     notifyListeners();
   }
 
@@ -83,7 +83,7 @@ class CartProvider extends ChangeNotifier {
 
     if (index != -1) {
       _lines[index] = _lines[index].copyWith(qty: newQty);
-      SoundService.instance.playClick();
+      SoundService.instance.playButtonClick();
       notifyListeners();
     }
   }

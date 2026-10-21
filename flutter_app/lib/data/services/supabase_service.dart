@@ -112,6 +112,25 @@ class SupabaseService {
     _localShop = shop;
   }
 
+  void resetLocalData() {
+    _localShop = Shop(
+      id: 'demo-shop-101',
+      name: 'मेरी दुकान (My Store)',
+      phone: null,
+      address: null,
+      gstin: null,
+      upiId: null,
+      upiPayeeName: null,
+      allowNegativeStock: false,
+      printPaperSize: '58mm',
+      receiptFooter: 'धन्यवाद! फिर पधारें 🙏',
+      qrImageUrl: null,
+    );
+    _localProducts.clear();
+    _localCustomers.clear();
+    _localSales.clear();
+  }
+
   /// Automatically ensures that if a user is logged in, their data is attached
   /// to their real Supabase Cloud shop UUID rather than staying trapped in demo-shop-101.
   Future<String> _ensureValidShopId(String currentShopId) async {
@@ -201,18 +220,25 @@ class SupabaseService {
       }
 
       // 3. User does not have a shop in cloud yet -> create one with a client-generated UUID
-      final shopName = (fallback?.name != null && fallback!.name.isNotEmpty && fallback.name != 'मेरी दुकान (My Store)')
-          ? fallback.name
-          : 'Meri Dukan (${userEmail.split('@').first})';
+      final isCrossAccount = fallback != null &&
+          (fallback.id != 'demo-shop-101' && !fallback.id.contains(userId));
+      final cleanFallback = isCrossAccount ? null : fallback;
+
+      final userHandle = userEmail.contains('@') ? userEmail.split('@').first : userEmail;
+      final defaultShopName = userHandle.isNotEmpty ? 'मेरी दुकान ($userHandle)' : 'मेरी दुकान POS';
+
+      final shopName = (cleanFallback?.name != null && cleanFallback!.name.isNotEmpty && cleanFallback.name != 'मेरी दुकान (My Store)')
+          ? cleanFallback.name
+          : defaultShopName;
 
       final newShopId = const Uuid().v4();
       final newShopPayload = {
         'id': newShopId,
         'owner_id': userId,
         'name': shopName,
-        if (fallback?.phone != null && fallback!.phone!.isNotEmpty) 'phone': fallback.phone,
-        if (fallback?.address != null && fallback!.address!.isNotEmpty) 'address': fallback.address,
-        if (fallback?.gstin != null && fallback!.gstin!.isNotEmpty) 'gst_number': fallback.gstin,
+        if (cleanFallback?.phone != null && cleanFallback!.phone!.isNotEmpty) 'phone': cleanFallback.phone,
+        if (cleanFallback?.address != null && cleanFallback!.address!.isNotEmpty) 'address': cleanFallback.address,
+        if (cleanFallback?.gstin != null && cleanFallback!.gstin!.isNotEmpty) 'gst_number': cleanFallback.gstin,
       };
 
       Shop shop;
@@ -224,14 +250,14 @@ class SupabaseService {
           shop = Shop(
             id: newShopId,
             name: shopName,
-            phone: fallback?.phone ?? '',
-            address: fallback?.address ?? '',
-            gstin: fallback?.gstin ?? '',
-            upiId: fallback?.upiId ?? '',
-            upiPayeeName: fallback?.upiPayeeName ?? '',
-            allowNegativeStock: fallback?.allowNegativeStock ?? true,
-            printPaperSize: fallback?.printPaperSize ?? '58mm',
-            receiptFooter: fallback?.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏',
+            phone: cleanFallback?.phone,
+            address: cleanFallback?.address,
+            gstin: cleanFallback?.gstin,
+            upiId: cleanFallback?.upiId,
+            upiPayeeName: cleanFallback?.upiPayeeName,
+            allowNegativeStock: cleanFallback?.allowNegativeStock ?? false,
+            printPaperSize: cleanFallback?.printPaperSize ?? '58mm',
+            receiptFooter: cleanFallback?.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏',
           );
         }
       } catch (insertErr) {
@@ -239,14 +265,14 @@ class SupabaseService {
         shop = Shop(
           id: newShopId,
           name: shopName,
-          phone: fallback?.phone ?? '',
-          address: fallback?.address ?? '',
-          gstin: fallback?.gstin ?? '',
-          upiId: fallback?.upiId ?? '',
-          upiPayeeName: fallback?.upiPayeeName ?? '',
-          allowNegativeStock: fallback?.allowNegativeStock ?? true,
-          printPaperSize: fallback?.printPaperSize ?? '58mm',
-          receiptFooter: fallback?.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏',
+          phone: cleanFallback?.phone,
+          address: cleanFallback?.address,
+          gstin: cleanFallback?.gstin,
+          upiId: cleanFallback?.upiId,
+          upiPayeeName: cleanFallback?.upiPayeeName,
+          allowNegativeStock: cleanFallback?.allowNegativeStock ?? false,
+          printPaperSize: cleanFallback?.printPaperSize ?? '58mm',
+          receiptFooter: cleanFallback?.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏',
         );
       }
 
@@ -822,11 +848,11 @@ class SupabaseService {
     if (_isInitialized && client != null) {
       final user = client!.auth.currentUser;
       try {
-        final payload = {
+        final payload = <String, dynamic>{
           'name': shop.name,
-          if (shop.phone != null && shop.phone!.isNotEmpty) 'phone': shop.phone,
-          if (shop.address != null && shop.address!.isNotEmpty) 'address': shop.address,
-          if (shop.gstin != null && shop.gstin!.isNotEmpty) 'gst_number': shop.gstin,
+          'phone': shop.phone,
+          'address': shop.address,
+          'gst_number': shop.gstin,
         };
         if (shop.id != 'demo-shop-101' && shop.id.length >= 30) {
           await client!.from('shops').update(payload).eq('id', shop.id);
@@ -840,9 +866,9 @@ class SupabaseService {
             final created = await client!.from('shops').insert({
               ...payload,
               'owner_id': user.id,
-            }).select().single();
-            if (created['id'] != null) {
-              _localShop = Shop.fromJson(created);
+            }).select().maybeSingle();
+            if (created != null && created['id'] != null) {
+              _localShop = shop.copyWith(id: created['id'] as String);
             }
           }
         }

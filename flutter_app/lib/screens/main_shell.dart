@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/sound_service.dart';
 import '../../core/services/update_service.dart';
 import '../data/services/supabase_service.dart';
 import '../providers/auth_provider.dart';
@@ -47,7 +48,12 @@ class _MainShellState extends State<MainShell> {
 
   void _onAuthChanged() {
     if (mounted) {
-      _syncUserCloudData();
+      final auth = context.read<AuthProvider>();
+      if (!auth.isAuthenticated) {
+        context.read<ShopProvider>().resetToGuest();
+      } else {
+        _syncUserCloudData();
+      }
     }
   }
 
@@ -68,6 +74,8 @@ class _MainShellState extends State<MainShell> {
         final productProvider = context.read<ProductProvider>();
         final customerProvider = context.read<CustomerProvider>();
 
+        await shopProvider.loadForUser(u.id);
+
         final syncedShop = await SupabaseService.instance.syncUserShop(
           userId: u.id,
           userEmail: u.email ?? '',
@@ -75,9 +83,7 @@ class _MainShellState extends State<MainShell> {
         );
 
         if (mounted) {
-          if (syncedShop.id != shopProvider.shop.id || syncedShop.name != shopProvider.shop.name) {
-            await shopProvider.setShop(syncedShop);
-          }
+          await shopProvider.setShop(syncedShop);
           await productProvider.loadProducts(syncedShop.id);
           await customerProvider.loadCustomers(syncedShop.id);
           debugPrint("Cloud sync complete: Shop=${syncedShop.id} Products=${productProvider.products.length}");
@@ -108,6 +114,7 @@ class _MainShellState extends State<MainShell> {
             NavigationRail(
               selectedIndex: _currentIndex,
               onDestinationSelected: (index) {
+                SoundService.instance.playButtonClick();
                 setState(() => _currentIndex = index);
               },
               labelType: NavigationRailLabelType.all,
@@ -191,6 +198,7 @@ class _MainShellState extends State<MainShell> {
           backgroundColor: Colors.transparent,
           selectedIndex: _currentIndex,
           onDestinationSelected: (idx) {
+            SoundService.instance.playButtonClick();
             setState(() => _currentIndex = idx);
           },
           indicatorColor: const Color(0xFFE8F5E9), // Light green capsule pill

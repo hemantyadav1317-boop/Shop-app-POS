@@ -37,6 +37,34 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
       js.context.callMethod('eval', ["window.posAudio && window.posAudio.playDot && window.posAudio.playDot()"]);
     } catch (_) {}
   }
+
+  @override
+  void playButtonClick() {
+    try {
+      js.context.callMethod('eval', ["window.posAudio && window.posAudio.playButtonClick && window.posAudio.playButtonClick()"]);
+    } catch (_) {}
+  }
+
+  @override
+  void playProductAdd() {
+    try {
+      js.context.callMethod('eval', ["window.posAudio && window.posAudio.playProductAdd && window.posAudio.playProductAdd()"]);
+    } catch (_) {}
+  }
+
+  @override
+  void playNumberKey() {
+    try {
+      js.context.callMethod('eval', ["window.posAudio && window.posAudio.playNumberKey && window.posAudio.playNumberKey()"]);
+    } catch (_) {}
+  }
+
+  @override
+  void playAppStartup() {
+    try {
+      js.context.callMethod('eval', ["window.posAudio && window.posAudio.playAppStartup && window.posAudio.playAppStartup()"]);
+    } catch (_) {}
+  }
 }
 
 SoundPlayerPlatform getPlatformPlayer() => SoundPlayerImpl();

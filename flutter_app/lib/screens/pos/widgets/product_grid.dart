@@ -7,6 +7,7 @@ import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
 import '../../../../providers/product_provider.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'qty_rate_dialog.dart';
 
@@ -192,7 +193,7 @@ class _ProductGridState extends State<ProductGrid> {
 
                 return InkWell(
                   onTap: () {
-                    SoundService.instance.playClick();
+                    SoundService.instance.playButtonClick();
                     productProvider.selectCategory(cat);
                   },
                   borderRadius: BorderRadius.circular(16),
@@ -257,137 +258,7 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
 
-        // 3. Promotional Indian Supermarket Banner with High Contrast Green Gradient
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-            child: Stack(
-              children: [
-                // Photographic Banner Background
-                Positioned.fill(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: Image.asset(
-                      'assets/images/pos_promo_banner.jpg',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-
-                // Green Gradient Overlay: Solid Dark Green on left behind text, smooth fade to right
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          const Color(0xFF021B0F), // Deep Solid Green for crystal clear text readability
-                          const Color(0xFF042D19).withValues(alpha: 0.95),
-                          const Color(0xFF084E2C).withValues(alpha: 0.75),
-                          const Color(0xFF042715).withValues(alpha: 0.40),
-                        ],
-                        stops: const [0.0, 0.45, 0.75, 1.0],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Content
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00875A).withValues(alpha: 0.25),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.eco, size: 12, color: Color(0xFF4ADE80)),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'ताजा और प्रीमियम',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              'ताजा फल और सब्जियाँ',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                            const Text(
-                              'सीधे किसान से आपके लिए',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 4,
-                              children: const [
-                                _BannerPill(icon: Icons.check_circle_outline, text: '100% Fresh'),
-                                _BannerPill(icon: Icons.verified_user_outlined, text: 'Best Quality'),
-                                _BannerPill(icon: Icons.bolt, text: 'Fast Billing'),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.shopping_basket_rounded,
-                            size: 36,
-                            color: Color(0xFF4ADE80),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        // 4. Section Header: '🍃 आज की खास पेशकश'
+        // 3. Section Header: '🍃 आज की खास पेशकश'
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
@@ -510,7 +381,7 @@ class _ProductGridState extends State<ProductGrid> {
           borderRadius: BorderRadius.circular(isMobile ? 14 : 18),
           onTap: () {
             // Touch sound effect on tapping product card
-            SoundService.instance.playBeep();
+            SoundService.instance.playProductAdd();
             // Detailed quantity and rate dialog on tapping product card
             showDialog(
               context: context,
@@ -545,46 +416,47 @@ class _ProductGridState extends State<ProductGrid> {
                       ),
                     ),
 
-                    // Top Left Status Badge (ताजा, बेस्टसेलर, ऑर्गैनिक, नई आवक / कस्टम टैग)
-                    Positioned(
-                      top: isMobile ? 6 : 8,
-                      left: isMobile ? 6 : 8,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isMobile ? 5 : 8,
-                          vertical: isMobile ? 2 : 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: badgeColor,
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: badgeColor.withValues(alpha: 0.35),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              badge == 'बेस्टसेलर' ? Icons.star_rounded : Icons.eco,
-                              size: isMobile ? 9 : 11,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 2),
-                            Text(
-                              badge,
-                              style: TextStyle(
-                                fontSize: isMobile ? 8.5 : 10,
-                                fontWeight: FontWeight.bold,
+                    // Top Left Status Badge (ताजा, बेस्टसेलर, ऑर्गैनिक, नई आवक / कस्टम टैग) - Optional & Default OFF
+                    if (context.watch<ShopProvider>().showProductBadges)
+                      Positioned(
+                        top: isMobile ? 6 : 8,
+                        left: isMobile ? 6 : 8,
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isMobile ? 5 : 8,
+                            vertical: isMobile ? 2 : 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: badgeColor,
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: badgeColor.withValues(alpha: 0.35),
+                                blurRadius: 4,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                badge == 'बेस्टसेलर' ? Icons.star_rounded : Icons.eco,
+                                size: isMobile ? 9 : 11,
                                 color: Colors.white,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 2),
+                              Text(
+                                badge,
+                                style: TextStyle(
+                                  fontSize: isMobile ? 8.5 : 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
                   ],
                 ),
               ),
@@ -673,7 +545,7 @@ class _ProductGridState extends State<ProductGrid> {
                         // Oval Dark Green Cart Button [ 🛒+ ] with touch sound
                         InkWell(
                           onTap: () {
-                            SoundService.instance.playBeep();
+                            SoundService.instance.playProductAdd();
                             // 1-Tap quick add to cart
                             cart.addLine(CartItem(
                               productId: product.id,
@@ -734,32 +606,6 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _BannerPill extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _BannerPill({required this.icon, required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 11, color: const Color(0xFF4ADE80)),
-        const SizedBox(width: 2),
-        Text(
-          text,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
     );
   }
 }

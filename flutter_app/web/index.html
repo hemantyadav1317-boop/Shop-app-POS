@@ -142,6 +142,86 @@
           osc.start();
           osc.stop(ctx.currentTime + 0.10);
         } catch(e) {}
+      },
+      playButtonClick: function() {
+        try {
+          const ctx = this.getCtx();
+          if (!ctx) return;
+          // Soothing, gentle soft tap for UI buttons & navigation
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(650, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.04);
+          gain.gain.setValueAtTime(0.14, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.04);
+        } catch(e) {}
+      },
+      playProductAdd: function() {
+        try {
+          const ctx = this.getCtx();
+          if (!ctx) return;
+          // Soothing, melodic double-tone chime when adding product to bill
+          const notes = [880, 1318.5]; // A5 -> E6 harmonic pleasant bell
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            const t = ctx.currentTime + idx * 0.045;
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.001, t);
+            gain.gain.linearRampToValueAtTime(0.20, t + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.11);
+          });
+        } catch(e) {}
+      },
+      playNumberKey: function() {
+        try {
+          const ctx = this.getCtx();
+          if (!ctx) return;
+          // Crisp subtle numeric keypad click
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(800, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.03);
+          gain.gain.setValueAtTime(0.13, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.03);
+        } catch(e) {}
+      },
+      playAppStartup: function() {
+        try {
+          const ctx = this.getCtx();
+          if (!ctx) return;
+          // Gentle, soothing 2-tone welcome chime on app launch
+          const notes = [523.25, 783.99]; // C5 -> G5
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            const t = ctx.currentTime + idx * 0.10;
+            osc.frequency.setValueAtTime(freq, t);
+            gain.gain.setValueAtTime(0.001, t);
+            gain.gain.linearRampToValueAtTime(0.22, t + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.40);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + 0.40);
+          });
+        } catch(e) {}
       }
     };
   </script>

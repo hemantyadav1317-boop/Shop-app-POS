@@ -229,9 +229,20 @@ class AuthProvider extends ChangeNotifier {
 
     _user = null;
     _isGuestMode = false;
+    SupabaseService.instance.resetLocalData();
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('is_guest_mode');
     await prefs.remove('custom_owner_name');
+    await prefs.remove('saved_shop_data');
+    await prefs.remove('shop_name');
+    await prefs.remove('shop_phone');
+    await prefs.remove('shop_address');
+    await prefs.remove('shop_gstin');
+    await prefs.remove('shop_upi_id');
+    await prefs.remove('shop_upi_payee_name');
+    await prefs.remove('shop_receipt_footer');
+    await prefs.remove('shop_qr_image_url');
 
     _isLoading = false;
     notifyListeners();

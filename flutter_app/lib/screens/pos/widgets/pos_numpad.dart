@@ -27,7 +27,7 @@ class PosNumpad extends StatelessWidget {
       SoundService.instance.playDelete();
       controller.clear();
     } else {
-      SoundService.instance.playClick();
+      SoundService.instance.playNumberKey();
       controller.text += val;
     }
   }

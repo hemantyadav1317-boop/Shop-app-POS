@@ -2,8 +2,9 @@ import 'package:flutter/services.dart';
 import '../services/sound_service.dart';
 
 /// Intercepts text inputs to trigger sound effects:
-/// - Digits (0-9): Plays tactile click sound
+/// - Digits (0-9): Plays tactile number click sound
 /// - Dot (.): Plays distinct high-pitched chime sound
+/// - Delete / Backspace: Plays soft delete sound
 class PosNumberSoundFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -15,8 +16,10 @@ class PosNumberSoundFormatter extends TextInputFormatter {
       if (addedText.contains('.')) {
         SoundService.instance.playDot();
       } else if (RegExp(r'\d').hasMatch(addedText)) {
-        SoundService.instance.playClick();
+        SoundService.instance.playNumberKey();
       }
+    } else if (newValue.text.length < oldValue.text.length) {
+      SoundService.instance.playDelete();
     }
     return newValue;
   }

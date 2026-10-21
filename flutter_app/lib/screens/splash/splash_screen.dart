@@ -94,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   void _navigateToNextScreen() {
     Future.delayed(const Duration(milliseconds: 150), () {
       if (!mounted) return;
-      SoundService.instance.playClick();
+      SoundService.instance.playAppStartup();
       final auth = context.read<AuthProvider>();
       final targetWidget = auth.isAuthenticated ? const MainShell() : const LoginScreen();
 

@@ -58,6 +58,44 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
       } catch (_) {}
     }
   }
+
+  @override
+  void playButtonClick() {
+    try {
+      _player.stop();
+      _player.play(AssetSource('sounds/click.wav'), volume: 0.65);
+    } catch (_) {
+      SystemSound.play(SystemSoundType.click);
+    }
+  }
+
+  @override
+  void playProductAdd() {
+    try {
+      _player.stop();
+      _player.play(AssetSource('sounds/beep.wav'), volume: 0.75);
+    } catch (_) {
+      SystemSound.play(SystemSoundType.click);
+    }
+  }
+
+  @override
+  void playNumberKey() {
+    try {
+      _player.stop();
+      _player.play(AssetSource('sounds/click.wav'), volume: 0.5);
+    } catch (_) {
+      SystemSound.play(SystemSoundType.click);
+    }
+  }
+
+  @override
+  void playAppStartup() {
+    try {
+      _player.stop();
+      _player.play(AssetSource('sounds/success.wav'), volume: 0.55);
+    } catch (_) {}
+  }
 }
 
 SoundPlayerPlatform getPlatformPlayer() => SoundPlayerImpl();

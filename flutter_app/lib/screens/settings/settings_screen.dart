@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -914,7 +916,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       maxHeight: 800,
                                     );
                                     if (img != null) {
-                                      setState(() => _qrImageUrl = img.path);
+                                      final bytes = await img.readAsBytes();
+                                      final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                                      setState(() => _qrImageUrl = base64Str);
                                     }
                                   } catch (e) {
                                     debugPrint("QR Pick Camera error: $e");
@@ -933,7 +937,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       maxHeight: 800,
                                     );
                                     if (img != null) {
-                                      setState(() => _qrImageUrl = img.path);
+                                      final bytes = await img.readAsBytes();
+                                      final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+                                      setState(() => _qrImageUrl = base64Str);
                                     }
                                   } catch (e) {
                                     debugPrint("QR Pick Gallery error: $e");
@@ -1006,21 +1012,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   if (_qrImageUrl != null && _qrImageUrl!.isNotEmpty) ...[
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
-                                      child: _qrImageUrl!.startsWith('http')
-                                          ? Image.network(
-                                              _qrImageUrl!,
+                                      child: _qrImageUrl!.startsWith('data:image')
+                                          ? Image.memory(
+                                              base64Decode(_qrImageUrl!.split(',').last),
                                               width: 150,
                                               height: 150,
                                               fit: BoxFit.contain,
-                                              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 80, color: AppColors.error),
+                                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 80, color: AppColors.error),
                                             )
-                                          : Image.file(
-                                              File(_qrImageUrl!),
-                                              width: 150,
-                                              height: 150,
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 80, color: AppColors.error),
-                                            ),
+                                          : _qrImageUrl!.startsWith('http')
+                                              ? Image.network(
+                                                  _qrImageUrl!,
+                                                  width: 150,
+                                                  height: 150,
+                                                  fit: BoxFit.contain,
+                                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 80, color: AppColors.error),
+                                                )
+                                              : (!kIsWeb
+                                                  ? Image.file(
+                                                      File(_qrImageUrl!),
+                                                      width: 150,
+                                                      height: 150,
+                                                      fit: BoxFit.contain,
+                                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 80, color: AppColors.error),
+                                                    )
+                                                  : const Icon(Icons.qr_code_2, size: 100, color: AppColors.primary)),
                                     ),
                                     const SizedBox(height: 6),
                                     const Text('दुकान का स्टैंडी QR फोटो सेट है', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
@@ -1280,6 +1296,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onChanged: (val) {
                         setState(() => _allowNegativeStock = val);
                       },
+                    ),
+                    const Divider(height: 16),
+                    Consumer<ShopProvider>(
+                      builder: (context, sp, _) => SwitchListTile(
+                        title: const Text('प्रोडक्ट बैज दिखाएं (ताजा / बेस्टसेलर)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        subtitle: Text(
+                          sp.showProductBadges ? 'चालू (दुकान में बैज दिखेंगे)' : 'बंद (क्लीन ग्रिड - बैज छिपे हैं)',
+                          style: TextStyle(fontSize: 11, color: sp.showProductBadges ? Colors.green : Colors.grey),
+                        ),
+                        value: sp.showProductBadges,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (val) async {
+                          await sp.setShowProductBadges(val);
+                        },
+                      ),
                     ),
                   ],
                 ),

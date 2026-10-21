@@ -87,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (auth.user != null) {
                     try {
                       final shopProvider = context.read<ShopProvider>();
+                      await shopProvider.loadForUser(auth.user!.id);
                       final syncedShop = await SupabaseService.instance.syncUserShop(
                         userId: auth.user!.id,
                         userEmail: auth.user!.email ?? '',
@@ -337,6 +338,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   if (auth.user != null) {
                                     try {
                                       final shopProvider = context.read<ShopProvider>();
+                                      await shopProvider.loadForUser(auth.user!.id);
                                       final syncedShop = await SupabaseService.instance.syncUserShop(
                                         userId: auth.user!.id,
                                         userEmail: auth.user!.email ?? '',
