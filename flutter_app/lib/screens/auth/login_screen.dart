@@ -235,15 +235,15 @@ class _LoginScreenState extends State<LoginScreen> {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                 child: Container(
-                  constraints: const BoxConstraints(maxWidth: 440),
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 26),
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 26),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 30,
+                        color: Colors.black.withValues(alpha: 0.28),
+                        blurRadius: 28,
                         offset: const Offset(0, 10),
                       ),
                     ],
@@ -252,239 +252,253 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                  // App Icon / Logo
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(22),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withAlpha(80),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.storefront, color: Colors.white, size: 48),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Brand Title
-                  const Text(
-                    'Shop POS',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 28),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Your Shop. Your Billing.\nYour Complete Business System.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: AppColors.primaryDark,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    'Fast POS billing, stock, customer khata, expenses aur reports — Android phone aur tablet dono par.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Feature Cards
-                  _buildFeatureTile(
-                    icon: Icons.smartphone,
-                    title: 'Phone + Tablet Ready',
-                    desc: 'Dono ke liye alag optimised touch layout.',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildFeatureTile(
-                    icon: Icons.qr_code_2,
-                    title: 'Dynamic UPI QR Billing',
-                    desc: 'PhonePe, GPay, Paytm se turant customer payment.',
-                  ),
-                  const SizedBox(height: 8),
-                  _buildFeatureTile(
-                    icon: Icons.menu_book,
-                    title: 'Customer Khata (बहीखाता)',
-                    desc: 'Market udhar aur WhatsApp payment reminder.',
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Google Login Button
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black87,
-                      elevation: 1,
-                      side: const BorderSide(color: AppColors.lightBorder),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: auth.isLoading
-                        ? null
-                        : () async {
-                            final success = await auth.signInWithGoogle();
-                            if (success && context.mounted) {
-                              if (auth.user != null) {
-                                try {
-                                  final shopProvider = context.read<ShopProvider>();
-                                  final syncedShop = await SupabaseService.instance.syncUserShop(
-                                    userId: auth.user!.id,
-                                    userEmail: auth.user!.email ?? '',
-                                    fallback: shopProvider.shop,
-                                  );
-                                  await shopProvider.setShop(syncedShop);
-                                  if (context.mounted) {
-                                    await context.read<ProductProvider>().loadProducts(syncedShop.id);
-                                    await context.read<CustomerProvider>().loadCustomers(syncedShop.id);
-                                  }
-                                } catch (_) {}
-                              }
-                              if (context.mounted) {
-                                Navigator.pushReplacement(
-                                  context,
-                                  MaterialPageRoute(builder: (_) => const MainShell()),
-                                );
-                              }
-                            } else if (auth.lastError != null && context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppColors.error,
-                                  content: Text(auth.lastError!),
-                                ),
-                              );
-                            }
-                          },
-                    child: auth.isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Text(
-                                'G',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                              SizedBox(width: 10),
-                              Text(
-                                'Continue with Google',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      // App Icon / Logo
+                      Center(
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF00875A), Color(0xFF005A3C)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF00875A).withValues(alpha: 0.35),
+                                blurRadius: 14,
+                                offset: const Offset(0, 5),
                               ),
                             ],
                           ),
-                  ),
-                  const SizedBox(height: 8),
+                          child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 42),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
 
-                  // 2. Gmail & Password Login Button
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.email_outlined, size: 18),
-                    label: const Text(
-                      'Gmail और पासवर्ड से लॉगिन (Cloud Sync)',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () => _showEmailLoginDialog(context),
-                  ),
-                  const SizedBox(height: 10),
+                      // Brand Title & Tagline
+                      const Text(
+                        'Shop POS',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 26,
+                          letterSpacing: -0.5,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'आपकी अपनी डिजिटल दुकान',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFF00875A),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      const Text(
+                        'फास्ट बिलिंग • स्टॉक • ग्राहक खाता',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
+                      ),
+                      const SizedBox(height: 16),
 
-                  // 3. Join Existing Shop Button for Family / Staff
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.group_add, color: AppColors.primary, size: 20),
-                    label: const Text(
-                      '🔗 परिवार या पार्टनर की दुकान से जुड़ें (Join Shop)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      side: const BorderSide(color: AppColors.primary, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () => _showJoinShopDialog(context),
-                  ),
-                  const SizedBox(height: 10),
+                      // Dynamic Compact Feature Pills
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildFeatureChip(Icons.bolt_rounded, 'तेज बिलिंग'),
+                          const SizedBox(width: 8),
+                          _buildFeatureChip(Icons.qr_code_2_rounded, 'UPI QR'),
+                          const SizedBox(width: 8),
+                          _buildFeatureChip(Icons.menu_book_rounded, 'बहीखाता'),
+                        ],
+                      ),
+                      const SizedBox(height: 22),
 
-                  // 4. Offline / Demo Mode Button
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.flash_on, color: Colors.orange, size: 18),
-                    label: const Text(
-                      'Direct Offline Mode (डेमो मोड • डेटा सेव नहीं होगा)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () async {
-                      await auth.continueOffline();
-                      if (context.mounted) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(builder: (_) => const MainShell()),
-                        );
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
+                      // Google Login Button
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: const Color(0xFF0F172A),
+                          elevation: 1.5,
+                          shadowColor: Colors.black.withValues(alpha: 0.08),
+                          side: BorderSide(color: Colors.grey.shade300, width: 1.2),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        onPressed: auth.isLoading
+                            ? null
+                            : () async {
+                                final success = await auth.signInWithGoogle();
+                                if (success && context.mounted) {
+                                  if (auth.user != null) {
+                                    try {
+                                      final shopProvider = context.read<ShopProvider>();
+                                      final syncedShop = await SupabaseService.instance.syncUserShop(
+                                        userId: auth.user!.id,
+                                        userEmail: auth.user!.email ?? '',
+                                        fallback: shopProvider.shop,
+                                      );
+                                      await shopProvider.setShop(syncedShop);
+                                      if (context.mounted) {
+                                        await context.read<ProductProvider>().loadProducts(syncedShop.id);
+                                        await context.read<CustomerProvider>().loadCustomers(syncedShop.id);
+                                      }
+                                    } catch (_) {}
+                                  }
+                                  if (context.mounted) {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => const MainShell()),
+                                    );
+                                  }
+                                } else if (auth.lastError != null && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: AppColors.error,
+                                      content: Text(auth.lastError!),
+                                    ),
+                                  );
+                                }
+                              },
+                        child: auth.isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Image.network(
+                                    'https://www.gstatic.com/images/branding/product/2x/googleg_48dp.png',
+                                    width: 20,
+                                    height: 20,
+                                    errorBuilder: (ctx, err, stack) => const Text(
+                                      'G',
+                                      style: TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'Continue with Google',
+                                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                      ),
+                      const SizedBox(height: 12),
 
-                  const Text(
-                    '🔒 आपका सारा डेटा एन्क्रिप्टेड और सुरक्षित है',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                      // Divider "या (OR)"
+                      Row(
+                        children: [
+                          Expanded(child: Divider(color: Colors.grey.shade300)),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Text(
+                              'या / OR',
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade500, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Expanded(child: Divider(color: Colors.grey.shade300)),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Gmail / Password Login Button
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.email_outlined, size: 17),
+                        label: const Text(
+                          'Gmail और पासवर्ड से लॉगिन करें',
+                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF334155),
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          side: BorderSide(color: Colors.grey.shade300),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => _showEmailLoginDialog(context),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Join Existing Shop Button
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.group_add, color: Color(0xFF00875A), size: 18),
+                        label: const Text(
+                          '🔗 पार्टनर दुकान से जुड़ें (Join Code)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF00875A)),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 11),
+                          side: const BorderSide(color: Color(0xFF00875A), width: 1.2),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () => _showJoinShopDialog(context),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Direct Offline Demo Mode Button
+                      TextButton.icon(
+                        icon: const Icon(Icons.flash_on, color: Colors.orange, size: 16),
+                        label: const Text(
+                          'डायरेक्ट ऑफलाइन डेमो मोड (Try Free)',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12, color: Color(0xFF475569)),
+                        ),
+                        onPressed: () async {
+                          await auth.continueOffline();
+                          if (context.mounted) {
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(builder: (_) => const MainShell()),
+                            );
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 6),
+
+                      const Text(
+                        '🔒 100% सुरक्षित • आपका डेटा केवल आपकी दुकान का है',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 10.5, color: AppColors.lightTextSecondary),
+                      ),
+                    ],
                   ),
-                  ],
                 ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
-  Widget _buildFeatureTile({required IconData icon, required String title, required String desc}) {
+  Widget _buildFeatureChip(IconData icon, String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.lightMuted,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.lightBorder),
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFC8E6C9)),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primarySurface,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: AppColors.primary, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                Text(desc, style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-              ],
+          Icon(icon, size: 14, color: const Color(0xFF00875A)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF005A3C),
             ),
           ),
         ],
