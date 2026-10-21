@@ -8,6 +8,7 @@ import '../../data/models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
+import '../../core/utils/pos_sound_formatter.dart';
 import 'widgets/bulk_import_dialog.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   void _showAddCategoryDialog(BuildContext context, [Function(String)? onCreated]) {
     final catNameCtrl = TextEditingController();
+    final catImgCtrl = TextEditingController();
 
     showDialog(
       context: context,
@@ -53,6 +55,15 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 prefixIcon: Icon(Icons.label_outline),
               ),
             ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: catImgCtrl,
+              decoration: const InputDecoration(
+                labelText: 'कैटेगरी फोटो / इमेज URL (वैकल्पिक)',
+                hintText: 'https://images.unsplash.com/...',
+                prefixIcon: Icon(Icons.image_outlined),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -61,7 +72,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
             onPressed: () async {
               final cat = catNameCtrl.text.trim().toUpperCase();
               if (cat.isEmpty) return;
-              await context.read<ProductProvider>().addCategory(cat);
+              final provider = context.read<ProductProvider>();
+              await provider.addCategory(cat);
+              if (catImgCtrl.text.trim().isNotEmpty) {
+                await provider.setCategoryImage(cat, catImgCtrl.text.trim());
+              }
               if (context.mounted) {
                 Navigator.pop(ctx);
                 onCreated?.call(cat);
@@ -183,6 +198,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final purchasePriceCtrl = TextEditingController(text: existing?.purchasePrice?.toString() ?? '');
     final stockCtrl = TextEditingController(text: existing != null ? existing.stock.toString() : '0');
     final lowStockCtrl = TextEditingController(text: existing != null ? existing.lowStockAt.toString() : '5');
+    final tagCtrl = TextEditingController(text: existing?.tag ?? '');
     String unit = existing?.unit ?? 'kg';
     String icon = existing?.icon ?? '📦';
     String? imageUrl = existing?.imageUrl;
@@ -438,6 +454,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     Expanded(
                       child: TextField(
                         controller: priceCtrl,
+                        inputFormatters: [PosNumberSoundFormatter()],
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: const InputDecoration(labelText: 'बिक्री मूल्य (Sale) *', prefixText: '₹ '),
                       ),
@@ -446,6 +463,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     Expanded(
                       child: TextField(
                         controller: purchasePriceCtrl,
+                        inputFormatters: [PosNumberSoundFormatter()],
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: const InputDecoration(labelText: 'खरीद मूल्य (Cost)', prefixText: '₹ '),
                       ),
@@ -458,6 +476,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     Expanded(
                       child: TextField(
                         controller: stockCtrl,
+                        inputFormatters: [PosNumberSoundFormatter()],
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(labelText: 'वर्तमान स्टॉक ($unit)'),
                       ),
@@ -466,11 +485,43 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     Expanded(
                       child: TextField(
                         controller: lowStockCtrl,
+                        inputFormatters: [PosNumberSoundFormatter()],
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(labelText: 'Low Alert ($unit)'),
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+
+                // Product Tag / Batch Input
+                TextField(
+                  controller: tagCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'प्रोडक्ट बैच / टैग (Badge on Card)',
+                    hintText: 'उदा. ताजा, बेस्टसेलर, ऑर्गैनिक, नई आवक, Batch #1',
+                    prefixIcon: const Icon(Icons.bookmark_border_rounded),
+                    suffixIcon: tagCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () => setDialogState(() => tagCtrl.clear()),
+                          )
+                        : null,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: ['ताजा', 'बेस्टसेलर', 'ऑर्गैनिक', 'नई आवक', 'डिस्काउंट']
+                      .map((preset) => ActionChip(
+                            label: Text(preset, style: const TextStyle(fontSize: 11)),
+                            onPressed: () => setDialogState(() => tagCtrl.text = preset),
+                            backgroundColor: tagCtrl.text == preset
+                                ? AppColors.primarySurface
+                                : Colors.grey.shade100,
+                          ))
+                      .toList(),
                 ),
               ],
             ),
@@ -509,6 +560,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   lowStockAt: double.tryParse(lowStockCtrl.text) ?? 5.0,
                   imageUrl: imageUrl,
                   icon: icon,
+                  tag: tagCtrl.text.trim().isNotEmpty ? tagCtrl.text.trim() : null,
                 );
 
                 final provider = context.read<ProductProvider>();

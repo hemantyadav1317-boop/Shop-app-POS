@@ -44,6 +44,16 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
       SystemSound.play(SystemSoundType.click);
     }
   }
+
+  @override
+  void playDot() {
+    try {
+      _player.stop();
+      _player.play(AssetSource('sounds/click.wav'));
+    } catch (_) {
+      SystemSound.play(SystemSoundType.click);
+    }
+  }
 }
 
 SoundPlayerPlatform getPlatformPlayer() => SoundPlayerImpl();

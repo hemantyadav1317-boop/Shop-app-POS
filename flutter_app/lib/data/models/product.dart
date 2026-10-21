@@ -15,6 +15,7 @@ class Product {
   final String? sku;
   final String? imageUrl;
   final String? icon; // Emoji icon (e.g. 🍎, 🥔)
+  final String? tag; // Product badge/batch (e.g. 'ताजा', 'बेस्टसेलर', 'New Arrival')
   final bool isActive;
 
   Product({
@@ -34,12 +35,22 @@ class Product {
     this.sku,
     this.imageUrl,
     this.icon,
+    this.tag,
     this.isActive = true,
   });
 
   bool get isLowStock => stock <= lowStockAt;
 
   factory Product.fromJson(Map<String, dynamic> json) {
+    String? rawTag = json['tag'] as String? ?? json['badge'] as String? ?? json['batch'] as String?;
+    String? rawSku = json['sku'] as String?;
+    if ((rawTag == null || rawTag.isEmpty) && rawSku != null && rawSku.contains('TAG:')) {
+      final parts = rawSku.split('TAG:');
+      rawTag = parts.last.trim();
+      rawSku = parts.first.replaceAll('|', '').trim();
+      if (rawSku.isEmpty) rawSku = null;
+    }
+
     return Product(
       id: json['id'] as String,
       shopId: json['shop_id'] as String? ?? '',
@@ -54,9 +65,10 @@ class Product {
       stock: (json['stock'] as num?)?.toDouble() ?? (json['stock_quantity'] as num?)?.toDouble() ?? 0.0,
       lowStockAt: (json['low_stock_at'] as num?)?.toDouble() ?? (json['low_stock_threshold'] as num?)?.toDouble() ?? 5.0,
       barcode: json['barcode'] as String?,
-      sku: json['sku'] as String?,
+      sku: rawSku,
       imageUrl: json['image_url'] as String?,
       icon: json['icon'] as String?,
+      tag: rawTag,
       isActive: json['is_active'] as bool? ?? true,
     );
   }
@@ -82,12 +94,17 @@ class Product {
       'sku': sku,
       'image_url': imageUrl,
       'icon': icon,
+      'tag': tag,
       'is_active': isActive,
     };
   }
 
   Map<String, dynamic> toSupabaseJson() {
     final isValidUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(id);
+    final combinedSku = (tag != null && tag!.trim().isNotEmpty)
+        ? ((sku != null && sku!.trim().isNotEmpty) ? '${sku!.trim()}|TAG:${tag!.trim()}' : 'TAG:${tag!.trim()}')
+        : sku;
+
     return {
       if (isValidUuid) 'id': id,
       'shop_id': shopId,
@@ -101,7 +118,7 @@ class Product {
       'stock': stock,
       'low_stock_at': lowStockAt,
       if (barcode != null && barcode!.isNotEmpty) 'barcode': barcode,
-      if (sku != null && sku!.isNotEmpty) 'sku': sku,
+      if (combinedSku != null && combinedSku.isNotEmpty) 'sku': combinedSku,
       if (imageUrl != null && imageUrl!.isNotEmpty) 'image_url': imageUrl,
       'is_active': isActive,
     };
@@ -124,6 +141,7 @@ class Product {
     String? sku,
     String? imageUrl,
     String? icon,
+    String? tag,
     bool? isActive,
   }) {
     return Product(
@@ -143,6 +161,7 @@ class Product {
       sku: sku ?? this.sku,
       imageUrl: imageUrl ?? this.imageUrl,
       icon: icon ?? this.icon,
+      tag: tag ?? this.tag,
       isActive: isActive ?? this.isActive,
     );
   }

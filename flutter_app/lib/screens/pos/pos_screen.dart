@@ -217,25 +217,48 @@ class PosScreen extends StatelessWidget {
         child: Column(
           children: [
             // Lush Organic Indian Store Header
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: const AssetImage('assets/images/pos_header_bg.jpg'),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    const Color(0xFF052A18).withValues(alpha: 0.75), // Rich forest green overlay
-                    BlendMode.darken,
+            // Lush Organic Indian Store Header with High Contrast Gradient Overlay
+            Stack(
+              children: [
+                // Photographic Indian Store Background
+                Positioned.fill(
+                  child: Image.asset(
+                    'assets/images/pos_header_bg.jpg',
+                    fit: BoxFit.cover,
                   ),
                 ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
+
+                // Green Gradient Overlay: Deep Solid Green on left behind text, smooth fade to right
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          const Color(0xFF02190E), // Deep solid green behind text for 100% legibility
+                          const Color(0xFF042F1B).withValues(alpha: 0.95),
+                          const Color(0xFF064426).withValues(alpha: 0.80),
+                          const Color(0xFF042716).withValues(alpha: 0.50), // Transparent shop view on right
+                        ],
+                        stops: const [0.0, 0.45, 0.75, 1.0],
+                      ),
+                    ),
                   ),
-                ],
-              ),
+                ),
+
+                // Header Content
+                Container(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                  decoration: const BoxDecoration(
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, 3),
+                      ),
+                    ],
+                  ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -411,6 +434,8 @@ class PosScreen extends StatelessWidget {
                 ],
               ),
             ),
+          ],
+        ),
 
             // Content Area: Tablet Split-screen OR Mobile Grid with Floating Cart
             Expanded(

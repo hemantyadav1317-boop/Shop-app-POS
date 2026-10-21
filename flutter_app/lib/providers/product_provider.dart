@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/product.dart';
@@ -17,8 +18,21 @@ class ProductProvider extends ChangeNotifier {
     'GENERAL',
   ];
 
+  static const Map<String, String> defaultCategoryImages = {
+    'VEGETABLES': 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=120&q=80',
+    'FRUITS': 'https://images.unsplash.com/photo-1619566636858-adf3ef46400b?w=120&q=80',
+    'DAIRY': 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=120&q=80',
+    'GRAINS': 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=120&q=80',
+    'SNACKS': 'https://images.unsplash.com/photo-1566478989037-eec170784d0b?w=120&q=80',
+    'BEVERAGES': 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?w=120&q=80',
+    'SPICES': 'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=120&q=80',
+    'PERSONAL CARE': 'https://images.unsplash.com/photo-1556228720-195a672e8a03?w=120&q=80',
+    'GENERAL': 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=120&q=80',
+  };
+
   List<Product> _products = [];
   final List<String> _customCategories = [];
+  final Map<String, String> _categoryImages = {};
   bool _isLoading = false;
   String _selectedCategory = 'All';
   String _searchQuery = '';
@@ -30,6 +44,54 @@ class ProductProvider extends ChangeNotifier {
 
   ProductProvider() {
     _loadCustomCategories();
+    _loadCategoryImages();
+  }
+
+  String? getCategoryImage(String category) {
+    final upper = category.trim().toUpperCase();
+    if (_categoryImages.containsKey(upper) && _categoryImages[upper]!.isNotEmpty) {
+      return _categoryImages[upper];
+    }
+    return defaultCategoryImages[upper];
+  }
+
+  Future<void> setCategoryImage(String category, String imageUrl) async {
+    final upper = category.trim().toUpperCase();
+    if (imageUrl.trim().isEmpty) {
+      _categoryImages.remove(upper);
+    } else {
+      _categoryImages[upper] = imageUrl.trim();
+    }
+    await _saveCategoryImages();
+    notifyListeners();
+  }
+
+  Future<void> _loadCategoryImages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = prefs.getString('pos_category_images');
+      if (jsonStr != null) {
+        final decoded = jsonDecode(jsonStr);
+        if (decoded is Map) {
+          _categoryImages.clear();
+          decoded.forEach((k, v) {
+            if (v is String) _categoryImages[k.toString().toUpperCase()] = v;
+          });
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading category images: $e");
+    }
+  }
+
+  Future<void> _saveCategoryImages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('pos_category_images', jsonEncode(_categoryImages));
+    } catch (e) {
+      debugPrint("Error saving category images: $e");
+    }
   }
 
   Future<void> _loadCustomCategories() async {

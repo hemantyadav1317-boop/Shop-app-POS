@@ -3,4 +3,5 @@ abstract class SoundPlayerPlatform {
   void playClick();
   void playSuccess();
   void playDelete();
+  void playDot();
 }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/sound_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/pos_sound_formatter.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
+import 'pos_numpad.dart';
 
 class QtyRateDialog extends StatefulWidget {
   final Product product;
@@ -26,6 +29,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
   late TextEditingController _rateController;
   late double _qty;
   late double _rate;
+  bool _showNumpad = true;
 
   @override
   void initState() {
@@ -49,6 +53,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
   }
 
   void _adjustQty(double delta) {
+    SoundService.instance.playClick();
     setState(() {
       _qty = (_qty + delta);
       if (_qty < 0.1) _qty = 0.1;
@@ -58,6 +63,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
   }
 
   void _setDirectQty(double val) {
+    SoundService.instance.playClick();
     setState(() {
       _qty = val;
       _qtyController.text = _formatQty(_qty);
@@ -135,6 +141,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                   Expanded(
                     child: TextField(
                       controller: _qtyController,
+                      inputFormatters: [PosNumberSoundFormatter()],
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       textAlign: TextAlign.center,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
@@ -176,13 +183,14 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
               // Rate per unit
               Text('दर / Rate (₹ प्रति ${widget.product.unit})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 6),
               TextField(
                 controller: _rateController,
+                inputFormatters: [PosNumberSoundFormatter()],
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 decoration: const InputDecoration(
@@ -195,7 +203,25 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                   });
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+
+              // Tactile POS Quick Touch Numpad Header & Widget
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('टच कीपैड (Tactile Pad)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+                  TextButton(
+                    onPressed: () => setState(() => _showNumpad = !_showNumpad),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 24)),
+                    child: Text(_showNumpad ? 'छुपाएं (Hide)' : 'दिखाएं (Show)', style: const TextStyle(fontSize: 11, color: AppColors.primary)),
+                  ),
+                ],
+              ),
+              if (_showNumpad) ...[
+                const SizedBox(height: 4),
+                PosNumpad(controller: _qtyController),
+              ],
+              const SizedBox(height: 14),
 
               // Total Amount Preview
               Container(

@@ -59,4 +59,12 @@ class SoundService {
       _player.playDelete();
     } catch (_) {}
   }
+
+  void playDot() {
+    if (!_enabled) return;
+    try {
+      HapticFeedback.selectionClick();
+      _player.playDot();
+    } catch (_) {}
+  }
 }

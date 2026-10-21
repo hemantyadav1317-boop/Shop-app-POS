@@ -17,8 +17,6 @@ class ProductGrid extends StatefulWidget {
 }
 
 class _ProductGridState extends State<ProductGrid> {
-  final Set<String> _favoritedIds = {};
-
   IconData _getCategoryIcon(String cat) {
     final lower = cat.toLowerCase();
     if (lower.contains('veg') || lower.contains('सब्जी')) return Icons.eco_rounded;
@@ -32,6 +30,9 @@ class _ProductGridState extends State<ProductGrid> {
 
   String _getProductBadge(Product product, int index) {
     if (product.isLowStock) return 'कम स्टॉक';
+    if (product.tag != null && product.tag!.trim().isNotEmpty) {
+      return product.tag!.trim();
+    }
     final mod = index % 4;
     if (mod == 0) return 'ताजा';
     if (mod == 1) return 'बेस्टसेलर';
@@ -40,10 +41,12 @@ class _ProductGridState extends State<ProductGrid> {
   }
 
   Color _getBadgeColor(String badge) {
-    if (badge == 'बेस्टसेलर') return const Color(0xFFD97706);
-    if (badge == 'कम स्टॉक') return const Color(0xFFDC2626);
-    if (badge == 'नई आवक') return const Color(0xFF2563EB);
-    return const Color(0xFF00875A); // ताजा & ऑर्गैनिक
+    final lower = badge.toLowerCase();
+    if (badge == 'बेस्टसेलर' || lower.contains('best')) return const Color(0xFFD97706);
+    if (badge == 'कम स्टॉक' || lower.contains('low')) return const Color(0xFFDC2626);
+    if (badge == 'नई आवक' || lower.contains('new')) return const Color(0xFF2563EB);
+    if (lower.contains('organic') || badge.contains('ऑर्गैनिक')) return const Color(0xFF059669);
+    return const Color(0xFF00875A); // ताजा & custom tags
   }
 
   @override
@@ -51,6 +54,7 @@ class _ProductGridState extends State<ProductGrid> {
     final productProvider = context.watch<ProductProvider>();
     final cart = context.watch<CartProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     return CustomScrollView(
       slivers: [
@@ -131,6 +135,8 @@ class _ProductGridState extends State<ProductGrid> {
                 final isSelected = productProvider.selectedCategory == cat;
                 final count = productProvider.getProductCountForCategory(cat);
                 final icon = _getCategoryIcon(cat);
+                final catImg = productProvider.getCategoryImage(cat);
+                final hasImage = cat != 'All' && catImg != null && catImg.isNotEmpty;
 
                 return InkWell(
                   onTap: () {
@@ -140,7 +146,7 @@ class _ProductGridState extends State<ProductGrid> {
                   borderRadius: BorderRadius.circular(16),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    width: 76,
+                    width: 78,
                     padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                     decoration: BoxDecoration(
                       color: isSelected
@@ -166,11 +172,26 @@ class _ProductGridState extends State<ProductGrid> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
-                          icon,
-                          size: 22,
-                          color: isSelected ? Colors.white : const Color(0xFF00875A),
-                        ),
+                        hasImage
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.network(
+                                  catImg,
+                                  width: 24,
+                                  height: 24,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Icon(
+                                    icon,
+                                    size: 22,
+                                    color: isSelected ? Colors.white : const Color(0xFF00875A),
+                                  ),
+                                ),
+                              )
+                            : Icon(
+                                icon,
+                                size: 22,
+                                color: isSelected ? Colors.white : const Color(0xFF00875A),
+                              ),
                         const SizedBox(height: 4),
                         Text(
                           cat,
@@ -198,104 +219,132 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
 
-        // 3. Promotional Indian Supermarket Banner
+        // 3. Promotional Indian Supermarket Banner with High Contrast Green Gradient
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                image: DecorationImage(
-                  image: const AssetImage('assets/images/pos_promo_banner.jpg'),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    const Color(0xFF042F1B).withValues(alpha: 0.72), // Lush green overlay
-                    BlendMode.darken,
+            child: Stack(
+              children: [
+                // Photographic Banner Background
+                Positioned.fill(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Image.asset(
+                      'assets/images/pos_promo_banner.jpg',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF00875A).withValues(alpha: 0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.18),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.eco, size: 12, color: Color(0xFF4ADE80)),
-                              SizedBox(width: 4),
-                              Text(
-                                'ताजा और प्रीमियम',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        const Text(
-                          'ताजा फल और सब्जियाँ',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const Text(
-                          'सीधे किसान से आपके लिए',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: const [
-                            _BannerPill(icon: Icons.check_circle_outline, text: '100% Fresh'),
-                            _BannerPill(icon: Icons.verified_user_outlined, text: 'Best Quality'),
-                            _BannerPill(icon: Icons.bolt, text: 'Fast Billing'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 70,
-                    height: 70,
+
+                // Green Gradient Overlay: Solid Dark Green on left behind text, smooth fade to right
+                Positioned.fill(
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.shopping_basket_rounded,
-                        size: 40,
-                        color: Color(0xFF4ADE80),
+                      borderRadius: BorderRadius.circular(18),
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          const Color(0xFF021B0F), // Deep Solid Green for crystal clear text readability
+                          const Color(0xFF042D19).withValues(alpha: 0.95),
+                          const Color(0xFF084E2C).withValues(alpha: 0.75),
+                          const Color(0xFF042715).withValues(alpha: 0.40),
+                        ],
+                        stops: const [0.0, 0.45, 0.75, 1.0],
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+
+                // Content
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00875A).withValues(alpha: 0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.eco, size: 12, color: Color(0xFF4ADE80)),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'ताजा और प्रीमियम',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            const Text(
+                              'ताजा फल और सब्जियाँ',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const Text(
+                              'सीधे किसान से आपके लिए',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: const [
+                                _BannerPill(icon: Icons.check_circle_outline, text: '100% Fresh'),
+                                _BannerPill(icon: Icons.verified_user_outlined, text: 'Best Quality'),
+                                _BannerPill(icon: Icons.bolt, text: 'Fast Billing'),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Center(
+                          child: Icon(
+                            Icons.shopping_basket_rounded,
+                            size: 36,
+                            color: Color(0xFF4ADE80),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -354,14 +403,21 @@ class _ProductGridState extends State<ProductGrid> {
                 ),
               )
             : SliverPadding(
-                padding: const EdgeInsets.fromLTRB(14, 0, 14, 80),
+                padding: EdgeInsets.fromLTRB(isMobile ? 10 : 14, 0, isMobile ? 10 : 14, 80),
                 sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 220,
-                    childAspectRatio: 0.76,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
+                  gridDelegate: isMobile
+                      ? const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 0.66,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
+                        )
+                      : const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 220,
+                          childAspectRatio: 0.76,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
                       final product = productProvider.filteredProducts[i];
@@ -370,7 +426,7 @@ class _ProductGridState extends State<ProductGrid> {
                             orElse: () => null,
                           );
                       final inCartQty = inCartItem?.qty ?? 0.0;
-                      return _buildProductCard(context, product, inCartQty, cart, i);
+                      return _buildProductCard(context, product, inCartQty, cart, i, isMobile);
                     },
                     childCount: productProvider.filteredProducts.length,
                   ),
@@ -386,16 +442,16 @@ class _ProductGridState extends State<ProductGrid> {
     double inCartQty,
     CartProvider cart,
     int index,
+    bool isMobile,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final badge = _getProductBadge(product, index);
     final badgeColor = _getBadgeColor(badge);
-    final isFav = _favoritedIds.contains(product.id);
 
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(isMobile ? 14 : 18),
         border: Border.all(
           color: inCartQty > 0
               ? const Color(0xFF00875A)
@@ -413,8 +469,10 @@ class _ProductGridState extends State<ProductGrid> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(isMobile ? 14 : 18),
           onTap: () {
+            // Touch sound effect on tapping product card
+            SoundService.instance.playBeep();
             // Detailed quantity and rate dialog on tapping product card
             showDialog(
               context: context,
@@ -428,13 +486,13 @@ class _ProductGridState extends State<ProductGrid> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Product Image container with floating badges
+              // Product Image container with floating status badge (Heart button removed)
               Expanded(
-                flex: 11,
+                flex: isMobile ? 7 : 11,
                 child: Stack(
                   children: [
                     ClipRRect(
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(isMobile ? 14 : 18)),
                       child: Container(
                         width: double.infinity,
                         color: isDark ? Colors.black26 : Colors.grey.shade50,
@@ -442,22 +500,25 @@ class _ProductGridState extends State<ProductGrid> {
                           child: ProductImageView(
                             imageUrl: product.imageUrl,
                             fallbackIcon: product.icon,
-                            size: 76,
-                            borderRadius: 12,
+                            size: isMobile ? 54 : 76,
+                            borderRadius: 10,
                           ),
                         ),
                       ),
                     ),
 
-                    // Top Left Status Badge (ताजा, बेस्टसेलर, ऑर्गैनिक, नई आवक)
+                    // Top Left Status Badge (ताजा, बेस्टसेलर, ऑर्गैनिक, नई आवक / कस्टम टैग)
                     Positioned(
-                      top: 8,
-                      left: 8,
+                      top: isMobile ? 6 : 8,
+                      left: isMobile ? 6 : 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isMobile ? 5 : 8,
+                          vertical: isMobile ? 2 : 3,
+                        ),
                         decoration: BoxDecoration(
                           color: badgeColor,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
                               color: badgeColor.withValues(alpha: 0.35),
@@ -470,56 +531,19 @@ class _ProductGridState extends State<ProductGrid> {
                           children: [
                             Icon(
                               badge == 'बेस्टसेलर' ? Icons.star_rounded : Icons.eco,
-                              size: 11,
+                              size: isMobile ? 9 : 11,
                               color: Colors.white,
                             ),
-                            const SizedBox(width: 3),
+                            const SizedBox(width: 2),
                             Text(
                               badge,
-                              style: const TextStyle(
-                                fontSize: 10,
+                              style: TextStyle(
+                                fontSize: isMobile ? 8.5 : 10,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ),
-
-                    // Top Right Heart Button (Wishlist / Favorite)
-                    Positioned(
-                      top: 6,
-                      right: 6,
-                      child: InkWell(
-                        onTap: () {
-                          SoundService.instance.playClick();
-                          setState(() {
-                            if (isFav) {
-                              _favoritedIds.remove(product.id);
-                            } else {
-                              _favoritedIds.add(product.id);
-                            }
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.85),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
-                                blurRadius: 4,
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            isFav ? Icons.favorite : Icons.favorite_border,
-                            size: 16,
-                            color: isFav ? Colors.red : Colors.grey.shade600,
-                          ),
                         ),
                       ),
                     ),
@@ -529,23 +553,23 @@ class _ProductGridState extends State<ProductGrid> {
 
               // Product Info & Price
               Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                padding: EdgeInsets.fromLTRB(isMobile ? 6 : 10, 6, isMobile ? 6 : 10, isMobile ? 6 : 10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Product Name
                     Text(
                       product.name,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        fontSize: 13,
+                        fontSize: isMobile ? 11 : 13,
                         height: 1.2,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
 
                     // Price & Stock row
                     Row(
@@ -561,16 +585,16 @@ class _ProductGridState extends State<ProductGrid> {
                                   children: [
                                     TextSpan(
                                       text: CurrencyFormatter.formatCompact(product.price),
-                                      style: const TextStyle(
-                                        fontSize: 15,
+                                      style: TextStyle(
+                                        fontSize: isMobile ? 12.5 : 15,
                                         fontWeight: FontWeight.w800,
-                                        color: Color(0xFF00875A), // Vibrant Green
+                                        color: const Color(0xFF00875A), // Vibrant Green
                                       ),
                                     ),
                                     TextSpan(
                                       text: ' / ${product.unit}',
                                       style: TextStyle(
-                                        fontSize: 11,
+                                        fontSize: isMobile ? 9.5 : 11,
                                         color: isDark ? Colors.white60 : Colors.grey.shade600,
                                       ),
                                     ),
@@ -584,17 +608,17 @@ class _ProductGridState extends State<ProductGrid> {
                                 children: [
                                   Icon(
                                     Icons.inventory_2_outlined,
-                                    size: 11,
+                                    size: isMobile ? 9 : 11,
                                     color: product.isLowStock ? Colors.red : const Color(0xFF00875A),
                                   ),
-                                  const SizedBox(width: 3),
+                                  const SizedBox(width: 2),
                                   Expanded(
                                     child: Text(
                                       'Stock: ${product.stock} ${product.unit}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: 10,
+                                        fontSize: isMobile ? 8.5 : 10,
                                         color: product.isLowStock
                                             ? Colors.red.shade700
                                             : (isDark ? Colors.white60 : Colors.grey.shade600),
@@ -608,9 +632,10 @@ class _ProductGridState extends State<ProductGrid> {
                           ),
                         ),
 
-                        // Oval Dark Green Cart Button [ 🛒+ ]
+                        // Oval Dark Green Cart Button [ 🛒+ ] with touch sound
                         InkWell(
                           onTap: () {
+                            SoundService.instance.playBeep();
                             // 1-Tap quick add to cart
                             cart.addLine(CartItem(
                               productId: product.id,
@@ -618,14 +643,19 @@ class _ProductGridState extends State<ProductGrid> {
                               price: product.price,
                               qty: (inCartQty > 0 ? inCartQty + 1 : 1.0),
                               unit: product.unit,
+                              imageUrl: product.imageUrl,
+                              icon: product.icon,
                             ));
                           },
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(14),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isMobile ? 7 : 10,
+                              vertical: isMobile ? 5 : 7,
+                            ),
                             decoration: BoxDecoration(
                               color: const Color(0xFF004D40), // Dark Forest Green
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(14),
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(0xFF004D40).withValues(alpha: 0.3),
@@ -637,9 +667,9 @@ class _ProductGridState extends State<ProductGrid> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.shopping_cart_outlined,
-                                  size: 14,
+                                  size: isMobile ? 12 : 14,
                                   color: Colors.white,
                                 ),
                                 const SizedBox(width: 2),
@@ -647,10 +677,10 @@ class _ProductGridState extends State<ProductGrid> {
                                   inCartQty > 0
                                       ? '+${inCartQty % 1 == 0 ? inCartQty.toInt() : inCartQty.toStringAsFixed(1)}'
                                       : '+',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 12,
+                                    fontSize: isMobile ? 10.5 : 12,
                                   ),
                                 ),
                               ],

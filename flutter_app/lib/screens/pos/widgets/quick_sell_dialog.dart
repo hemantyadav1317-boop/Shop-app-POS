@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/pos_sound_formatter.dart';
 import '../../../../data/models/cart_item.dart';
 
 class QuickSellDialog extends StatefulWidget {
@@ -80,6 +81,7 @@ class _QuickSellDialogState extends State<QuickSellDialog> {
                         const SizedBox(height: 6),
                         TextField(
                           controller: _qtyController,
+                          inputFormatters: [PosNumberSoundFormatter()],
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           onChanged: (_) => setState(() {}),
                         ),
@@ -95,6 +97,7 @@ class _QuickSellDialogState extends State<QuickSellDialog> {
                         const SizedBox(height: 6),
                         TextField(
                           controller: _rateController,
+                          inputFormatters: [PosNumberSoundFormatter()],
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(prefixText: '₹ '),
                           onChanged: (_) => setState(() {}),
