@@ -80,6 +80,9 @@ class ShopProvider extends ChangeNotifier {
       try {
         final decoded = jsonDecode(savedShopJson) as Map<String, dynamic>;
         _shop = Shop.fromJson(decoded);
+        if (_shop.id.startsWith('shop-')) {
+          _shop = _shop.copyWith(id: _shop.id.replaceFirst('shop-', ''));
+        }
         SupabaseService.instance.setLocalShop(_shop);
         notifyListeners();
         return;
@@ -90,7 +93,7 @@ class ShopProvider extends ChangeNotifier {
 
     // New user with no saved local profile -> initialize fresh isolated shop
     _shop = Shop(
-      id: userId != null ? 'shop-$userId' : 'demo-shop-101',
+      id: userId != null ? userId : 'demo-shop-101',
       name: defaultName ?? 'मेरी दुकान (My Store)',
       phone: null,
       address: null,
@@ -173,6 +176,18 @@ class ShopProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final key = _shopStorageKey(_currentUserId);
     await prefs.setString(key, jsonEncode(joined.toJson()));
+
+    await prefs.setString('shop_name', joined.name);
+    if (joined.phone != null) await prefs.setString('shop_phone', joined.phone!);
+    if (joined.address != null) await prefs.setString('shop_address', joined.address!);
+    if (joined.gstin != null) await prefs.setString('shop_gstin', joined.gstin!);
+    if (joined.upiId != null) await prefs.setString('shop_upi_id', joined.upiId!);
+    if (joined.upiPayeeName != null) await prefs.setString('shop_upi_payee_name', joined.upiPayeeName!);
+    if (joined.receiptFooter != null) await prefs.setString('shop_receipt_footer', joined.receiptFooter!);
+    await prefs.setString('shop_paper_size', joined.printPaperSize);
+    await prefs.setBool('shop_allow_negative_stock', joined.allowNegativeStock);
+    if (joined.qrImageUrl != null) await prefs.setString('shop_qr_image_url', joined.qrImageUrl!);
+
     return joined;
   }
 }

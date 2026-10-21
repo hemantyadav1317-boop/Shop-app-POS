@@ -371,24 +371,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
               final code = codeCtrl.text.trim();
               if (code.isEmpty) return;
 
-              final current = context.read<ShopProvider>().shop;
-              final switched = current.copyWith(id: code);
-              await context.read<ShopProvider>().updateShop(switched);
+              SoundService.instance.playButtonClick();
+              final shopProv = context.read<ShopProvider>();
+              final joined = await shopProv.joinShop(code);
 
               if (context.mounted) {
                 // Reload data for this shop
                 final prodProv = context.read<ProductProvider>();
                 final custProv = context.read<CustomerProvider>();
-                await prodProv.loadProducts(code);
-                await custProv.loadCustomers(code);
+                await prodProv.loadProducts(joined.id);
+                await custProv.loadCustomers(joined.id);
+                await SupabaseService.instance.getSales(joined.id);
+
+                // Update text controllers in settings so new shop details show immediately
+                _nameCtrl.text = joined.name;
+                _phoneCtrl.text = joined.phone ?? '';
+                _addressCtrl.text = joined.address ?? '';
+                _gstinCtrl.text = joined.gstin ?? '';
+                _upiIdCtrl.text = joined.upiId ?? '';
+                _upiNameCtrl.text = joined.upiPayeeName ?? '';
+                _footerCtrl.text = joined.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏';
+                _qrImageUrl = joined.qrImageUrl;
+                _paperSize = joined.printPaperSize;
+                _allowNegativeStock = joined.allowNegativeStock;
+
                 if (ctx.mounted) {
                   Navigator.pop(ctx);
                 }
                 if (context.mounted) {
+                  setState(() {});
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: AppColors.primary,
-                      content: Text('दुकान "$code" से सफलतापूर्वक जुड़ गए!'),
+                      content: Text('दुकान "${joined.name}" से सफलतापूर्वक जुड़ गए!'),
                     ),
                   );
                 }

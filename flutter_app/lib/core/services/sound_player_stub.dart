@@ -3,45 +3,47 @@ import 'package:flutter/services.dart';
 import 'sound_player_interface.dart';
 
 class SoundPlayerImpl implements SoundPlayerPlatform {
-  final AudioPlayer _player = AudioPlayer()..setReleaseMode(ReleaseMode.stop);
+  final AudioPlayer _beepPlayer = AudioPlayer()..setPlayerMode(PlayerMode.lowLatency);
+  final AudioPlayer _successPlayer = AudioPlayer()..setPlayerMode(PlayerMode.lowLatency);
+  final AudioPlayer _deletePlayer = AudioPlayer()..setPlayerMode(PlayerMode.lowLatency);
 
   @override
   void playBeep() {
     try {
-      _player.stop();
-      _player.play(AssetSource('sounds/beep.wav'));
+      _beepPlayer.play(AssetSource('sounds/beep.wav'), volume: 0.65, mode: PlayerMode.lowLatency);
     } catch (_) {
-      SystemSound.play(SystemSoundType.click);
+      try {
+        SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
     }
   }
 
   @override
   void playClick() {
     try {
-      _player.stop();
-      _player.play(AssetSource('sounds/click.wav'));
-    } catch (_) {
       SystemSound.play(SystemSoundType.click);
-    }
+    } catch (_) {}
   }
 
   @override
   void playSuccess() {
     try {
-      _player.stop();
-      _player.play(AssetSource('sounds/success.wav'));
+      _successPlayer.play(AssetSource('sounds/success.wav'), volume: 0.70, mode: PlayerMode.lowLatency);
     } catch (_) {
-      SystemSound.play(SystemSoundType.click);
+      try {
+        SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
     }
   }
 
   @override
   void playDelete() {
     try {
-      _player.stop();
-      _player.play(AssetSource('sounds/delete.wav'));
+      _deletePlayer.play(AssetSource('sounds/delete.wav'), volume: 0.55, mode: PlayerMode.lowLatency);
     } catch (_) {
-      SystemSound.play(SystemSoundType.click);
+      try {
+        SystemSound.play(SystemSoundType.click);
+      } catch (_) {}
     }
   }
 
@@ -49,51 +51,39 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
   void playDot() {
     try {
       HapticFeedback.mediumImpact();
-      _player.stop();
-      _player.play(AssetSource('sounds/click.wav'), volume: 1.0);
+      SystemSound.play(SystemSoundType.click);
+    } catch (_) {}
+  }
+
+  @override
+  void playButtonClick() {
+    try {
+      SystemSound.play(SystemSoundType.click);
+    } catch (_) {}
+  }
+
+  @override
+  void playProductAdd() {
+    try {
+      _beepPlayer.play(AssetSource('sounds/beep.wav'), volume: 0.65, mode: PlayerMode.lowLatency);
     } catch (_) {
       try {
-        HapticFeedback.mediumImpact();
         SystemSound.play(SystemSoundType.click);
       } catch (_) {}
     }
   }
 
   @override
-  void playButtonClick() {
-    try {
-      _player.stop();
-      _player.play(AssetSource('sounds/click.wav'), volume: 0.65);
-    } catch (_) {
-      SystemSound.play(SystemSoundType.click);
-    }
-  }
-
-  @override
-  void playProductAdd() {
-    try {
-      _player.stop();
-      _player.play(AssetSource('sounds/beep.wav'), volume: 0.75);
-    } catch (_) {
-      SystemSound.play(SystemSoundType.click);
-    }
-  }
-
-  @override
   void playNumberKey() {
     try {
-      _player.stop();
-      _player.play(AssetSource('sounds/click.wav'), volume: 0.5);
-    } catch (_) {
       SystemSound.play(SystemSoundType.click);
-    }
+    } catch (_) {}
   }
 
   @override
   void playAppStartup() {
     try {
-      _player.stop();
-      _player.play(AssetSource('sounds/success.wav'), volume: 0.55);
+      _successPlayer.play(AssetSource('sounds/success.wav'), volume: 0.45, mode: PlayerMode.lowLatency);
     } catch (_) {}
   }
 }

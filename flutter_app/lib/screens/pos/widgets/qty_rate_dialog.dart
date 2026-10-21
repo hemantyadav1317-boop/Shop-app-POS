@@ -29,7 +29,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
   late TextEditingController _rateController;
   late double _qty;
   late double _rate;
-  bool _showNumpad = true;
+  bool _showNumpad = false;
 
   @override
   void initState() {

@@ -134,15 +134,20 @@ class SupabaseService {
   /// Automatically ensures that if a user is logged in, their data is attached
   /// to their real Supabase Cloud shop UUID rather than staying trapped in demo-shop-101.
   Future<String> _ensureValidShopId(String currentShopId) async {
-    if (currentShopId != 'demo-shop-101' && currentShopId.length >= 30) {
-      return currentShopId;
+    String cleanId = currentShopId.trim();
+    if (cleanId.startsWith('shop-')) {
+      cleanId = cleanId.replaceFirst('shop-', '');
+    }
+    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(cleanId);
+    if (isUuid) {
+      return cleanId;
     }
     final user = client?.auth.currentUser;
     if (user != null) {
       final synced = await syncUserShop(userId: user.id, userEmail: user.email ?? '');
       return synced.id;
     }
-    return currentShopId;
+    return cleanId;
   }
 
   // --- MULTI-DEVICE CLOUD SHOP SYNC ---
@@ -850,25 +855,59 @@ class SupabaseService {
       try {
         final payload = <String, dynamic>{
           'name': shop.name,
-          'phone': shop.phone,
-          'address': shop.address,
-          'gst_number': shop.gstin,
+          if (shop.phone != null) 'phone': shop.phone,
+          if (shop.address != null) 'address': shop.address,
+          if (shop.gstin != null) 'gst_number': shop.gstin,
+          if (shop.upiId != null) 'upi_id': shop.upiId,
+          if (shop.upiPayeeName != null) 'upi_payee_name': shop.upiPayeeName,
+          'allow_negative_stock': shop.allowNegativeStock,
+          'print_paper_size': shop.printPaperSize,
+          if (shop.receiptFooter != null) 'receipt_footer': shop.receiptFooter,
+          if (shop.qrImageUrl != null) 'qr_image_url': shop.qrImageUrl,
+          'updated_at': DateTime.now().toIso8601String(),
         };
-        if (shop.id != 'demo-shop-101' && shop.id.length >= 30) {
-          await client!.from('shops').update(payload).eq('id', shop.id);
+
+        String cleanId = shop.id.trim();
+        if (cleanId.startsWith('shop-')) {
+          cleanId = cleanId.replaceFirst('shop-', '');
+        }
+
+        final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(cleanId);
+
+        if (isUuid) {
+          final existing = await client!.from('shops').select('id').eq('id', cleanId).maybeSingle();
+          if (existing != null) {
+            final updated = await client!.from('shops').update(payload).eq('id', cleanId).select().maybeSingle();
+            if (updated != null) {
+              _localShop = Shop.fromJson(updated);
+            }
+          } else if (user != null) {
+            final created = await client!.from('shops').insert({
+              'id': cleanId,
+              'owner_id': user.id,
+              ...payload,
+            }).select().maybeSingle();
+            if (created != null) {
+              _localShop = Shop.fromJson(created);
+            }
+          }
         } else if (user != null) {
-          final existing = await client!.from('shops').select('id').eq('owner_id', user.id).maybeSingle();
+          final existing = await client!.from('shops').select('*').eq('owner_id', user.id).maybeSingle();
           if (existing != null && existing['id'] != null) {
             final realId = existing['id'] as String;
-            _localShop = shop.copyWith(id: realId);
-            await client!.from('shops').update(payload).eq('id', realId);
+            final updated = await client!.from('shops').update(payload).eq('id', realId).select().maybeSingle();
+            if (updated != null) {
+              _localShop = Shop.fromJson(updated);
+            } else {
+              _localShop = shop.copyWith(id: realId);
+            }
           } else {
             final created = await client!.from('shops').insert({
               ...payload,
               'owner_id': user.id,
             }).select().maybeSingle();
-            if (created != null && created['id'] != null) {
-              _localShop = shop.copyWith(id: created['id'] as String);
+            if (created != null) {
+              _localShop = Shop.fromJson(created);
             }
           }
         }
@@ -880,9 +919,13 @@ class SupabaseService {
   }
 
   Future<Shop?> getShop(String shopId) async {
+    String cleanId = shopId.trim();
+    if (cleanId.startsWith('shop-')) {
+      cleanId = cleanId.replaceFirst('shop-', '');
+    }
     if (_isInitialized && client != null) {
       try {
-        final res = await client!.from('shops').select('*').eq('id', shopId).maybeSingle();
+        final res = await client!.from('shops').select('*').eq('id', cleanId).maybeSingle();
         if (res != null) {
           _localShop = Shop.fromJson(res);
           return _localShop;
@@ -895,7 +938,11 @@ class SupabaseService {
   }
 
   Future<Shop> joinShop(String shopCode) async {
-    final cleanCode = shopCode.trim();
+    String cleanCode = shopCode.trim();
+    if (cleanCode.startsWith('shop-')) {
+      cleanCode = cleanCode.replaceFirst('shop-', '');
+    }
+
     if (_isInitialized && client != null) {
       try {
         final res = await client!.from('shops').select('*').eq('id', cleanCode).maybeSingle();
@@ -913,6 +960,26 @@ class SupabaseService {
               debugPrint("upsert shop_members err: $err");
             }
           }
+
+          // Cache joined shop locally
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('saved_shop_data', jsonEncode(_localShop.toJson()));
+          await prefs.setString('shop_name', _localShop.name);
+          if (_localShop.phone != null) await prefs.setString('shop_phone', _localShop.phone!);
+          if (_localShop.address != null) await prefs.setString('shop_address', _localShop.address!);
+          if (_localShop.gstin != null) await prefs.setString('shop_gstin', _localShop.gstin!);
+          if (_localShop.upiId != null) await prefs.setString('shop_upi_id', _localShop.upiId!);
+          if (_localShop.upiPayeeName != null) await prefs.setString('shop_upi_payee_name', _localShop.upiPayeeName!);
+          if (_localShop.receiptFooter != null) await prefs.setString('shop_receipt_footer', _localShop.receiptFooter!);
+          await prefs.setString('shop_paper_size', _localShop.printPaperSize);
+          await prefs.setBool('shop_allow_negative_stock', _localShop.allowNegativeStock);
+          if (_localShop.qrImageUrl != null) await prefs.setString('shop_qr_image_url', _localShop.qrImageUrl!);
+
+          // Pre-fetch and cache products, customers, and bill history for the joined shop
+          await getProducts(cleanCode);
+          await getCustomers(cleanCode);
+          await getSales(cleanCode);
+
           return _localShop;
         }
       } catch (e) {

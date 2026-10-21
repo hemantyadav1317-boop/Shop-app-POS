@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/services/sound_service.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/shop_provider.dart';
 import 'widgets/product_grid.dart';
@@ -14,6 +15,7 @@ class PosScreen extends StatelessWidget {
   const PosScreen({super.key});
 
   void _showCartSheet(BuildContext context) {
+    SoundService.instance.playButtonClick();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -317,7 +319,10 @@ class PosScreen extends StatelessWidget {
                         children: [
                           // Share Button
                           InkWell(
-                            onTap: () => _showShareShopDialog(context),
+                            onTap: () {
+                              SoundService.instance.playButtonClick();
+                              _showShareShopDialog(context);
+                            },
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
                               padding: const EdgeInsets.all(7),
@@ -335,7 +340,10 @@ class PosScreen extends StatelessWidget {
                             clipBehavior: Clip.none,
                             children: [
                               InkWell(
-                                onTap: () => _showSavedOrders(context),
+                                onTap: () {
+                                  SoundService.instance.playButtonClick();
+                                  _showSavedOrders(context);
+                                },
                                 borderRadius: BorderRadius.circular(20),
                                 child: Container(
                                   padding: const EdgeInsets.all(7),
@@ -385,6 +393,7 @@ class PosScreen extends StatelessWidget {
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             onPressed: () {
+                              SoundService.instance.playButtonClick();
                               showDialog(
                                 context: context,
                                 builder: (_) => QuickSellDialog(

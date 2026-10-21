@@ -52,6 +52,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   }
 
   void _onModeChanged(String mode) {
+    SoundService.instance.playClick();
     final cart = context.read<CartProvider>();
     setState(() {
       _paymentMode = mode;
@@ -159,6 +160,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   }
 
   Future<void> _handlePrint() async {
+    SoundService.instance.playButtonClick();
     final shop = context.read<ShopProvider>().shop;
     final cart = context.read<CartProvider>();
     final sale = _completedSale ?? _buildCurrentSale(shop, cart);
@@ -180,6 +182,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   }
 
   Future<void> _handleShare() async {
+    SoundService.instance.playButtonClick();
     final shop = context.read<ShopProvider>().shop;
     final cart = context.read<CartProvider>();
     final sale = _completedSale ?? _buildCurrentSale(shop, cart);
@@ -690,6 +693,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
               Expanded(
                 child: InkWell(
                   onTap: () {
+                    SoundService.instance.playButtonClick();
                     Navigator.pop(context);
                     widget.onSaleCompleted();
                   },

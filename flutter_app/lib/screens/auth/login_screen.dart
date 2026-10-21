@@ -178,11 +178,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
               if (context.mounted) {
                 final shopProv = context.read<ShopProvider>();
-                await shopProv.joinShop(code);
+                final joined = await shopProv.joinShop(code);
                 if (context.mounted) {
-                  await context.read<ProductProvider>().loadProducts(code);
+                  await context.read<ProductProvider>().loadProducts(joined.id);
                   if (context.mounted) {
-                    await context.read<CustomerProvider>().loadCustomers(code);
+                    await context.read<CustomerProvider>().loadCustomers(joined.id);
+                    await SupabaseService.instance.getSales(joined.id);
                     Navigator.pop(ctx);
                     Navigator.pushReplacement(
                       context,

@@ -8,6 +8,7 @@ import '../../../../providers/cart_provider.dart';
 import '../../../../providers/customer_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
+import '../../../../core/services/sound_service.dart';
 import 'payment_dialog.dart';
 
 class CartPanel extends StatefulWidget {
@@ -279,6 +280,7 @@ class _CartPanelState extends State<CartPanel> {
                                 icon: const Icon(Icons.remove_circle_outline, size: 20),
                                 visualDensity: VisualDensity.compact,
                                 onPressed: () {
+                                  SoundService.instance.playClick();
                                   cart.setQty(item.productId, item.name, item.qty - step);
                                 },
                               ),
@@ -294,6 +296,7 @@ class _CartPanelState extends State<CartPanel> {
                                 icon: const Icon(Icons.add_circle_outline, size: 20),
                                 visualDensity: VisualDensity.compact,
                                 onPressed: () {
+                                  SoundService.instance.playProductAdd();
                                   cart.setQty(item.productId, item.name, item.qty + step);
                                 },
                               ),
@@ -381,7 +384,12 @@ class _CartPanelState extends State<CartPanel> {
                   IconButton(
                     icon: const Icon(Icons.delete_outline, color: AppColors.error),
                     tooltip: 'Clear Cart',
-                    onPressed: cart.lines.isEmpty ? null : cart.clear,
+                    onPressed: cart.lines.isEmpty
+                        ? null
+                        : () {
+                            SoundService.instance.playDelete();
+                            cart.clear();
+                          },
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.save_outlined, size: 16),
@@ -389,6 +397,7 @@ class _CartPanelState extends State<CartPanel> {
                     onPressed: cart.lines.isEmpty
                         ? null
                         : () {
+                            SoundService.instance.playButtonClick();
                             cart.saveCurrentCart();
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('बिल सेव (Park) कर दिया गया')),
@@ -410,6 +419,7 @@ class _CartPanelState extends State<CartPanel> {
                       onPressed: cart.lines.isEmpty
                           ? null
                           : () {
+                              SoundService.instance.playButtonClick();
                               showDialog(
                                 context: context,
                                 builder: (_) => PaymentDialog(
