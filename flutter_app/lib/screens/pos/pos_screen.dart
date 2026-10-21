@@ -208,142 +208,320 @@ class PosScreen extends StatelessWidget {
     final shop = context.watch<ShopProvider>().shop;
     final cart = context.watch<CartProvider>();
     final isTablet = MediaQuery.of(context).size.width >= 768;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      body: SafeArea(
+        top: true,
+        child: Column(
           children: [
-            Text(shop.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            Text(
-              shop.phone != null ? '📞 ${shop.phone}' : 'POS Billing Mode',
-              style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-            ),
-          ],
-        ),
-        actions: [
-          // Share Shop / Family Access Button
-          IconButton(
-            icon: const Icon(Icons.share_outlined),
-            tooltip: 'दुकान शेयर करें (Share Shop)',
-            onPressed: () => _showShareShopDialog(context),
-          ),
-
-          // Saved / Held orders button
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.bookmark_outline),
-                tooltip: 'Saved Bills',
-                onPressed: () => _showSavedOrders(context),
-              ),
-              if (cart.savedCarts.isNotEmpty)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: AppColors.warning, shape: BoxShape.circle),
-                    child: Text(
-                      '${cart.savedCarts.length}',
-                      style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
+            // Lush Organic Farm Header
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFF062F1E), // Deep Organic Green
+                    Color(0xFF0B462C),
+                    Color(0xFF0F6E43),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black12,
+                    blurRadius: 8,
+                    offset: Offset(0, 3),
                   ),
-                ),
-            ],
-          ),
-
-          // Quick Sell
-          TextButton.icon(
-            icon: const Icon(Icons.flash_on, color: AppColors.primary, size: 18),
-            label: const Text('Quick Sell', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (_) => QuickSellDialog(
-                  onConfirm: (item) => cart.addLine(item),
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-      body: isTablet
-          // Tablet Split-screen: 65% Catalog Grid, 35% Live Cart Panel
-          ? Row(
-              children: [
-                const Expanded(
-                  flex: 65,
-                  child: ProductGrid(),
-                ),
-                VerticalDivider(width: 1, color: Theme.of(context).dividerColor),
-                const Expanded(
-                  flex: 35,
-                  child: CartPanel(),
-                ),
-              ],
-            )
-          // Mobile Screen: Grid with Floating Bottom Cart Bar
-          : Stack(
-              children: [
-                const ProductGrid(),
-
-                // Mobile Bottom Floating Cart Bar
-                if (cart.lines.isNotEmpty)
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
-                    child: InkWell(
-                      onTap: () => _showCartSheet(context),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Row: Logo, Shop Name & Action Buttons
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Leaf Sprout Icon
+                      Container(
+                        padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.35),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                          color: Colors.white.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
                         ),
-                        child: Row(
+                        child: const Icon(
+                          Icons.eco_rounded,
+                          color: Color(0xFF4ADE80),
+                          size: 26,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+
+                      // Shop Name & Subtitle
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.shopping_bag_outlined, color: Colors.white),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${cart.itemCount} Items (${cart.totalQty} Qty)',
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                                  ),
-                                  Text(
-                                    cart.customer?.name ?? 'Walk-in Customer',
-                                    style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 11),
-                                  ),
-                                ],
-                              ),
-                            ),
                             Text(
-                              CurrencyFormatter.format(cart.total),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                              shop.name.isNotEmpty ? shop.name : 'Meri Dukan',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 18,
+                                letterSpacing: 0.3,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: 8),
-                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+                            const Text(
+                              'POS Billing Mode • हर जरूरत का सामान, अब और आसान',
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ],
                         ),
                       ),
-                    ),
+
+                      // Action Buttons: Share, Bookmark, Quick Sell
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Share Button
+                          InkWell(
+                            onTap: () => _showShareShopDialog(context),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.14),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.share_outlined, color: Colors.white, size: 18),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Saved Orders Button with Badge
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              InkWell(
+                                onTap: () => _showSavedOrders(context),
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.14),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(Icons.bookmark_outline, color: Colors.white, size: 18),
+                                ),
+                              ),
+                              if (cart.savedCarts.isNotEmpty)
+                                Positioned(
+                                  top: -2,
+                                  right: -2,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFEF4444),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Text(
+                                      '${cart.savedCarts.length}',
+                                      style: const TextStyle(
+                                        fontSize: 9,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Quick Sell Pill Button
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00875A), // Lush Green
+                              foregroundColor: Colors.white,
+                              elevation: 2,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                            ),
+                            icon: const Icon(Icons.flash_on, size: 15, color: Colors.white),
+                            label: const Text(
+                              'Quick Sell',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                            ),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (_) => QuickSellDialog(
+                                  onConfirm: (item) => cart.addLine(item),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-              ],
+
+                  const SizedBox(height: 8),
+
+                  // Location Chip Row
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.22),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.location_on, size: 13, color: Color(0xFF4ADE80)),
+                            const SizedBox(width: 4),
+                            Text(
+                              (shop.address != null && shop.address!.isNotEmpty)
+                                  ? shop.address!
+                                  : 'Jaipur, Rajasthan',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white70),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
+
+            // Content Area: Tablet Split-screen OR Mobile Grid with Floating Cart
+            Expanded(
+              child: isTablet
+                  ? Row(
+                      children: [
+                        const Expanded(
+                          flex: 65,
+                          child: ProductGrid(),
+                        ),
+                        VerticalDivider(width: 1, color: Theme.of(context).dividerColor),
+                        const Expanded(
+                          flex: 35,
+                          child: CartPanel(),
+                        ),
+                      ],
+                    )
+                  : Stack(
+                      children: [
+                        const ProductGrid(),
+
+                        // Floating Pill Cart Bar at Bottom
+                        if (cart.lines.isNotEmpty)
+                          Positioned(
+                            left: 14,
+                            right: 14,
+                            bottom: 12,
+                            child: InkWell(
+                              onTap: () => _showCartSheet(context),
+                              borderRadius: BorderRadius.circular(30),
+                              child: Container(
+                                padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF0F172A), // Sleek Charcoal
+                                  borderRadius: BorderRadius.circular(30),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.3),
+                                      blurRadius: 14,
+                                      offset: const Offset(0, 5),
+                                    ),
+                                  ],
+                                  border: Border.all(
+                                    color: const Color(0xFF00875A).withValues(alpha: 0.5),
+                                    width: 1.2,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.shopping_cart_outlined,
+                                      color: Color(0xFF4ADE80),
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: RichText(
+                                        text: TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: '${cart.itemCount} Items  |  ',
+                                              style: const TextStyle(
+                                                color: Colors.white70,
+                                                fontSize: 12.5,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: CurrencyFormatter.format(cart.total),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF00875A), // Lush Green
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(22),
+                                        ),
+                                      ),
+                                      icon: const Text(
+                                        'बिल बनाएं',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      label: const Icon(Icons.arrow_forward_rounded, size: 15),
+                                      onPressed: () => _showCartSheet(context),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
