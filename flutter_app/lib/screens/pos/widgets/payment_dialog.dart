@@ -6,6 +6,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/services/sound_service.dart';
 import '../../../../core/services/receipt_print_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/sale.dart';
@@ -139,6 +140,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
         _completedSale = saved;
         _isSaving = false;
       });
+
+      SoundService.instance.playSuccess();
 
       cart.clear();
     } catch (e) {

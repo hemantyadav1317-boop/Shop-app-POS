@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
+import '../../core/services/sound_service.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/services/bluetooth_printer_service.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
@@ -1280,6 +1281,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setState(() => _allowNegativeStock = val);
                       },
                     ),
+                  ],
+                ),
+              ),
+            ),
+            // 🔊 POS Sound & Haptics Card
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.volume_up_rounded, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text(
+                          'साउंड व टच इफेक्ट्स / POS Sound & Haptics',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'बिलिंग काउंटर पर प्रोडक्ट जोड़ने, कीपैड टच करने और बिल पेमेंट पूरा होने पर आवाज़ व वाइब्रेशन पाएं।',
+                      style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                    ),
+                    const SizedBox(height: 10),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('बिलिंग साउंड इफेक्ट्स (Beep & Cash Sound)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                        SoundService.instance.isSoundEnabled ? 'चालू (Enabled)' : 'बंद (Muted)',
+                        style: TextStyle(fontSize: 11, color: SoundService.instance.isSoundEnabled ? Colors.green : Colors.grey),
+                      ),
+                      value: SoundService.instance.isSoundEnabled,
+                      onChanged: (val) async {
+                        await SoundService.instance.setSoundEnabled(val);
+                        if (val) {
+                          SoundService.instance.playBeep();
+                        }
+                        setState(() {});
+                      },
+                    ),
+                    if (SoundService.instance.isSoundEnabled) ...[
+                      const Divider(height: 16),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.qr_code_scanner, size: 16),
+                            label: const Text('स्कैनर बीप (Beep)', style: TextStyle(fontSize: 12)),
+                            onPressed: () => SoundService.instance.playBeep(),
+                          ),
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.touch_app, size: 16),
+                            label: const Text('कीपैड टैप (Click)', style: TextStyle(fontSize: 12)),
+                            onPressed: () => SoundService.instance.playClick(),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green.shade700,
+                              foregroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.monetization_on, size: 16),
+                            label: const Text('बिल सफलता (Cha-Ching)', style: TextStyle(fontSize: 12)),
+                            onPressed: () => SoundService.instance.playSuccess(),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

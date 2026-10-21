@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../data/models/cart_item.dart';
 import '../data/models/customer.dart';
+import '../core/services/sound_service.dart';
 
 class SavedCart {
   final String id;
@@ -56,6 +57,7 @@ class CartProvider extends ChangeNotifier {
     } else {
       _lines.add(item);
     }
+    SoundService.instance.playBeep();
     notifyListeners();
   }
 
@@ -64,6 +66,7 @@ class CartProvider extends ChangeNotifier {
       (line) => (line.productId != null && line.productId == productId) ||
           (line.productId == null && line.name.toLowerCase() == name.toLowerCase()),
     );
+    SoundService.instance.playDelete();
     notifyListeners();
   }
 
@@ -80,6 +83,7 @@ class CartProvider extends ChangeNotifier {
 
     if (index != -1) {
       _lines[index] = _lines[index].copyWith(qty: newQty);
+      SoundService.instance.playClick();
       notifyListeners();
     }
   }

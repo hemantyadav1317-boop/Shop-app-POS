@@ -15,6 +15,7 @@ class AuthProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
   bool get isAuthenticated => user != null || _isGuestMode;
+  bool get isLoggedIn => isAuthenticated;
 
   String get displayName {
     final u = user;

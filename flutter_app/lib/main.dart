@@ -14,8 +14,14 @@ import 'providers/customer_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/main_shell.dart';
 
+import 'core/services/sound_service.dart';
+import 'screens/splash/splash_screen.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Sound Service
+  await SoundService.instance.init();
 
   // Set immersive status bar
   SystemChrome.setSystemUIOverlayStyle(
@@ -73,13 +79,7 @@ class ShopPosApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: shopProvider.themeMode,
-      home: auth.isLoading
-          ? const Scaffold(
-              body: Center(
-                child: CircularProgressIndicator(),
-              ),
-            )
-          : (auth.isAuthenticated ? const MainShell() : const LoginScreen()),
+      home: const SplashScreen(),
     );
   }
 }
