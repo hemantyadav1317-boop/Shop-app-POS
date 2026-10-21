@@ -24,77 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
       UpdateService.showUpdateDialogIfNeeded(context);
     });
   }
-  void _showShopSetupDialog(BuildContext context) {
-    final nameCtrl = TextEditingController(text: 'यादव जनरल स्टोर');
-    final phoneCtrl = TextEditingController();
 
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('दुकान की जानकारी / Store Setup', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'अपनी दुकान का नाम और फ़ोन नंबर दर्ज करें:',
-              style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'दुकान का नाम *',
-                prefixIcon: Icon(Icons.storefront),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: phoneCtrl,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'मोबाइल नंबर',
-                prefixIcon: Icon(Icons.phone),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final shopName = nameCtrl.text.trim();
-              if (shopName.isEmpty) return;
-
-              final auth = context.read<AuthProvider>();
-              await auth.continueAsShopOwner(
-                shopName: shopName,
-                phone: phoneCtrl.text.trim(),
-              );
-
-              // Update shop provider
-              if (context.mounted) {
-                final currentShop = context.read<ShopProvider>().shop;
-                context.read<ShopProvider>().updateShop(
-                      currentShop.copyWith(
-                        name: shopName,
-                        phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
-                      ),
-                    );
-                Navigator.pop(ctx);
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (_) => const MainShell()),
-                );
-              }
-            },
-            child: const Text('शुरू करें (Start POS)'),
-          ),
-        ],
-      ),
-    );
-  }
 
   void _showEmailLoginDialog(BuildContext context) {
     final emailCtrl = TextEditingController();
@@ -134,9 +64,16 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () async {
                 final email = emailCtrl.text.trim();
                 final pass = passCtrl.text;
-                if (email.isEmpty || pass.length < 6) {
+                final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+                if (email.isEmpty || !emailRegex.hasMatch(email)) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('कृपया सही ईमेल और कम से कम 6 अक्षरों का पासवर्ड डालें।')),
+                    const SnackBar(content: Text('कृपया सही ईमेल/Gmail एड्रेस डालें (जैसे: yourname@gmail.com)')),
+                  );
+                  return;
+                }
+                if (pass.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('पासवर्ड कम से कम 6 अक्षरों का होना चाहिए।')),
                   );
                   return;
                 }
@@ -413,11 +350,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Email & Password Login Button
+                  // 2. Gmail & Password Login Button
                   OutlinedButton.icon(
                     icon: const Icon(Icons.email_outlined, size: 18),
                     label: const Text(
-                      'ईमेल / पासवर्ड से लॉगिन (Supabase Cloud)',
+                      'Gmail और पासवर्ड से लॉगिन (Cloud Sync)',
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -426,9 +363,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     onPressed: () => _showEmailLoginDialog(context),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
-                  // Join Existing Shop Button for Family / Staff
+                  // 3. Join Existing Shop Button for Family / Staff
                   OutlinedButton.icon(
                     icon: const Icon(Icons.group_add, color: AppColors.primary, size: 20),
                     label: const Text(
@@ -442,31 +379,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     onPressed: () => _showJoinShopDialog(context),
                   ),
-                  const SizedBox(height: 12),
-
-                  // Quick Shop Setup / Direct Entry Button
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.storefront_outlined, size: 18),
-                    label: const Text(
-                      'नई दुकान बनाएं / Create Shop',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    onPressed: () => _showShopSetupDialog(context),
-                  ),
                   const SizedBox(height: 10),
 
-                  // Offline / Demo Mode Button
+                  // 4. Offline / Demo Mode Button
                   OutlinedButton.icon(
-                    icon: const Icon(Icons.flash_on, color: AppColors.primary, size: 18),
+                    icon: const Icon(Icons.flash_on, color: Colors.orange, size: 18),
                     label: const Text(
-                      'Direct Offline Mode (बिना लॉगिन चलाएं)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      'Direct Offline Mode (डेमो मोड • डेटा सेव नहीं होगा)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),

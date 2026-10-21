@@ -210,14 +210,9 @@ class SupabaseService {
         'id': newShopId,
         'owner_id': userId,
         'name': shopName,
-        if (fallback?.phone != null) 'phone': fallback!.phone,
-        if (fallback?.address != null) 'address': fallback!.address,
-        if (fallback?.gstin != null) 'gst_number': fallback!.gstin,
-        if (fallback?.upiId != null) 'upi_id': fallback!.upiId,
-        if (fallback?.upiPayeeName != null) 'upi_payee_name': fallback!.upiPayeeName,
-        'receipt_footer': fallback?.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏',
-        'print_paper_size': fallback?.printPaperSize ?? '58mm',
-        'allow_negative_stock': fallback?.allowNegativeStock ?? true,
+        if (fallback?.phone != null && fallback!.phone!.isNotEmpty) 'phone': fallback.phone,
+        if (fallback?.address != null && fallback!.address!.isNotEmpty) 'address': fallback.address,
+        if (fallback?.gstin != null && fallback!.gstin!.isNotEmpty) 'gst_number': fallback.gstin,
       };
 
       Shop shop;
@@ -806,15 +801,9 @@ class SupabaseService {
       try {
         final payload = {
           'name': shop.name,
-          if (shop.phone != null) 'phone': shop.phone,
-          if (shop.address != null) 'address': shop.address,
-          'gst_number': shop.gstin,
-          if (shop.upiId != null) 'upi_id': shop.upiId,
-          if (shop.upiPayeeName != null) 'upi_payee_name': shop.upiPayeeName,
-          'allow_negative_stock': shop.allowNegativeStock,
-          'print_paper_size': shop.printPaperSize,
-          'receipt_footer': shop.receiptFooter,
-          if (shop.qrImageUrl != null) 'qr_image_url': shop.qrImageUrl,
+          if (shop.phone != null && shop.phone!.isNotEmpty) 'phone': shop.phone,
+          if (shop.address != null && shop.address!.isNotEmpty) 'address': shop.address,
+          if (shop.gstin != null && shop.gstin!.isNotEmpty) 'gst_number': shop.gstin,
         };
         if (shop.id != 'demo-shop-101' && shop.id.length >= 30) {
           await client!.from('shops').update(payload).eq('id', shop.id);

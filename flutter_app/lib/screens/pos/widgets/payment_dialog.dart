@@ -141,7 +141,6 @@ class _PaymentDialogState extends State<PaymentDialog> {
       });
 
       cart.clear();
-      widget.onSaleCompleted();
     } catch (e) {
       setState(() {
         _isSaving = false;
@@ -224,6 +223,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   context: context,
                   cart: cart,
                   shop: shop,
+                  userEmail: userEmail,
+                  paidAmount: paidAmount,
                   changeDue: changeDue,
                   remainingUdhar: remainingUdhar,
                   upiUri: upiUri,
@@ -238,11 +239,13 @@ class _PaymentDialogState extends State<PaymentDialog> {
     );
   }
 
-  /// STEP 1: PAYMENT & CHECKOUT VIEW (Only payment options + Complete Bill button)
+  /// STEP 1: PAYMENT & CHECKOUT VIEW (Payment options + Bill preview + Complete Bill button)
   Widget _buildCheckoutStep({
     required BuildContext context,
     required CartProvider cart,
     required Shop shop,
+    required String? userEmail,
+    required double paidAmount,
     required double changeDue,
     required double remainingUdhar,
     required String upiUri,
@@ -502,6 +505,46 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   ),
                   const SizedBox(height: 12),
                 ],
+
+                // 4. Bill Receipt Preview (loaded right below the payment inputs)
+                const SizedBox(height: 8),
+                const Divider(thickness: 1.2),
+                const SizedBox(height: 8),
+                const Row(
+                  children: [
+                    Icon(Icons.receipt_long, size: 16, color: Color(0xFF64748B)),
+                    SizedBox(width: 6),
+                    Text(
+                      'बिल रसीद (Bill Preview):',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                BillReceiptCard(
+                  shopName: shop.name,
+                  shopAddress: shop.address,
+                  shopPhone: shop.phone,
+                  shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
+                  gstin: shop.gstin,
+                  billNo: '$_billNo',
+                  dateString: DateFormat('dd-MM-yyyy h:mm a').format(DateTime.now()),
+                  customerName: cart.customer?.name,
+                  customerPhone: cart.customer?.phone,
+                  items: cart.lines,
+                  subtotal: cart.subtotal,
+                  discount: cart.discount,
+                  total: cart.total,
+                  paid: paidAmount > cart.total ? cart.total : paidAmount,
+                  due: (cart.total - paidAmount) > 0 ? (cart.total - paidAmount) : 0.0,
+                  paymentMode: _paymentMode,
+                  footerMessage: shop.receiptFooter,
+                ),
+                const SizedBox(height: 12),
               ],
             ),
           ),
@@ -581,7 +624,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
               ),
               IconButton(
                 icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
-                onPressed: () => Navigator.pop(context),
+                onPressed: () {
+                  Navigator.pop(context);
+                  widget.onSaleCompleted();
+                },
               ),
             ],
           ),
@@ -625,20 +671,23 @@ class _PaymentDialogState extends State<PaymentDialog> {
           color: Colors.grey.shade50,
           child: Row(
             children: [
-              // New Sale Button (Closes dialog and readies next cart)
+              // Back / New Sale Button (Closes dialog and readies next cart)
               Expanded(
                 child: InkWell(
-                  onTap: () => Navigator.pop(context),
+                  onTap: () {
+                    Navigator.pop(context);
+                    widget.onSaleCompleted();
+                  },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.add_shopping_cart, color: Color(0xFF2563EB), size: 24),
+                        Icon(Icons.arrow_back, color: Color(0xFF2563EB), size: 24),
                         SizedBox(height: 4),
                         Text(
-                          'नया बिल (New Sale)',
+                          'वापस / नया बिल',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 11.5,

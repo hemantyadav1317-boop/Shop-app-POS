@@ -13,6 +13,9 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   );
 $$;
 
+-- Grant execution permission on functions to all roles
+GRANT EXECUTE ON FUNCTION public.is_shop_member(uuid) TO authenticated, anon, service_role, public;
+
 -- 2. Allow shop owners to SELECT, INSERT and UPDATE their shop freely without deadlock
 DROP POLICY IF EXISTS "members read shop" ON public.shops;
 CREATE POLICY "members read shop" ON public.shops FOR SELECT TO authenticated
@@ -37,9 +40,19 @@ BEGIN
   RETURN NEW;
 END; $$;
 
+GRANT EXECUTE ON FUNCTION public.handle_new_shop() TO authenticated, anon, service_role, public;
+
 DROP TRIGGER IF EXISTS on_shop_created ON public.shops;
 CREATE TRIGGER on_shop_created AFTER INSERT ON public.shops
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_shop();
+
+-- 3b. Permissions and RLS for shop_members
+GRANT ALL ON public.shop_members TO authenticated, service_role;
+ALTER TABLE public.shop_members ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "members access shop_members" ON public.shop_members;
+CREATE POLICY "members access shop_members" ON public.shop_members FOR ALL TO authenticated
+USING (user_id = auth.uid() OR public.is_shop_member(shop_id))
+WITH CHECK (user_id = auth.uid() OR public.is_shop_member(shop_id));
 
 -- 4. Enable seamless SELECT, INSERT, UPDATE, DELETE for all shop data tables
 DO $$
@@ -64,3 +77,9 @@ BEGIN
     EXECUTE format('CREATE POLICY "shop members delete %1$s" ON public.%1$I FOR DELETE TO authenticated USING (public.is_shop_member(shop_id));', t);
   END LOOP;
 END $$;
+
+-- 5. Final Grant for functions and schema access
+GRANT USAGE ON SCHEMA public TO authenticated, anon, service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated, service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
+GRANT ALL ON ALL ROUTINES IN SCHEMA public TO authenticated, service_role;
