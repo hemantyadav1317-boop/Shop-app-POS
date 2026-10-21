@@ -409,8 +409,8 @@ class _ProductGridState extends State<ProductGrid> {
                           child: ProductImageView(
                             imageUrl: product.imageUrl,
                             fallbackIcon: product.icon,
-                            size: isMobile ? 54 : 76,
-                            borderRadius: 10,
+                            size: isMobile ? 90 : 130,
+                            borderRadius: isMobile ? 12 : 14,
                           ),
                         ),
                       ),
