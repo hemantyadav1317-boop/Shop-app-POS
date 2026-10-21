@@ -198,7 +198,7 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
 
-        // 3. Promotional Farm Fresh Banner
+        // 3. Promotional Indian Supermarket Banner
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
@@ -206,14 +206,13 @@ class _ProductGridState extends State<ProductGrid> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF0A4D2E), // Deep Forest Green
-                    Color(0xFF0F6E43),
-                    Color(0xFF15803D),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                image: DecorationImage(
+                  image: const AssetImage('assets/images/pos_promo_banner.jpg'),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    const Color(0xFF042F1B).withValues(alpha: 0.72), // Lush green overlay
+                    BlendMode.darken,
+                  ),
                 ),
                 boxShadow: [
                   BoxShadow(

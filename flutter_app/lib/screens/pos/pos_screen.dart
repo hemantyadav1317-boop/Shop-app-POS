@@ -216,22 +216,21 @@ class PosScreen extends StatelessWidget {
         top: true,
         child: Column(
           children: [
-            // Lush Organic Farm Header
+            // Lush Organic Indian Store Header
             Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF062F1E), // Deep Organic Green
-                    Color(0xFF0B462C),
-                    Color(0xFF0F6E43),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+              decoration: BoxDecoration(
+                image: DecorationImage(
+                  image: const AssetImage('assets/images/pos_header_bg.jpg'),
+                  fit: BoxFit.cover,
+                  colorFilter: ColorFilter.mode(
+                    const Color(0xFF052A18).withValues(alpha: 0.75), // Rich forest green overlay
+                    BlendMode.darken,
+                  ),
                 ),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
-                    color: Colors.black12,
+                    color: Colors.black26,
                     blurRadius: 8,
                     offset: Offset(0, 3),
                   ),
