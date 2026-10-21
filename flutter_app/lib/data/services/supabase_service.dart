@@ -599,16 +599,19 @@ class SupabaseService {
             .eq('shop_id', shopId)
             .order('created_at', ascending: false)
             .limit(200);
-        final cloudList = (response as List).map((e) => Sale.fromJson(e)).toList();
+        final rawCloudList = (response as List).map((e) => Sale.fromJson(e)).toList();
 
-        // Auto-sync any local sales not yet in cloud
-        final cloudBillNos = cloudList.map((s) => s.billNo).toSet();
-        for (final localSale in List<Sale>.from(_localSales)) {
-          if (!cloudBillNos.contains(localSale.billNo)) {
-            debugPrint("Auto-syncing un-synced sale to cloud: Bill #${localSale.billNo}");
-            try {
-              await createSale(localSale.copyWith(shopId: shopId));
-            } catch (_) {}
+        // Deduplicate consecutive identical sales created within 15 seconds of each other
+        final List<Sale> cloudList = [];
+        for (final sale in rawCloudList) {
+          final isDuplicate = cloudList.any((existing) =>
+              existing.total == sale.total &&
+              existing.paymentMode == sale.paymentMode &&
+              existing.customerName == sale.customerName &&
+              existing.items.length == sale.items.length &&
+              existing.createdAt.difference(sale.createdAt).abs().inSeconds < 15);
+          if (!isDuplicate) {
+            cloudList.add(sale);
           }
         }
 
@@ -673,7 +676,7 @@ class SupabaseService {
 
         final custId = (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null;
 
-        await client!.rpc('create_sale', params: {
+        final rpcRes = await client!.rpc('create_sale', params: {
           '_shop_id': validShopId,
           '_items': formattedItems,
           '_discount': targetSale.discount,
@@ -685,6 +688,26 @@ class SupabaseService {
           '_note': null,
         });
         debugPrint("Sale successfully synced to cloud via create_sale RPC");
+
+        if (rpcRes != null) {
+          final saleId = rpcRes.toString();
+          final createdRow = await client!
+              .from('sales')
+              .select('*, sale_items(*)')
+              .eq('id', saleId)
+              .maybeSingle();
+          if (createdRow != null) {
+            final cloudSale = Sale.fromJson(createdRow);
+            final idx = _localSales.indexWhere((s) => s.id == targetSale.id || s.clientRef == targetSale.clientRef);
+            if (idx != -1) {
+              _localSales[idx] = cloudSale;
+            } else {
+              _localSales.insert(0, cloudSale);
+            }
+            _saveCachedSales(validShopId, _localSales);
+            return cloudSale;
+          }
+        }
       } catch (e) {
         debugPrint("RPC create_sale fallback to direct table insert: $e");
         try {

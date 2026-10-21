@@ -39,14 +39,22 @@ class _BillsScreenState extends State<BillsScreen> {
   }
 
   List<Sale> get _filteredSales {
-    if (_filter == 'credit') {
-      return _sales.where((s) => s.due > 0).toList();
-    } else if (_filter == 'online') {
-      return _sales.where((s) => s.paymentMode == 'online').toList();
-    } else if (_filter == 'cash') {
-      return _sales.where((s) => s.paymentMode == 'cash').toList();
+    final seenIds = <String>{};
+    final unique = <Sale>[];
+    for (final s in _sales) {
+      if (!seenIds.contains(s.id)) {
+        seenIds.add(s.id);
+        unique.add(s);
+      }
     }
-    return _sales;
+    if (_filter == 'credit') {
+      return unique.where((s) => s.due > 0).toList();
+    } else if (_filter == 'online') {
+      return unique.where((s) => s.paymentMode == 'online').toList();
+    } else if (_filter == 'cash') {
+      return unique.where((s) => s.paymentMode == 'cash').toList();
+    }
+    return unique;
   }
 
   void _showBillDetails(Sale sale) {
