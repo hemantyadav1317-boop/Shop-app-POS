@@ -473,7 +473,10 @@ class PosScreen extends StatelessWidget {
                             right: 14,
                             bottom: 12,
                             child: InkWell(
-                              onTap: () => _showCartSheet(context),
+                              onTap: () {
+                                SoundService.instance.playButtonClick();
+                                _showCartSheet(context);
+                              },
                               borderRadius: BorderRadius.circular(30),
                               child: Container(
                                 padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
@@ -542,7 +545,10 @@ class PosScreen extends StatelessWidget {
                                         ),
                                       ),
                                       label: const Icon(Icons.arrow_forward_rounded, size: 15),
-                                      onPressed: () => _showCartSheet(context),
+                                      onPressed: () {
+                                        SoundService.instance.playButtonClick();
+                                        _showCartSheet(context);
+                                      },
                                     ),
                                   ],
                                 ),

@@ -1489,6 +1489,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         minimumSize: const Size.fromHeight(40),
                       ),
                       onPressed: () {
+                        SoundService.instance.playButtonClick();
                         UpdateService.showUpdateDialogIfNeeded(context, showIfNoUpdate: true);
                       },
                     ),
@@ -1504,7 +1505,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onPressed: _saveSettings,
+              onPressed: () {
+                SoundService.instance.playButtonClick();
+                _saveSettings();
+              },
               child: const Text('Save All Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             ),
           ],

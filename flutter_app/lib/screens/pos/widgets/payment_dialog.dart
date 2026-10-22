@@ -723,7 +723,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
               // Share Bill Button
               Expanded(
                 child: InkWell(
-                  onTap: _handleShare,
+                  onTap: () {
+                    SoundService.instance.playButtonClick();
+                    _handleShare();
+                  },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -750,7 +753,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
               // Print Bill Button
               Expanded(
                 child: InkWell(
-                  onTap: _handlePrint,
+                  onTap: () {
+                    SoundService.instance.playButtonClick();
+                    _handlePrint();
+                  },
                   borderRadius: BorderRadius.circular(8),
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -784,7 +790,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final isSelected = _paymentMode == mode;
     return Expanded(
       child: InkWell(
-        onTap: () => _onModeChanged(mode),
+        onTap: () {
+          SoundService.instance.playButtonClick();
+          _onModeChanged(mode);
+        },
         borderRadius: BorderRadius.circular(8),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
