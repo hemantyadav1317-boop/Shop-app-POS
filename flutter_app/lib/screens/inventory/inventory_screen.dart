@@ -10,6 +10,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import '../../core/utils/pos_sound_formatter.dart';
+import '../../core/services/sound_service.dart';
 import 'widgets/bulk_import_dialog.dart';
 
 class InventoryScreen extends StatefulWidget {
@@ -345,6 +346,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () async {
+              SoundService.instance.playDelete();
               await context.read<ProductProvider>().deleteProduct(product.id);
               if (context.mounted) {
                 Navigator.pop(ctx);

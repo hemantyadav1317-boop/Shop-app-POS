@@ -295,6 +295,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await customerProvider.loadCustomers(targetShop.id);
 
       if (mounted) {
+        SoundService.instance.playSuccess();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: Colors.green.shade700,
@@ -641,32 +642,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Text('User ID: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                              Expanded(
-                                child: Text(
-                                  authProvider.user?.id ?? 'लोकल (Not Logged In)',
-                                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: [
-                              const Text('दुकान ID: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                              Expanded(
-                                child: Text(
-                                  currentShop.id,
-                                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
                         ],
                       ),
                     ),
@@ -680,7 +655,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: _isSyncingCloud ? null : _handleManualCloudSync,
+                        onPressed: _isSyncingCloud
+                            ? null
+                            : () {
+                                SoundService.instance.playButtonClick();
+                                _handleManualCloudSync();
+                              },
                         icon: _isSyncingCloud
                             ? const SizedBox(
                                 width: 16,

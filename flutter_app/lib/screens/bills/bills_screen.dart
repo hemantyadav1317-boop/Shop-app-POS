@@ -8,6 +8,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../data/models/sale.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
+import '../../core/services/sound_service.dart';
 import '../pos/widgets/bill_receipt_card.dart';
 
 class BillsScreen extends StatefulWidget {
@@ -466,6 +467,7 @@ class _BillsScreenState extends State<BillsScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
             onPressed: () async {
+              SoundService.instance.playDelete();
               Navigator.pop(delCtx);
               await SupabaseService.instance.deleteSale(sale.id);
               _loadSales();

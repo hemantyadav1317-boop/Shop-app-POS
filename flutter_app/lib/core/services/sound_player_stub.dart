@@ -1,97 +1,66 @@
+import 'package:flutter/services.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'sound_player_interface.dart';
 
 class SoundPlayerImpl implements SoundPlayerPlatform {
-  // Round-robin pool of low-latency players for instant multi-tap button clicks
-  final List<AudioPlayer> _clickPool = List.generate(
-    4,
-    (_) => AudioPlayer()..setPlayerMode(PlayerMode.lowLatency),
-  );
-  int _clickIdx = 0;
+  static const MethodChannel _nativeChannel = MethodChannel('com.shop.pos/native_sound');
+  bool _useNative = true;
 
-  // Round-robin pool for rapid product additions
-  final List<AudioPlayer> _addPool = List.generate(
-    3,
-    (_) => AudioPlayer()..setPlayerMode(PlayerMode.lowLatency),
-  );
-  int _addIdx = 0;
-
-  final AudioPlayer _deletePlayer = AudioPlayer()..setPlayerMode(PlayerMode.lowLatency);
-  final AudioPlayer _successPlayer = AudioPlayer()..setPlayerMode(PlayerMode.lowLatency);
+  // Fallback AudioPlayer if native channel is unavailable
+  final AudioPlayer _fallbackPlayer = AudioPlayer()..setPlayerMode(PlayerMode.lowLatency);
 
   SoundPlayerImpl() {
-    _preloadAudio();
+    _fallbackPlayer.setReleaseMode(ReleaseMode.stop);
   }
 
-  void _preloadAudio() async {
+  void _play(String nativeMethod, String assetName, double volume) {
+    if (_useNative) {
+      _nativeChannel.invokeMethod(nativeMethod).catchError((_) {
+        _useNative = false;
+        _fallbackPlay(assetName, volume);
+      });
+      return;
+    }
+    _fallbackPlay(assetName, volume);
+  }
+
+  void _fallbackPlay(String assetName, double volume) async {
     try {
-      for (final p in _clickPool) {
-        await p.setSource(AssetSource('sounds/click.wav'));
-      }
-      for (final p in _addPool) {
-        await p.setSource(AssetSource('sounds/beep.wav'));
-      }
-      await _deletePlayer.setSource(AssetSource('sounds/delete.wav'));
-      await _successPlayer.setSource(AssetSource('sounds/success.wav'));
+      await _fallbackPlayer.stop();
+      await _fallbackPlayer.play(
+        AssetSource('sounds/$assetName'),
+        volume: volume,
+        mode: PlayerMode.lowLatency,
+      );
     } catch (_) {}
   }
 
   @override
-  void playClick() {
-    try {
-      final player = _clickPool[_clickIdx++ % _clickPool.length];
-      player.play(AssetSource('sounds/click.wav'), volume: 0.35, mode: PlayerMode.lowLatency);
-    } catch (_) {}
-  }
+  void playClick() => _play('playClick', 'click.wav', 0.40);
 
   @override
-  void playButtonClick() {
-    playClick();
-  }
+  void playButtonClick() => playClick();
 
   @override
-  void playNumberKey() {
-    playClick();
-  }
+  void playNumberKey() => playClick();
 
   @override
-  void playDot() {
-    playClick();
-  }
+  void playDot() => _play('playDot', 'dot.wav', 0.45);
 
   @override
-  void playProductAdd() {
-    try {
-      final player = _addPool[_addIdx++ % _addPool.length];
-      player.play(AssetSource('sounds/beep.wav'), volume: 0.45, mode: PlayerMode.lowLatency);
-    } catch (_) {}
-  }
+  void playProductAdd() => _play('playProductAdd', 'beep.wav', 0.50);
 
   @override
-  void playBeep() {
-    playProductAdd();
-  }
+  void playBeep() => playProductAdd();
 
   @override
-  void playDelete() {
-    try {
-      _deletePlayer.play(AssetSource('sounds/delete.wav'), volume: 0.40, mode: PlayerMode.lowLatency);
-    } catch (_) {}
-  }
+  void playDelete() => _play('playDelete', 'delete.wav', 0.55);
 
   @override
-  void playSuccess() {
-    try {
-      _successPlayer.play(AssetSource('sounds/success.wav'), volume: 0.50, mode: PlayerMode.lowLatency);
-    } catch (_) {}
-  }
+  void playSuccess() => _play('playSuccess', 'success.wav', 0.60);
 
   @override
-  void playAppStartup() {
-    try {
-      _successPlayer.play(AssetSource('sounds/success.wav'), volume: 0.35, mode: PlayerMode.lowLatency);
-    } catch (_) {}
-  }
+  void playAppStartup() => _play('playAppStartup', 'success.wav', 0.45);
 }
 
 SoundPlayerPlatform getPlatformPlayer() => SoundPlayerImpl();

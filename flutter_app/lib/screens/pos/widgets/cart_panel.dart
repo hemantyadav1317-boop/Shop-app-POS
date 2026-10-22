@@ -280,7 +280,11 @@ class _CartPanelState extends State<CartPanel> {
                                 icon: const Icon(Icons.remove_circle_outline, size: 20),
                                 visualDensity: VisualDensity.compact,
                                 onPressed: () {
-                                  SoundService.instance.playClick();
+                                  if (item.qty <= step) {
+                                    SoundService.instance.playDelete();
+                                  } else {
+                                    SoundService.instance.playClick();
+                                  }
                                   cart.setQty(item.productId, item.name, item.qty - step);
                                 },
                               ),
