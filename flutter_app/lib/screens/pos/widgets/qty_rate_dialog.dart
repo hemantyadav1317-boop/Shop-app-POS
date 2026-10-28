@@ -27,9 +27,10 @@ class QtyRateDialog extends StatefulWidget {
 class _QtyRateDialogState extends State<QtyRateDialog> {
   late TextEditingController _qtyController;
   late TextEditingController _rateController;
+  late FocusNode _qtyFocusNode;
   late double _qty;
   late double _rate;
-  bool _showNumpad = false;
+  final bool _showNumpad = true; // Default Open as requested
 
   @override
   void initState() {
@@ -38,6 +39,14 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
     _rate = widget.product.price;
     _qtyController = TextEditingController(text: _formatQty(_qty));
     _rateController = TextEditingController(text: _rate.toStringAsFixed(2));
+    _qtyFocusNode = FocusNode();
+
+    // Auto-focus quantity field on open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _qtyFocusNode.requestFocus();
+      }
+    });
   }
 
   String _formatQty(double q) {
@@ -49,6 +58,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
   void dispose() {
     _qtyController.dispose();
     _rateController.dispose();
+    _qtyFocusNode.dispose();
     super.dispose();
   }
 
@@ -62,37 +72,44 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
     });
   }
 
-  void _setDirectQty(double val) {
-    SoundService.instance.playClick();
-    setState(() {
-      _qty = val;
-      _qtyController.text = _formatQty(_qty);
-    });
+  void _confirmAndSubmit() {
+    if (_qty <= 0) return;
+    SoundService.instance.playSuccess();
+    widget.onConfirm(CartItem(
+      productId: widget.product.id,
+      name: widget.product.name,
+      unit: widget.product.unit,
+      price: _rate,
+      qty: _qty,
+      imageUrl: widget.product.imageUrl,
+      icon: widget.product.icon,
+    ));
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final isKg = widget.product.unit.toLowerCase() == 'kg';
-    final quickButtons = isKg ? [0.25, 0.5, 1.0, 2.0, 5.0] : [1.0, 2.0, 5.0, 10.0, 12.0];
     final totalAmount = _qty * _rate;
 
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
-        padding: const EdgeInsets.all(20),
-        constraints: const BoxConstraints(maxWidth: 380),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header
-              Row(
+        constraints: const BoxConstraints(maxWidth: 400, maxHeight: 680),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. HEADER (Product Info & Close)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
+              child: Row(
                 children: [
                   ProductImageView(
                     imageUrl: widget.product.imageUrl,
                     fallbackIcon: widget.product.icon,
-                    size: 40,
+                    size: 42,
                     borderRadius: 8,
                   ),
                   const SizedBox(width: 12),
@@ -106,6 +123,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        const SizedBox(height: 2),
                         Text(
                           'Stock: ${widget.product.stock} ${widget.product.unit}',
                           style: TextStyle(
@@ -118,152 +136,163 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.close),
+                    icon: const Icon(Icons.close, color: AppColors.lightTextSecondary, size: 22),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+            ),
+            const Divider(height: 1),
 
-              // Quantity Selector
-              Text('मात्रा / Quantity (${widget.product.unit})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  OutlinedButton(
-                    onPressed: () => _adjustQty(isKg ? -0.25 : -1.0),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            // 2. SCROLLABLE BODY (Qty, Rate, Tactile Numpad)
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Quantity Selector Row
+                    Text(
+                      'मात्रा / Quantity (${widget.product.unit})',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                     ),
-                    child: const Icon(Icons.remove),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _qtyController,
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => _adjustQty(isKg ? -0.25 : -1.0),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Icon(Icons.remove, size: 20),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _qtyController,
+                            focusNode: _qtyFocusNode,
+                            inputFormatters: [PosNumberSoundFormatter()],
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.primaryDark),
+                            decoration: InputDecoration(
+                              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onChanged: (val) {
+                              final parsed = double.tryParse(val) ?? 1.0;
+                              setState(() {
+                                _qty = parsed;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: () => _adjustQty(isKg ? 0.25 : 1.0),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: const Icon(Icons.add, size: 20),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Rate per unit
+                    Text(
+                      'दर / Rate (₹ प्रति ${widget.product.unit})',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _rateController,
                       inputFormatters: [PosNumberSoundFormatter()],
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      decoration: InputDecoration(
+                        prefixText: '₹ ',
+                        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                       onChanged: (val) {
-                        final parsed = double.tryParse(val) ?? 1.0;
+                        final parsed = double.tryParse(val) ?? widget.product.price;
                         setState(() {
-                          _qty = parsed;
+                          _rate = parsed;
                         });
                       },
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed: () => _adjustQty(isKg ? 0.25 : 1.0),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                    child: const Icon(Icons.add),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
+                    const SizedBox(height: 10),
 
-              // Quick Quantity Chips
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                children: quickButtons.map((btnVal) {
-                  final isSelected = (_qty - btnVal).abs() < 0.01;
-                  return ChoiceChip(
-                    label: Text('${_formatQty(btnVal)} ${widget.product.unit}'),
-                    selected: isSelected,
-                    onSelected: (_) => _setDirectQty(btnVal),
-                    selectedColor: AppColors.primarySurface,
-                    labelStyle: TextStyle(
-                      color: isSelected ? AppColors.primary : null,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 12),
-
-              // Rate per unit
-              Text('दर / Rate (₹ प्रति ${widget.product.unit})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _rateController,
-                inputFormatters: [PosNumberSoundFormatter()],
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                decoration: const InputDecoration(
-                  prefixText: '₹ ',
-                ),
-                onChanged: (val) {
-                  final parsed = double.tryParse(val) ?? widget.product.price;
-                  setState(() {
-                    _rate = parsed;
-                  });
-                },
-              ),
-              const SizedBox(height: 12),
-
-              // Tactile POS Quick Touch Numpad Header & Widget
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('टच कीपैड (Tactile Pad)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
-                  TextButton(
-                    onPressed: () => setState(() => _showNumpad = !_showNumpad),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 24)),
-                    child: Text(_showNumpad ? 'छुपाएं (Hide)' : 'दिखाएं (Show)', style: const TextStyle(fontSize: 11, color: AppColors.primary)),
-                  ),
-                ],
-              ),
-              if (_showNumpad) ...[
-                const SizedBox(height: 4),
-                PosNumpad(controller: _qtyController),
-              ],
-              const SizedBox(height: 14),
-
-              // Total Amount Preview
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primarySurface.withOpacity(0.5),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('कुल राशि / Amount:', style: TextStyle(fontWeight: FontWeight.w600)),
-                    Text(
-                      CurrencyFormatter.format(totalAmount),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primaryDark),
-                    ),
+                    // Tactile POS Touch Keypad (Always Visible)
+                    if (_showNumpad) ...[
+                      const Text(
+                        'टच कीपैड (Tactile Pad)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.lightTextSecondary),
+                      ),
+                      const SizedBox(height: 4),
+                      PosNumpad(controller: _qtyController),
+                    ],
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+            ),
 
-              // Submit Button
-              ElevatedButton.icon(
-                icon: const Icon(Icons.check_circle_outline),
-                label: const Text('बिल में जोड़ें / Add to Bill'),
-                onPressed: () {
-                  if (_qty <= 0) return;
-                  widget.onConfirm(CartItem(
-                    productId: widget.product.id,
-                    name: widget.product.name,
-                    unit: widget.product.unit,
-                    price: _rate,
-                    qty: _qty,
-                    imageUrl: widget.product.imageUrl,
-                    icon: widget.product.icon,
-                  ));
-                  Navigator.pop(context);
-                },
+            const Divider(height: 1),
+
+            // 3. PERSISTENT BOTTOM ACTION BAR (Never scrolls off screen)
+            Container(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
               ),
-            ],
-          ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Total Amount Preview
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'कुल राशि / Amount:',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                      Text(
+                        CurrencyFormatter.format(totalAmount),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 20,
+                          color: AppColors.primaryDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Big Sticky Add to Bill Button
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.check_circle_outline, size: 20),
+                    label: const Text(
+                      'बिल में जोड़ें / Add to Bill',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
+                    onPressed: _confirmAndSubmit,
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

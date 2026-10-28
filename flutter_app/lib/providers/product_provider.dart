@@ -32,6 +32,7 @@ class ProductProvider extends ChangeNotifier {
 
   List<Product> _products = [];
   final List<String> _customCategories = [];
+  final Set<String> _deletedCategories = {};
   final Map<String, String> _categoryImages = {};
   bool _isLoading = false;
   String _selectedCategory = 'All';
@@ -44,6 +45,7 @@ class ProductProvider extends ChangeNotifier {
 
   ProductProvider() {
     _loadCustomCategories();
+    _loadDeletedCategories();
     _loadCategoryImages();
   }
 
@@ -117,18 +119,50 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> _loadDeletedCategories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList('pos_deleted_categories');
+      if (saved != null) {
+        _deletedCategories.clear();
+        _deletedCategories.addAll(saved.map((e) => e.toUpperCase()));
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint("Error loading deleted categories: $e");
+    }
+  }
+
+  Future<void> _saveDeletedCategories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('pos_deleted_categories', _deletedCategories.toList());
+    } catch (e) {
+      debugPrint("Error saving deleted categories: $e");
+    }
+  }
+
   /// List of all categories without 'All' (used in product add/edit dropdown & category management)
   List<String> get allCategories {
     final set = <String>{};
     for (final c in defaultCategories) {
-      set.add(c.toUpperCase());
+      final upper = c.toUpperCase();
+      if (!_deletedCategories.contains(upper)) {
+        set.add(upper);
+      }
     }
     for (final c in _customCategories) {
-      set.add(c.toUpperCase());
+      final upper = c.toUpperCase();
+      if (!_deletedCategories.contains(upper)) {
+        set.add(upper);
+      }
     }
     for (final p in _products) {
       if (p.category.trim().isNotEmpty && p.category.toLowerCase() != 'all') {
-        set.add(p.category.trim().toUpperCase());
+        final upper = p.category.trim().toUpperCase();
+        if (!_deletedCategories.contains(upper)) {
+          set.add(upper);
+        }
       }
     }
     return set.toList();
@@ -175,19 +209,23 @@ class ProductProvider extends ChangeNotifier {
   Future<void> addCategory(String categoryName) async {
     final name = categoryName.trim().toUpperCase();
     if (name.isEmpty) return;
+    _deletedCategories.remove(name);
+    await _saveDeletedCategories();
     if (!_customCategories.contains(name) && !defaultCategories.contains(name)) {
       _customCategories.add(name);
       await _saveCustomCategories();
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   Future<void> deleteCategory(String categoryName) async {
     final name = categoryName.trim().toUpperCase();
     _customCategories.remove(name);
+    _deletedCategories.add(name);
     await _saveCustomCategories();
+    await _saveDeletedCategories();
 
-    // Reassign products of this category to GENERAL
+    // Reassign products of this category to GENERAL locally & in Cloud Supabase
     for (var i = 0; i < _products.length; i++) {
       if (_products[i].category.trim().toUpperCase() == name) {
         final updated = _products[i].copyWith(category: 'GENERAL');

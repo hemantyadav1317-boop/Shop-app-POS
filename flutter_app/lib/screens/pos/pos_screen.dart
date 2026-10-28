@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/services/sound_service.dart';
@@ -9,7 +8,6 @@ import '../../providers/cart_provider.dart';
 import '../../providers/shop_provider.dart';
 import 'widgets/product_grid.dart';
 import 'widgets/cart_panel.dart';
-import 'widgets/quick_sell_dialog.dart';
 
 class PosScreen extends StatelessWidget {
   const PosScreen({super.key});
@@ -105,106 +103,6 @@ class PosScreen extends StatelessWidget {
     );
   }
 
-  void _showShareShopDialog(BuildContext context) {
-    final shop = context.read<ShopProvider>().shop;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.share, color: AppColors.primary),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'दुकान शेयर करें / Family Access',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'अपने भाई, पिता या स्टाफ को अपनी दुकान का एक्सेस देने के लिए यह दुकान कोड साझा करें:',
-              style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primarySurface.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('दुकान का नाम:', style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-                  Text(shop.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  const SizedBox(height: 6),
-                  const Text('दुकान कोड (Shop ID):', style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-                  SelectableText(
-                    shop.id,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('कोड कॉपी करें', style: TextStyle(fontSize: 11)),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: shop.id));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('दुकान कोड कॉपी हो गया!')),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    icon: const Icon(Icons.share, size: 16),
-                    label: const Text('WhatsApp', style: TextStyle(fontSize: 11)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    onPressed: () async {
-                      final text = 'नमस्ते, हमारी दुकान "${shop.name}" का POS ऐप कोड है:\n${shop.id}\n\nऐप में लॉगिन करके "परिवार की दुकान से जुड़ें" में यह कोड डालकर दुकान कनेक्ट कर सकते हैं।';
-                      final uri = Uri.parse('whatsapp://send?text=${Uri.encodeComponent(text)}');
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri);
-                      } else {
-                        Clipboard.setData(ClipboardData(text: text));
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('शेयर मैसेज कॉपी हो गया!')),
-                          );
-                        }
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final shop = context.watch<ShopProvider>().shop;
@@ -249,28 +147,24 @@ class PosScreen extends StatelessWidget {
                   ),
                 ),
 
-                // Header Content
+                // Header Content - Compact Bar (Max Space for Products)
                 Container(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: const BoxDecoration(
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black26,
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
                       ),
                     ],
                   ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Top Row: Logo, Shop Name & Action Buttons
-                  Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       // Leaf Sprout Icon
                       Container(
-                        padding: const EdgeInsets.all(7),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
@@ -278,42 +172,27 @@ class PosScreen extends StatelessWidget {
                         child: const Icon(
                           Icons.eco_rounded,
                           color: Color(0xFF4ADE80),
-                          size: 26,
+                          size: 20,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
 
-                      // Shop Name & Subtitle
+                      // Shop Name
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              shop.name.isNotEmpty ? shop.name : 'Meri Dukan',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                                letterSpacing: 0.3,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const Text(
-                              'POS Billing Mode • हर जरूरत का सामान, अब और आसान',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
+                        child: Text(
+                          shop.name.isNotEmpty ? shop.name : 'Meri Dukan',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            letterSpacing: 0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
 
-                      // Action Buttons: Theme Toggle, Share, Bookmark, Quick Sell
+                      // Action Buttons: Theme Toggle & Saved Orders Only
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -326,7 +205,7 @@ class PosScreen extends StatelessWidget {
                             },
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: const EdgeInsets.all(7),
+                              padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.14),
                                 shape: BoxShape.circle,
@@ -342,24 +221,6 @@ class PosScreen extends StatelessWidget {
                           ),
                           const SizedBox(width: 8),
 
-                          // Share Button
-                          InkWell(
-                            onTap: () {
-                              SoundService.instance.playButtonClick();
-                              _showShareShopDialog(context);
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.all(7),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.14),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.share_outlined, color: Colors.white, size: 18),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-
                           // Saved Orders Button with Badge
                           Stack(
                             clipBehavior: Clip.none,
@@ -371,7 +232,7 @@ class PosScreen extends StatelessWidget {
                                 },
                                 borderRadius: BorderRadius.circular(20),
                                 child: Container(
-                                  padding: const EdgeInsets.all(7),
+                                  padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withValues(alpha: 0.14),
                                     shape: BoxShape.circle,
@@ -401,73 +262,11 @@ class PosScreen extends StatelessWidget {
                                 ),
                             ],
                           ),
-                          const SizedBox(width: 8),
-
-                          // Quick Sell Pill Button
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF00875A), // Lush Green
-                              foregroundColor: Colors.white,
-                              elevation: 2,
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                            ),
-                            icon: const Icon(Icons.flash_on, size: 15, color: Colors.white),
-                            label: const Text(
-                              'Quick Sell',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                            onPressed: () {
-                              SoundService.instance.playButtonClick();
-                              showDialog(
-                                context: context,
-                                builder: (_) => QuickSellDialog(
-                                  onConfirm: (item) => cart.addLine(item),
-                                ),
-                              );
-                            },
-                          ),
                         ],
                       ),
                     ],
                   ),
-
-                  const SizedBox(height: 8),
-
-                  // Location Chip Row
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.22),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.location_on, size: 13, color: Color(0xFF4ADE80)),
-                            const SizedBox(width: 4),
-                            Text(
-                              (shop.address != null && shop.address!.isNotEmpty)
-                                  ? shop.address!
-                                  : 'Jaipur, Rajasthan',
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            const SizedBox(width: 2),
-                            const Icon(Icons.keyboard_arrow_down, size: 14, color: Colors.white70),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+                ),
           ],
         ),
 

@@ -89,7 +89,9 @@ class _MainShellState extends State<MainShell> {
             onEvent: (table, eventType, record) {
               if (!mounted) return;
               debugPrint('[MainShell] Real-time live event on: $table ($eventType)');
-              if (table == 'products') {
+              if (table == 'shops') {
+                context.read<ShopProvider>().loadForUser(u.id, email: u.email);
+              } else if (table == 'products') {
                 context.read<ProductProvider>().loadProducts(syncedShop.id);
               } else if (table == 'customers' || table == 'customer_transactions') {
                 context.read<CustomerProvider>().loadCustomers(syncedShop.id);

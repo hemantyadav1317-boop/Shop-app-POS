@@ -15,6 +15,7 @@ import 'widgets/bulk_import_dialog.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/stock_adjustment.dart';
 import '../../data/services/stock_adjustment_service.dart';
+import '../../data/services/supabase_service.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -150,11 +151,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       );
                                       if (img != null) {
                                         final bytes = await img.readAsBytes();
-                                        final b64 = base64Encode(bytes);
-                                        final dataUrl = 'data:image/jpeg;base64,$b64';
+                                        final shop = context.read<ShopProvider>().shop;
+                                        final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
+                                          shopId: shop.id,
+                                          folder: 'categories',
+                                          fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                          bytes: bytes,
+                                        );
                                         setDialogState(() {
-                                          selectedImageUrl = dataUrl;
-                                          catImgCtrl.text = dataUrl;
+                                          selectedImageUrl = uploadedUrl;
+                                          catImgCtrl.text = uploadedUrl;
                                         });
                                       }
                                     } catch (e) {
@@ -181,11 +187,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                       );
                                       if (img != null) {
                                         final bytes = await img.readAsBytes();
-                                        final b64 = base64Encode(bytes);
-                                        final dataUrl = 'data:image/jpeg;base64,$b64';
+                                        final shop = context.read<ShopProvider>().shop;
+                                        final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
+                                          shopId: shop.id,
+                                          folder: 'categories',
+                                          fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                          bytes: bytes,
+                                        );
                                         setDialogState(() {
-                                          selectedImageUrl = dataUrl;
-                                          catImgCtrl.text = dataUrl;
+                                          selectedImageUrl = uploadedUrl;
+                                          catImgCtrl.text = uploadedUrl;
                                         });
                                       }
                                     } catch (e) {
@@ -452,12 +463,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     try {
                                       final img = await picker.pickImage(
                                         source: ImageSource.camera,
-                                        maxWidth: 800,
-                                        maxHeight: 800,
-                                        imageQuality: 85,
+                                        maxWidth: 600,
+                                        maxHeight: 600,
+                                        imageQuality: 80,
                                       );
                                       if (img != null) {
-                                        setDialogState(() => imageUrl = img.path);
+                                        final bytes = await img.readAsBytes();
+                                        final shop = context.read<ShopProvider>().shop;
+                                        final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
+                                          shopId: shop.id,
+                                          folder: 'products',
+                                          fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                          bytes: bytes,
+                                        );
+                                        setDialogState(() => imageUrl = uploadedUrl);
                                       }
                                     } catch (e) {
                                       debugPrint("Camera error: $e");
@@ -475,12 +494,20 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     try {
                                       final img = await picker.pickImage(
                                         source: ImageSource.gallery,
-                                        maxWidth: 800,
-                                        maxHeight: 800,
-                                        imageQuality: 85,
+                                        maxWidth: 600,
+                                        maxHeight: 600,
+                                        imageQuality: 80,
                                       );
                                       if (img != null) {
-                                        setDialogState(() => imageUrl = img.path);
+                                        final bytes = await img.readAsBytes();
+                                        final shop = context.read<ShopProvider>().shop;
+                                        final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
+                                          shopId: shop.id,
+                                          folder: 'products',
+                                          fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                          bytes: bytes,
+                                        );
+                                        setDialogState(() => imageUrl = uploadedUrl);
                                       }
                                     } catch (e) {
                                       debugPrint("Gallery error: $e");
@@ -1199,93 +1226,195 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             final product = products[i];
 
                             return Card(
-                              child: ListTile(
-                                leading: ProductImageView(
-                                  imageUrl: product.imageUrl,
-                                  fallbackIcon: product.icon,
-                                  size: 46,
-                                  borderRadius: 8,
-                                ),
-                                title: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(product.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    ),
-                                    if (product.isLowStock)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.error.withOpacity(0.15),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: const Text('LOW STOCK', style: TextStyle(color: AppColors.error, fontSize: 9, fontWeight: FontWeight.bold)),
-                                      ),
-                                  ],
-                                ),
-                                subtitle: Text(
-                                  'दर: ${CurrencyFormatter.format(product.price)} / ${product.unit} · Cat: ${product.category}',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '${product.stock} ${product.unit}',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: product.isLowStock ? AppColors.error : AppColors.primary,
-                                          ),
-                                        ),
-                                        const Text('स्टॉक', style: TextStyle(fontSize: 10, color: AppColors.lightTextSecondary)),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_note, size: 22),
-                                      tooltip: 'Adjust Stock',
-                                      onPressed: () => _showStockAdjustmentDialog(context, product),
-                                    ),
-                                    PopupMenuButton<String>(
-                                      icon: const Icon(Icons.more_vert, size: 20, color: AppColors.lightTextSecondary),
-                                      padding: EdgeInsets.zero,
-                                      onSelected: (val) {
-                                        if (val == 'edit') {
-                                          _showAddEditProductDialog(context, product);
-                                        } else if (val == 'delete') {
-                                          _confirmDeleteProduct(context, product);
-                                        }
-                                      },
-                                      itemBuilder: (ctx) => const [
-                                        PopupMenuItem(
-                                          value: 'edit',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.edit, size: 16),
-                                              SizedBox(width: 8),
-                                              Text('एडिट करें'),
-                                            ],
-                                          ),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'delete',
-                                          child: Row(
-                                            children: [
-                                              Icon(Icons.delete_outline, size: 16, color: AppColors.error),
-                                              SizedBox(width: 8),
-                                              Text('हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                              elevation: 1,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
                                 onTap: () => _showAddEditProductDialog(context, product),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Top Row: Image, Product Name, Category, Price, and 3-dots Menu
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          ProductImageView(
+                                            imageUrl: product.imageUrl,
+                                            fallbackIcon: product.icon,
+                                            size: 50,
+                                            borderRadius: 10,
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  product.name,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 15,
+                                                    letterSpacing: 0.2,
+                                                  ),
+                                                  maxLines: 2,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                                const SizedBox(height: 3),
+                                                Text(
+                                                  'दर: ${CurrencyFormatter.format(product.price)} / ${product.unit}  •  ${product.category}',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    color: AppColors.lightTextSecondary,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuButton<String>(
+                                            icon: const Icon(Icons.more_vert, size: 20, color: AppColors.lightTextSecondary),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            onSelected: (val) {
+                                              if (val == 'edit') {
+                                                _showAddEditProductDialog(context, product);
+                                              } else if (val == 'delete') {
+                                                _confirmDeleteProduct(context, product);
+                                              }
+                                            },
+                                            itemBuilder: (ctx) => const [
+                                              PopupMenuItem(
+                                                value: 'edit',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.edit, size: 16),
+                                                    SizedBox(width: 8),
+                                                    Text('एडिट करें'),
+                                                  ],
+                                                ),
+                                              ),
+                                              PopupMenuItem(
+                                                value: 'delete',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.delete_outline, size: 16, color: AppColors.error),
+                                                    SizedBox(width: 8),
+                                                    Text('हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      const Divider(height: 1),
+                                      const SizedBox(height: 8),
+
+                                      // Bottom Row: Stock status badge on left, Stock amount & Adjust Button on right
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          if (product.isLowStock)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.error.withOpacity(0.12),
+                                                borderRadius: BorderRadius.circular(6),
+                                                border: Border.all(color: AppColors.error.withOpacity(0.3)),
+                                              ),
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: const [
+                                                  Icon(Icons.warning_amber_rounded, size: 13, color: AppColors.error),
+                                                  SizedBox(width: 4),
+                                                  Text(
+                                                    'LOW STOCK',
+                                                    style: TextStyle(
+                                                      color: AppColors.error,
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            )
+                                          else
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: const Text(
+                                                'इन स्टॉक (In Stock)',
+                                                style: TextStyle(
+                                                  color: AppColors.primary,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              RichText(
+                                                text: TextSpan(
+                                                  children: [
+                                                    const TextSpan(
+                                                      text: 'स्टॉक: ',
+                                                      style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                                                    ),
+                                                    TextSpan(
+                                                      text: '${product.stock} ${product.unit}',
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.bold,
+                                                        fontSize: 13.5,
+                                                        color: product.isLowStock ? AppColors.error : AppColors.primaryDark,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              InkWell(
+                                                onTap: () => _showStockAdjustmentDialog(context, product),
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.primarySurface,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: const [
+                                                      Icon(Icons.edit_note, size: 16, color: AppColors.primary),
+                                                      SizedBox(width: 3),
+                                                      Text(
+                                                        'एडजस्ट',
+                                                        style: TextStyle(
+                                                          fontSize: 11,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: AppColors.primary,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             );
                           },

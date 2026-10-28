@@ -33,6 +33,10 @@ android {
         versionName = flutter.versionName
     }
 
+    aaptOptions {
+        noCompress.add("wav")
+    }
+
     val keystorePropertiesFile = rootProject.file("key.properties")
     val keystoreProperties = Properties()
     if (keystorePropertiesFile.exists()) {

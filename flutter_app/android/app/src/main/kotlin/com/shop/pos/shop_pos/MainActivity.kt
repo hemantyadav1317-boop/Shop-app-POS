@@ -20,28 +20,22 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "playClick" -> {
-                    playSound("click")
-                    result.success(true)
+                    result.success(playSound("click"))
                 }
                 "playProductAdd" -> {
-                    playSound("beep")
-                    result.success(true)
+                    result.success(playSound("beep"))
                 }
                 "playDelete" -> {
-                    playSound("delete")
-                    result.success(true)
+                    result.success(playSound("delete"))
                 }
                 "playDot" -> {
-                    playSound("dot")
-                    result.success(true)
+                    result.success(playSound("dot"))
                 }
                 "playSuccess" -> {
-                    playSound("success")
-                    result.success(true)
+                    result.success(playSound("success"))
                 }
                 "playAppStartup" -> {
-                    playSound("success")
-                    result.success(true)
+                    result.success(playSound("success"))
                 }
                 else -> result.notImplemented()
             }
@@ -82,8 +76,9 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun playSound(key: String) {
-        val soundId = soundMap[key] ?: return
+    private fun playSound(key: String): Boolean {
+        val soundId = soundMap[key] ?: return false
+        if (soundId == 0) return false
         val volume = when (key) {
             "click" -> 0.40f
             "dot" -> 0.45f
@@ -92,7 +87,8 @@ class MainActivity : FlutterActivity() {
             "success" -> 0.60f
             else -> 0.50f
         }
-        soundPool?.play(soundId, volume, volume, 1, 0, 1.0f)
+        val streamId = soundPool?.play(soundId, volume, volume, 1, 0, 1.0f) ?: 0
+        return streamId != 0
     }
 
     override fun onDestroy() {

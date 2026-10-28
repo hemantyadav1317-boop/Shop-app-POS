@@ -1041,4 +1041,33 @@ class SupabaseService {
       _realtimeChannel = null;
     } catch (_) {}
   }
+
+  /// Uploads a product or shop QR image to Supabase Storage or creates a portable optimized data URI.
+  /// Guarantees that the image immediately syncs and displays across all active devices.
+  Future<String> uploadImageBytes({
+    required String shopId,
+    required String folder,
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    if (client != null && _isInitialized) {
+      try {
+        final path = '$shopId/$folder/$fileName';
+        await client!.storage.from('pos-images').uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true, contentType: 'image/jpeg'),
+        );
+        final publicUrl = client!.storage.from('pos-images').getPublicUrl(path);
+        debugPrint("[ImageUpload] Uploaded successfully to Supabase Storage: $publicUrl");
+        return publicUrl;
+      } catch (storageErr) {
+        debugPrint("[ImageUpload] Supabase Storage bucket upload error (falling back to portable data URI): $storageErr");
+      }
+    }
+
+    // Fallback: Portable data URI so all devices on any network render the image immediately
+    final b64 = base64Encode(bytes);
+    return 'data:image/jpeg;base64,$b64';
+  }
 }

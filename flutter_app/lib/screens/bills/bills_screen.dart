@@ -6,6 +6,9 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/sale.dart';
+import '../../data/models/cart_item.dart';
+import '../../data/models/product.dart';
+import '../../providers/product_provider.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
@@ -120,7 +123,7 @@ class _BillsScreenState extends State<BillsScreen> {
                       shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
                       gstin: shop.gstin,
                       billNo: '${sale.billNo}',
-                      dateString: dateFormat.format(sale.createdAt),
+                      dateString: dateFormat.format(sale.createdAt.toLocal()),
                       customerName: sale.customerName,
                       customerPhone: sale.customerPhone,
                       items: sale.items,
@@ -338,6 +341,27 @@ class _BillsScreenState extends State<BillsScreen> {
                               ),
                             );
                           }),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('+ सामान जोड़ें (+ Add Product)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(color: AppColors.primary),
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              onPressed: () {
+                                _showAddItemToExistingBill(editCtx, (newItem) {
+                                  setEditState(() {
+                                    items.add(newItem);
+                                  });
+                                });
+                              },
+                            ),
+                          ),
                           const Divider(height: 20),
                           const Text('Payment Mode:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           const SizedBox(height: 6),
@@ -463,6 +487,138 @@ class _BillsScreenState extends State<BillsScreen> {
     );
   }
 
+  void _showAddItemToExistingBill(BuildContext parentCtx, Function(CartItem) onAdd) {
+    final products = parentCtx.read<ProductProvider>().products;
+    Product? selectedProduct;
+    final nameCtrl = TextEditingController();
+    final qtyCtrl = TextEditingController(text: '1');
+    final rateCtrl = TextEditingController();
+    String unit = 'kg';
+
+    showDialog(
+      context: parentCtx,
+      builder: (addCtx) => StatefulBuilder(
+        builder: (addCtx, setAddState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('सामान जोड़ें (+ Add Product)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            content: SizedBox(
+              width: 360,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (products.isNotEmpty) ...[
+                      const Text('इन्वेंटरी से चुनें:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<Product>(
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          border: OutlineInputBorder(),
+                        ),
+                        hint: const Text('प्रोडक्ट चुनें (Select)'),
+                        value: selectedProduct,
+                        items: products.map((p) {
+                          return DropdownMenuItem<Product>(
+                            value: p,
+                            child: Text('${p.name} (₹${p.price}/${p.unit})', overflow: TextOverflow.ellipsis),
+                          );
+                        }).toList(),
+                        onChanged: (p) {
+                          if (p != null) {
+                            setAddState(() {
+                              selectedProduct = p;
+                              nameCtrl.text = p.name;
+                              rateCtrl.text = p.price.toStringAsFixed(2);
+                              unit = p.unit;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      const Center(child: Text('— या नया सामान लिखें —', style: TextStyle(fontSize: 11, color: Colors.grey))),
+                      const SizedBox(height: 8),
+                    ],
+                    TextField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'सामान का नाम (Name)',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: qtyCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              labelText: 'मात्रा ($unit)',
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: rateCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              labelText: 'दर (Rate ₹)',
+                              prefixText: '₹ ',
+                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(addCtx),
+                child: const Text('रद्द करें'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: () {
+                  final name = nameCtrl.text.trim();
+                  final qty = double.tryParse(qtyCtrl.text) ?? 1.0;
+                  final rate = double.tryParse(rateCtrl.text) ?? 0.0;
+                  if (name.isEmpty || qty <= 0 || rate <= 0) return;
+
+                  onAdd(CartItem(
+                    productId: selectedProduct?.id,
+                    name: name,
+                    unit: unit,
+                    price: rate,
+                    qty: qty,
+                    imageUrl: selectedProduct?.imageUrl,
+                    icon: selectedProduct?.icon,
+                  ));
+                  Navigator.pop(addCtx);
+                },
+                child: const Text('जोड़ें (Add)'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _confirmDeleteBill(Sale sale) {
     showDialog(
       context: context,
@@ -581,7 +737,7 @@ class _BillsScreenState extends State<BillsScreen> {
                                 ],
                               ),
                               subtitle: Text(
-                                '${sale.items.length} items · ${dateFormat.format(sale.createdAt)} · ${sale.paymentMode.toUpperCase()}',
+                                '${sale.items.length} items · ${dateFormat.format(sale.createdAt.toLocal())} · ${sale.paymentMode.toUpperCase()}',
                                 style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
                               ),
                               trailing: Column(

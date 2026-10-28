@@ -937,8 +937,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     );
                                     if (img != null) {
                                       final bytes = await img.readAsBytes();
-                                      final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-                                      setState(() => _qrImageUrl = base64Str);
+                                      final shop = context.read<ShopProvider>().shop;
+                                      final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
+                                        shopId: shop.id,
+                                        folder: 'qr',
+                                        fileName: 'shop_qr_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                        bytes: bytes,
+                                      );
+                                      setState(() => _qrImageUrl = uploadedUrl);
                                       SoundService.instance.playSuccess();
                                     }
                                   } catch (e) {
@@ -959,8 +965,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     );
                                     if (img != null) {
                                       final bytes = await img.readAsBytes();
-                                      final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
-                                      setState(() => _qrImageUrl = base64Str);
+                                      final shop = context.read<ShopProvider>().shop;
+                                      final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
+                                        shopId: shop.id,
+                                        folder: 'qr',
+                                        fileName: 'shop_qr_${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                        bytes: bytes,
+                                      );
+                                      setState(() => _qrImageUrl = uploadedUrl);
                                       SoundService.instance.playSuccess();
                                     }
                                   } catch (e) {

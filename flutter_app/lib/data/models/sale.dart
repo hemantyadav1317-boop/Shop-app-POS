@@ -62,7 +62,7 @@ class Sale {
       paymentMode: json['payment_mode'] as String? ?? 'cash',
       paymentStatus: json['payment_status'] as String? ?? 'completed',
       createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'] as String) 
+          ? DateTime.parse(json['created_at'] as String).toLocal() 
           : DateTime.now(),
       clientRef: json['client_ref'] as String?,
     );

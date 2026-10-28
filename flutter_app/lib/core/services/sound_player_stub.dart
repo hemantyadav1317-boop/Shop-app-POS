@@ -15,7 +15,11 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
 
   void _play(String nativeMethod, String assetName, double volume) {
     if (_useNative) {
-      _nativeChannel.invokeMethod(nativeMethod).catchError((_) {
+      _nativeChannel.invokeMethod<bool>(nativeMethod).then((success) {
+        if (success != true) {
+          _fallbackPlay(assetName, volume);
+        }
+      }).catchError((_) {
         _useNative = false;
         _fallbackPlay(assetName, volume);
       });
