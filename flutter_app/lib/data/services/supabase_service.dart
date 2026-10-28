@@ -132,21 +132,35 @@ class SupabaseService {
   }
 
   /// Automatically ensures that if a user is logged in, their data is attached
-  /// to their real Supabase Cloud shop UUID rather than staying trapped in demo-shop-101.
+  /// to their real Supabase Cloud shop UUID rather than staying trapped in demo-shop-101
+  /// or accidentally using the raw user authentication UUID.
   Future<String> _ensureValidShopId(String currentShopId) async {
+    final user = client?.auth.currentUser;
     String cleanId = currentShopId.trim();
     if (cleanId.startsWith('shop-')) {
       cleanId = cleanId.replaceFirst('shop-', '');
     }
-    final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(cleanId);
-    if (isUuid) {
+
+    final isCleanUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(cleanId);
+
+    // If cleanId is already a real shop UUID (and NOT demo, and NOT raw user.id):
+    if (cleanId != 'demo-shop-101' && isCleanUuid && (user == null || cleanId != user.id)) {
       return cleanId;
     }
-    final user = client?.auth.currentUser;
+
+    // If localShop is already synced to a real cloud shop UUID (and NOT raw user.id):
+    final localId = _localShop.id.trim().replaceFirst('shop-', '');
+    final isLocalUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(localId);
+    if (localId != 'demo-shop-101' && isLocalUuid && (user == null || localId != user.id)) {
+      return localId;
+    }
+
+    // Otherwise, if user is logged in, resolve their real cloud shop
     if (user != null) {
       final synced = await syncUserShop(userId: user.id, userEmail: user.email ?? '');
       return synced.id;
     }
+
     return cleanId;
   }
 
@@ -165,58 +179,18 @@ class SupabaseService {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // 1. Try to find existing shop owned by this user
-      final owned = await client!.from('shops').select('*').eq('owner_id', userId).maybeSingle();
-      if (owned != null) {
-        final shop = Shop.fromJson(owned);
-        _localShop = shop;
-        await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
-
-        // Migrate any offline cached products to cloud shop
-        final offlineCached = prefs.getString('cached_products_demo-shop-101');
-        if (offlineCached != null) {
-          try {
-            final list = (jsonDecode(offlineCached) as List)
-                .map((e) => Product.fromJson(e as Map<String, dynamic>))
-                .toList();
-            if (list.isNotEmpty) {
-              final toMigrate = list.map((p) => p.copyWith(
-                id: p.id.startsWith('demo-') ? const Uuid().v4() : p.id,
-                shopId: shop.id,
-              )).toList();
-              await addProductsBatch(toMigrate);
-              await prefs.remove('cached_products_demo-shop-101');
-              debugPrint("Migrated ${toMigrate.length} offline cached products to cloud shop ${shop.id}");
-            }
-          } catch (e) {
-            debugPrint("Error migrating offline cached products: $e");
-          }
-        }
-
-        // Migrate any in-memory demo products
-        if (_localProducts.isNotEmpty && _localProducts.any((p) => p.shopId == 'demo-shop-101')) {
-          final toMigrate = _localProducts
-              .where((p) => p.shopId == 'demo-shop-101')
-              .map((p) => p.copyWith(
-                    id: p.id.startsWith('demo-') ? const Uuid().v4() : p.id,
-                    shopId: shop.id,
-                  ))
-              .toList();
-          await addProductsBatch(toMigrate);
-        }
-
-        return shop;
-      }
-
-      // 2. Try to find shop where user is a member
+      // Step 1: Check shop_members first (Fastest and avoids RLS deadlocks on shops table)
       try {
         final member = await client!.from('shop_members').select('shop_id').eq('user_id', userId).maybeSingle();
         if (member != null && member['shop_id'] != null) {
-          final memberShop = await client!.from('shops').select('*').eq('id', member['shop_id']).maybeSingle();
+          final shopId = member['shop_id'].toString();
+          final memberShop = await client!.from('shops').select('*').eq('id', shopId).maybeSingle();
           if (memberShop != null) {
             final shop = Shop.fromJson(memberShop);
             _localShop = shop;
             await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
+            await prefs.setString('saved_shop_data_$userId', jsonEncode(shop.toJson()));
+            debugPrint("Synced shop via shop_members: ${shop.id} (${shop.name})");
             return shop;
           }
         }
@@ -224,9 +198,34 @@ class SupabaseService {
         debugPrint("Check shop_members error: $memErr");
       }
 
-      // 3. User does not have a shop in cloud yet -> create one with a client-generated UUID
+      // Step 2: Check shops where user is owner_id
+      try {
+        final owned = await client!.from('shops').select('*').eq('owner_id', userId).maybeSingle();
+        if (owned != null) {
+          final shop = Shop.fromJson(owned);
+          _localShop = shop;
+          await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
+          await prefs.setString('saved_shop_data_$userId', jsonEncode(shop.toJson()));
+
+          // Ensure owner is also in shop_members so RLS is satisfied for future queries
+          try {
+            await client!.from('shop_members').upsert({
+              'shop_id': shop.id,
+              'user_id': userId,
+              'role': 'owner',
+            });
+          } catch (_) {}
+
+          debugPrint("Synced shop via owner_id: ${shop.id} (${shop.name})");
+          return shop;
+        }
+      } catch (ownedErr) {
+        debugPrint("Check shops owner_id error: $ownedErr");
+      }
+
+      // Step 3: User does not have a shop in cloud yet -> create one with a clean UUID
       final isCrossAccount = fallback != null &&
-          (fallback.id != 'demo-shop-101' && !fallback.id.contains(userId));
+          (fallback.id != 'demo-shop-101' && fallback.id != userId && !fallback.id.contains(userId));
       final cleanFallback = isCrossAccount ? null : fallback;
 
       final userHandle = userEmail.contains('@') ? userEmail.split('@').first : userEmail;
@@ -248,7 +247,22 @@ class SupabaseService {
 
       Shop shop;
       try {
-        final created = await client!.from('shops').insert(newShopPayload).select().maybeSingle();
+        // IMPORTANT: Insert WITHOUT .select() so PostgREST doesn't check SELECT RLS policy before user is in shop_members!
+        await client!.from('shops').insert(newShopPayload);
+
+        // Join as owner in shop_members immediately
+        try {
+          await client!.from('shop_members').insert({
+            'shop_id': newShopId,
+            'user_id': userId,
+            'role': 'owner',
+          });
+        } catch (memErr) {
+          debugPrint("shop_members insert err: $memErr");
+        }
+
+        // Now fetch the created shop (user is in shop_members, so SELECT policy succeeds)
+        final created = await client!.from('shops').select('*').eq('id', newShopId).maybeSingle();
         if (created != null) {
           shop = Shop.fromJson(created);
         } else {
@@ -266,7 +280,7 @@ class SupabaseService {
           );
         }
       } catch (insertErr) {
-        debugPrint("Direct insert shops error (fallback to assigned UUID): $insertErr");
+        debugPrint("Direct insert shops error: $insertErr");
         shop = Shop(
           id: newShopId,
           name: shopName,
@@ -282,29 +296,8 @@ class SupabaseService {
       }
 
       _localShop = shop;
-
-      // Join as owner in shop_members
-      try {
-        await client!.from('shop_members').upsert({
-          'shop_id': shop.id,
-          'user_id': userId,
-          'role': 'owner',
-        });
-      } catch (err) {
-        debugPrint("shop_members insert err: $err");
-      }
-
-      // Seed initial catalog into cloud for this new shop
-      final seedItems = CatalogData.getInitialProducts(shop.id);
-      try {
-        await client!.from('products').insert(seedItems.map((p) => p.toSupabaseJson()).toList());
-        _localProducts.clear();
-        _localProducts.addAll(seedItems);
-      } catch (e) {
-        debugPrint("Error seeding initial catalog to cloud: $e");
-      }
-
       await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
+      await prefs.setString('saved_shop_data_$userId', jsonEncode(shop.toJson()));
       return shop;
     } catch (e) {
       debugPrint("Error in syncUserShop: $e");
@@ -352,59 +345,54 @@ class SupabaseService {
 
   // --- PRODUCTS ---
   Future<List<Product>> getProducts(String shopId) async {
-    if (_isInitialized && client != null && shopId != 'demo-shop-101') {
+    final validShopId = await _ensureValidShopId(shopId);
+
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
         final response = await client!
             .from('products')
             .select('*')
-            .eq('shop_id', shopId)
+            .eq('shop_id', validShopId)
             .eq('is_active', true)
             .order('name');
         final list = (response as List).map((e) => Product.fromJson(e)).toList();
 
-        // Check if there are local products (like newly added custom products) that need to be pushed to cloud
+        // ONLY sync local products if they genuinely belong to validShopId (NEVER push demo-shop-101 items to user's real shop)
+        final cloudIds = list.map((p) => p.id).toSet();
         final cloudNames = list.map((p) => p.name.trim().toLowerCase()).toSet();
-        final unUploaded = _localProducts.where((lp) => !cloudNames.contains(lp.name.trim().toLowerCase())).toList();
+        final unUploaded = _localProducts
+            .where((lp) => lp.shopId == validShopId && !cloudIds.contains(lp.id) && !cloudNames.contains(lp.name.trim().toLowerCase()))
+            .toList();
         if (unUploaded.isNotEmpty) {
-          debugPrint("Auto-syncing ${unUploaded.length} un-uploaded local products to cloud...");
+          debugPrint("Auto-syncing ${unUploaded.length} un-uploaded local products to cloud for shop $validShopId...");
           final newlyUploaded = await addProductsBatch(unUploaded);
           list.addAll(newlyUploaded);
         }
 
-        if (list.isNotEmpty) {
-          _localProducts.clear();
-          _localProducts.addAll(list);
-          _saveCachedProducts(shopId, list);
-          return list;
-        } else {
-          // Empty in cloud -> Seed catalog once
-          final seed = CatalogData.getInitialProducts(shopId);
-          try {
-            final savedSeed = await addProductsBatch(seed);
-            _localProducts.clear();
-            _localProducts.addAll(savedSeed.isNotEmpty ? savedSeed : seed);
-            _saveCachedProducts(shopId, _localProducts);
-            return _localProducts;
-          } catch (_) {}
-        }
+        _localProducts.clear();
+        _localProducts.addAll(list);
+        _saveCachedProducts(validShopId, list);
+        debugPrint("SUCCESS: Loaded ${list.length} products from Supabase Cloud for shop $validShopId");
+        return list;
       } catch (e) {
         debugPrint("Error fetching products from cloud: $e");
       }
     }
 
-    // Fallback: check cached preferences
-    if (_localProducts.isEmpty) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final cached = prefs.getString('cached_products_$shopId') ??
-            prefs.getString('cached_products_demo-shop-101');
-        if (cached != null) {
-          final list = (jsonDecode(cached) as List).map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
-          _localProducts.addAll(list);
-        } else {
-          _localProducts.addAll(CatalogData.getInitialProducts(shopId));
-        }
-      } catch (_) {}
+    // Fallback: check cached preferences for validShopId
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('cached_products_$validShopId');
+      if (cached != null) {
+        final list = (jsonDecode(cached) as List).map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
+        _localProducts.clear();
+        _localProducts.addAll(list);
+        return list;
+      }
+    } catch (_) {}
+
+    if (validShopId == 'demo-shop-101' && _localProducts.isEmpty) {
+      _localProducts.addAll(CatalogData.getInitialProducts('demo-shop-101'));
     }
 
     return List.from(_localProducts);
@@ -505,47 +493,49 @@ class SupabaseService {
 
   // --- CUSTOMERS ---
   Future<List<Customer>> getCustomers(String shopId) async {
-    // Load any offline/cached customers first to prevent data loss
-    if (_localCustomers.isEmpty) {
-      try {
-        final prefs = await SharedPreferences.getInstance();
-        final cached = prefs.getString('cached_customers_$shopId') ??
-            prefs.getString('cached_customers_demo-shop-101') ??
-            prefs.getString('cached_customers_shop1');
-        if (cached != null) {
-          final list = (jsonDecode(cached) as List).map((e) => Customer.fromJson(e as Map<String, dynamic>)).toList();
-          _localCustomers.addAll(list);
-        }
-      } catch (_) {}
-    }
+    final validShopId = await _ensureValidShopId(shopId);
 
-    if (_isInitialized && client != null && shopId != 'demo-shop-101') {
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
         final response = await client!
             .from('customers')
             .select('*')
-            .eq('shop_id', shopId)
+            .eq('shop_id', validShopId)
             .order('name');
         final cloudList = (response as List).map((e) => Customer.fromJson(e)).toList();
 
-        // Auto-sync any local customers that are not in cloud yet
+        // Auto-sync any local customers genuinely belonging to validShopId (NEVER demo dummy data)
+        final cloudIds = cloudList.map((c) => c.id).toSet();
         final cloudNames = cloudList.map((c) => c.name.trim().toLowerCase()).toSet();
         for (final localCust in List<Customer>.from(_localCustomers)) {
-          if (!cloudNames.contains(localCust.name.trim().toLowerCase())) {
+          if (localCust.shopId == validShopId && !cloudIds.contains(localCust.id) && !cloudNames.contains(localCust.name.trim().toLowerCase())) {
             debugPrint("Auto-syncing un-synced customer to cloud: ${localCust.name}");
-            final saved = await addCustomer(localCust.copyWith(shopId: shopId));
+            final saved = await addCustomer(localCust.copyWith(shopId: validShopId));
             cloudList.add(saved);
           }
         }
 
         _localCustomers.clear();
         _localCustomers.addAll(cloudList);
-        _saveCachedCustomers(shopId, cloudList);
+        _saveCachedCustomers(validShopId, cloudList);
+        debugPrint("SUCCESS: Loaded ${cloudList.length} customers from Supabase Cloud for shop $validShopId");
         return cloudList;
       } catch (e) {
         debugPrint("Error fetching customers from cloud: $e");
       }
     }
+
+    // Fallback: check cached preferences for validShopId
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('cached_customers_$validShopId');
+      if (cached != null) {
+        final list = (jsonDecode(cached) as List).map((e) => Customer.fromJson(e as Map<String, dynamic>)).toList();
+        _localCustomers.clear();
+        _localCustomers.addAll(list);
+        return list;
+      }
+    } catch (_) {}
 
     return List.from(_localCustomers);
   }
@@ -882,11 +872,19 @@ class SupabaseService {
               _localShop = Shop.fromJson(updated);
             }
           } else if (user != null) {
-            final created = await client!.from('shops').insert({
+            await client!.from('shops').insert({
               'id': cleanId,
               'owner_id': user.id,
               ...payload,
-            }).select().maybeSingle();
+            });
+            try {
+              await client!.from('shop_members').upsert({
+                'shop_id': cleanId,
+                'user_id': user.id,
+                'role': 'owner',
+              });
+            } catch (_) {}
+            final created = await client!.from('shops').select('*').eq('id', cleanId).maybeSingle();
             if (created != null) {
               _localShop = Shop.fromJson(created);
             }
@@ -902,10 +900,20 @@ class SupabaseService {
               _localShop = shop.copyWith(id: realId);
             }
           } else {
-            final created = await client!.from('shops').insert({
+            final newId = const Uuid().v4();
+            await client!.from('shops').insert({
+              'id': newId,
               ...payload,
               'owner_id': user.id,
-            }).select().maybeSingle();
+            });
+            try {
+              await client!.from('shop_members').upsert({
+                'shop_id': newId,
+                'user_id': user.id,
+                'role': 'owner',
+              });
+            } catch (_) {}
+            final created = await client!.from('shops').select('*').eq('id', newId).maybeSingle();
             if (created != null) {
               _localShop = Shop.fromJson(created);
             }

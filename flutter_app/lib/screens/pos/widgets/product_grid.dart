@@ -169,7 +169,10 @@ class _ProductGridState extends State<ProductGrid> {
                   border: InputBorder.none,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
-                onChanged: (val) => productProvider.setSearchQuery(val),
+                onChanged: (val) {
+                  SoundService.instance.playTypeKey();
+                  productProvider.setSearchQuery(val);
+                },
               ),
             ),
           ),

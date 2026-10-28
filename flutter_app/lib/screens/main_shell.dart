@@ -74,16 +74,9 @@ class _MainShellState extends State<MainShell> {
         final productProvider = context.read<ProductProvider>();
         final customerProvider = context.read<CustomerProvider>();
 
-        await shopProvider.loadForUser(u.id);
-
-        final syncedShop = await SupabaseService.instance.syncUserShop(
-          userId: u.id,
-          userEmail: u.email ?? '',
-          fallback: shopProvider.shop,
-        );
+        final syncedShop = await shopProvider.loadForUser(u.id, email: u.email);
 
         if (mounted) {
-          await shopProvider.setShop(syncedShop);
           await productProvider.loadProducts(syncedShop.id);
           await customerProvider.loadCustomers(syncedShop.id);
           debugPrint("Cloud sync complete: Shop=${syncedShop.id} Products=${productProvider.products.length}");
@@ -91,6 +84,25 @@ class _MainShellState extends State<MainShell> {
       }
     } catch (e) {
       debugPrint("Error syncing user cloud data on start: $e");
+    }
+  }
+
+  void _onNavigationChanged(int index) {
+    SoundService.instance.playButtonClick();
+    setState(() => _currentIndex = index);
+
+    final shop = context.read<ShopProvider>().shop;
+    if (shop.id != 'demo-shop-101') {
+      if (index == 2) {
+        // Khata / Customers
+        context.read<CustomerProvider>().loadCustomers(shop.id);
+      } else if (index == 3) {
+        // Inventory / Stock
+        context.read<ProductProvider>().loadProducts(shop.id);
+      } else if (index == 1) {
+        // Bills
+        SupabaseService.instance.getSales(shop.id);
+      }
     }
   }
 
@@ -113,10 +125,7 @@ class _MainShellState extends State<MainShell> {
           children: [
             NavigationRail(
               selectedIndex: _currentIndex,
-              onDestinationSelected: (index) {
-                SoundService.instance.playButtonClick();
-                setState(() => _currentIndex = index);
-              },
+              onDestinationSelected: _onNavigationChanged,
               labelType: NavigationRailLabelType.all,
               leading: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -197,10 +206,7 @@ class _MainShellState extends State<MainShell> {
           elevation: 0,
           backgroundColor: Colors.transparent,
           selectedIndex: _currentIndex,
-          onDestinationSelected: (idx) {
-            SoundService.instance.playButtonClick();
-            setState(() => _currentIndex = idx);
-          },
+          onDestinationSelected: _onNavigationChanged,
           indicatorColor: const Color(0xFFE8F5E9), // Light green capsule pill
           destinations: const [
             NavigationDestination(

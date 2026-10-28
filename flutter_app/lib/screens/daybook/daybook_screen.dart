@@ -8,6 +8,7 @@ import '../../data/models/sale.dart';
 import '../../data/models/expense.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
+import '../../core/services/sound_service.dart';
 
 class DaybookScreen extends StatefulWidget {
   const DaybookScreen({super.key});
@@ -58,6 +59,20 @@ class _DaybookScreenState extends State<DaybookScreen> {
     final amtCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
 
+    void attachTypeSound(TextEditingController ctrl) {
+      String prev = ctrl.text;
+      ctrl.addListener(() {
+        if (ctrl.text != prev) {
+          prev = ctrl.text;
+          SoundService.instance.playTypeKey();
+        }
+      });
+    }
+
+    attachTypeSound(catCtrl);
+    attachTypeSound(amtCtrl);
+    attachTypeSound(noteCtrl);
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -91,6 +106,7 @@ class _DaybookScreenState extends State<DaybookScreen> {
                   createdAt: DateTime.now(),
                 ),
               );
+              SoundService.instance.playSuccess();
 
               if (context.mounted) {
                 Navigator.pop(ctx);

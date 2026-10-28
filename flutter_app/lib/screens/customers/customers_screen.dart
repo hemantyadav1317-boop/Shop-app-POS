@@ -338,13 +338,25 @@ class CustomersScreen extends StatelessWidget {
 
           // Customers List
           Expanded(
-            child: custProvider.filteredCustomers.isEmpty
-                ? const Center(child: Text('कोई ग्राहक नहीं मिला', style: TextStyle(color: AppColors.lightTextSecondary)))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(12),
-                    itemCount: custProvider.filteredCustomers.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 6),
-                    itemBuilder: (context, i) {
+            child: RefreshIndicator(
+              onRefresh: () async {
+                final shop = context.read<ShopProvider>().shop;
+                await context.read<CustomerProvider>().loadCustomers(shop.id);
+              },
+              child: custProvider.filteredCustomers.isEmpty
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: const [
+                        SizedBox(height: 120),
+                        Center(child: Text('कोई ग्राहक नहीं मिला', style: TextStyle(color: AppColors.lightTextSecondary))),
+                      ],
+                    )
+                  : ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(12),
+                      itemCount: custProvider.filteredCustomers.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 6),
+                      itemBuilder: (context, i) {
                       final customer = custProvider.filteredCustomers[i];
 
                       return Card(
@@ -425,6 +437,7 @@ class CustomersScreen extends StatelessWidget {
                       );
                     },
                   ),
+            ),
           ),
         ],
       ),

@@ -87,13 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (auth.user != null) {
                     try {
                       final shopProvider = context.read<ShopProvider>();
-                      await shopProvider.loadForUser(auth.user!.id);
-                      final syncedShop = await SupabaseService.instance.syncUserShop(
-                        userId: auth.user!.id,
-                        userEmail: auth.user!.email ?? '',
-                        fallback: shopProvider.shop,
-                      );
-                      await shopProvider.setShop(syncedShop);
+                      final syncedShop = await shopProvider.loadForUser(auth.user!.id, email: auth.user!.email);
                       if (context.mounted) {
                         await context.read<ProductProvider>().loadProducts(syncedShop.id);
                         await context.read<CustomerProvider>().loadCustomers(syncedShop.id);
@@ -339,13 +333,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   if (auth.user != null) {
                                     try {
                                       final shopProvider = context.read<ShopProvider>();
-                                      await shopProvider.loadForUser(auth.user!.id);
-                                      final syncedShop = await SupabaseService.instance.syncUserShop(
-                                        userId: auth.user!.id,
-                                        userEmail: auth.user!.email ?? '',
-                                        fallback: shopProvider.shop,
-                                      );
-                                      await shopProvider.setShop(syncedShop);
+                                      final syncedShop = await shopProvider.loadForUser(auth.user!.id, email: auth.user!.email);
                                       if (context.mounted) {
                                         await context.read<ProductProvider>().loadProducts(syncedShop.id);
                                         await context.read<CustomerProvider>().loadCustomers(syncedShop.id);

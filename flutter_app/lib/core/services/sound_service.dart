@@ -76,6 +76,14 @@ class SoundService {
     } catch (_) {}
   }
 
+  void playTypeKey() {
+    if (!_enabled) return;
+    try {
+      HapticFeedback.selectionClick();
+      _player.playClick();
+    } catch (_) {}
+  }
+
   void playProductAdd() {
     if (!_enabled) return;
     try {

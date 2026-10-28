@@ -66,6 +66,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     _upiIdCtrl.addListener(() => setState(() {}));
     _upiNameCtrl.addListener(() => setState(() {}));
+
+    void attachTypeSound(TextEditingController ctrl) {
+      String prev = ctrl.text;
+      ctrl.addListener(() {
+        if (ctrl.text != prev) {
+          prev = ctrl.text;
+          SoundService.instance.playTypeKey();
+        }
+      });
+    }
+
+    attachTypeSound(_nameCtrl);
+    attachTypeSound(_phoneCtrl);
+    attachTypeSound(_addressCtrl);
+    attachTypeSound(_gstinCtrl);
+    attachTypeSound(_upiIdCtrl);
+    attachTypeSound(_upiNameCtrl);
+    attachTypeSound(_footerCtrl);
+
     _loadBtPrinterInfo();
   }
 
@@ -188,6 +207,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         setState(() => _isConnectingBt = true);
                         final ok = await BluetoothPrinterService.connectPrinter(d.macAdress);
                         await BluetoothPrinterService.saveSelectedPrinter(d.macAdress, d.name);
+                        if (ok) {
+                          SoundService.instance.playSuccess();
+                        } else {
+                          SoundService.instance.playButtonClick();
+                        }
                         if (mounted) {
                           setState(() {
                             _btPrinterMac = d.macAdress;
@@ -243,6 +267,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
 
     await context.read<ShopProvider>().updateShop(updated);
+    SoundService.instance.playSuccess();
 
     if (mounted) {
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -914,6 +939,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       final bytes = await img.readAsBytes();
                                       final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
                                       setState(() => _qrImageUrl = base64Str);
+                                      SoundService.instance.playSuccess();
                                     }
                                   } catch (e) {
                                     debugPrint("QR Pick Camera error: $e");
@@ -935,6 +961,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       final bytes = await img.readAsBytes();
                                       final base64Str = 'data:image/jpeg;base64,${base64Encode(bytes)}';
                                       setState(() => _qrImageUrl = base64Str);
+                                      SoundService.instance.playSuccess();
                                     }
                                   } catch (e) {
                                     debugPrint("QR Pick Gallery error: $e");
@@ -965,6 +992,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                             final val = urlCtrl.text.trim();
                                             if (val.isNotEmpty) {
                                               setState(() => _qrImageUrl = val);
+                                              SoundService.instance.playSuccess();
                                             }
                                             Navigator.pop(uCtx);
                                           },
@@ -979,7 +1007,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 TextButton.icon(
                                   icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 14),
                                   label: const Text('फोटो हटाएं', style: TextStyle(color: AppColors.error, fontSize: 11)),
-                                  onPressed: () => setState(() => _qrImageUrl = null),
+                                  onPressed: () {
+                                    SoundService.instance.playDelete();
+                                    setState(() => _qrImageUrl = null);
+                                  },
                                 ),
                             ],
                           ),
@@ -1289,6 +1320,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       value: _allowNegativeStock,
                       contentPadding: EdgeInsets.zero,
                       onChanged: (val) {
+                        SoundService.instance.playButtonClick();
                         setState(() => _allowNegativeStock = val);
                       },
                     ),
@@ -1303,6 +1335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value: sp.showProductBadges,
                         contentPadding: EdgeInsets.zero,
                         onChanged: (val) async {
+                          SoundService.instance.playButtonClick();
                           await sp.setShowProductBadges(val);
                         },
                       ),

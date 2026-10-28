@@ -248,6 +248,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 }
                 final finalImg = (selectedImageUrl ?? catImgCtrl.text.trim()).trim();
                 await provider.setCategoryImage(cat, finalImg);
+                SoundService.instance.playSuccess();
                 if (context.mounted) {
                   Navigator.pop(ctx);
                   onCreated?.call(cat);
@@ -310,6 +311,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () async {
               await context.read<ProductProvider>().deleteCategory(catName);
+              SoundService.instance.playDelete();
               if (context.mounted) {
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -742,6 +744,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 } else {
                   await provider.updateProduct(prod);
                 }
+                SoundService.instance.playSuccess();
                 if (context.mounted) Navigator.pop(ctx);
               },
               child: const Text('Save Product'),
@@ -900,7 +903,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       hintText: 'सामान का नाम या बारकोड खोजें...',
                       prefixIcon: Icon(Icons.search),
                     ),
-                    onChanged: (q) => productProvider.setSearchQuery(q),
+                    onChanged: (q) {
+                      SoundService.instance.playTypeKey();
+                      productProvider.setSearchQuery(q);
+                    },
                   ),
                 ),
                 Padding(
@@ -929,13 +935,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
                 // Product List
                 Expanded(
-                  child: products.isEmpty
-                      ? const Center(child: Text('कोई प्रोडक्ट नहीं मिला', style: TextStyle(color: AppColors.lightTextSecondary)))
-                      : ListView.separated(
-                          padding: const EdgeInsets.all(12),
-                          itemCount: products.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 6),
-                          itemBuilder: (context, i) {
+                  child: RefreshIndicator(
+                    onRefresh: () async {
+                      final shop = context.read<ShopProvider>().shop;
+                      await context.read<ProductProvider>().loadProducts(shop.id);
+                    },
+                    child: products.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: const [
+                              SizedBox(height: 120),
+                              Center(child: Text('कोई प्रोडक्ट नहीं मिला', style: TextStyle(color: AppColors.lightTextSecondary))),
+                            ],
+                          )
+                        : ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(12),
+                            itemCount: products.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 6),
+                            itemBuilder: (context, i) {
                             final product = products[i];
 
                             return Card(
@@ -1030,6 +1048,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             );
                           },
                         ),
+                  ),
                 ),
               ],
             ),

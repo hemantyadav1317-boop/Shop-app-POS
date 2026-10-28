@@ -70,7 +70,7 @@ class ShopProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadForUser(String? userId, {String? defaultName}) async {
+  Future<Shop> loadForUser(String? userId, {String? defaultName, String? email}) async {
     _currentUserId = userId;
     final prefs = await SharedPreferences.getInstance();
     final key = _shopStorageKey(userId);
@@ -85,29 +85,31 @@ class ShopProvider extends ChangeNotifier {
         }
         SupabaseService.instance.setLocalShop(_shop);
         notifyListeners();
-        return;
       } catch (e) {
         debugPrint("Error decoding user shop: $e");
       }
     }
 
-    // New user with no saved local profile -> initialize fresh isolated shop
-    _shop = Shop(
-      id: userId != null ? userId : 'demo-shop-101',
-      name: defaultName ?? 'मेरी दुकान (My Store)',
-      phone: null,
-      address: null,
-      gstin: null,
-      upiId: null,
-      upiPayeeName: null,
-      allowNegativeStock: false,
-      printPaperSize: '58mm',
-      receiptFooter: 'धन्यवाद! फिर पधारें 🙏',
-      qrImageUrl: null,
-    );
-    SupabaseService.instance.setLocalShop(_shop);
-    await prefs.setString(key, jsonEncode(_shop.toJson()));
-    notifyListeners();
+    // Authoritatively resolve and sync user's cloud shop
+    if (userId != null && userId.isNotEmpty) {
+      try {
+        final cloudShop = await SupabaseService.instance.syncUserShop(
+          userId: userId,
+          userEmail: email ?? '',
+          fallback: _shop,
+        );
+        _shop = cloudShop;
+        SupabaseService.instance.setLocalShop(cloudShop);
+        await prefs.setString(key, jsonEncode(cloudShop.toJson()));
+        await prefs.setString('saved_shop_data', jsonEncode(cloudShop.toJson()));
+        notifyListeners();
+        return cloudShop;
+      } catch (e) {
+        debugPrint("Error resolving cloud shop in loadForUser: $e");
+      }
+    }
+
+    return _shop;
   }
 
   Future<void> resetToGuest() async {

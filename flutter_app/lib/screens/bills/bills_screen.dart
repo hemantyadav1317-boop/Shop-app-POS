@@ -370,7 +370,10 @@ class _BillsScreenState extends State<BillsScreen> {
                                   controller: discountCtrl,
                                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                   decoration: const InputDecoration(prefixText: '₹ ', contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
-                                  onChanged: (_) => setEditState(() {}),
+                                  onChanged: (_) {
+                                    SoundService.instance.playTypeKey();
+                                    setEditState(() {});
+                                  },
                                 ),
                               ),
                             ],
@@ -385,7 +388,10 @@ class _BillsScreenState extends State<BillsScreen> {
                                   controller: paidCtrl,
                                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                   decoration: const InputDecoration(prefixText: '₹ ', contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
-                                  onChanged: (_) => setEditState(() {}),
+                                  onChanged: (_) {
+                                    SoundService.instance.playTypeKey();
+                                    setEditState(() {});
+                                  },
                                 ),
                               ),
                             ],
@@ -435,6 +441,7 @@ class _BillsScreenState extends State<BillsScreen> {
                             );
                             Navigator.pop(editCtx);
                             await SupabaseService.instance.updateSale(updated);
+                            SoundService.instance.playSuccess();
                             _loadSales();
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -521,22 +528,31 @@ class _BillsScreenState extends State<BillsScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _filteredSales.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.lightTextSecondary),
-                            SizedBox(height: 8),
-                            Text('कोई बिल नहीं मिला (No bills yet)', style: TextStyle(color: AppColors.lightTextSecondary)),
-                          ],
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _filteredSales.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, i) {
+                : RefreshIndicator(
+                    onRefresh: _loadSales,
+                    child: _filteredSales.isEmpty
+                        ? ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            children: const [
+                              SizedBox(height: 120),
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.lightTextSecondary),
+                                    SizedBox(height: 8),
+                                    Text('कोई बिल नहीं मिला (No bills yet)', style: TextStyle(color: AppColors.lightTextSecondary)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          )
+                        : ListView.separated(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(12),
+                            itemCount: _filteredSales.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            itemBuilder: (context, i) {
                           final sale = _filteredSales[i];
 
                           return Card(
@@ -585,6 +601,7 @@ class _BillsScreenState extends State<BillsScreen> {
                           );
                         },
                       ),
+                  ),
           ),
         ],
       ),
