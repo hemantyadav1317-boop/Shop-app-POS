@@ -5,6 +5,7 @@ import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
 import 'package:image/image.dart' as img;
 import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
+import 'ai_quote_service.dart';
 
 class BluetoothPrinterService {
   static const String _prefMacKey = 'saved_bt_printer_mac';
@@ -165,6 +166,10 @@ class BluetoothPrinterService {
           PosColumn(text: 'TOTAL', width: 6, styles: const PosStyles(bold: true, height: PosTextSize.size2)),
           PosColumn(text: '₹${sale.total.toStringAsFixed(2)}', width: 6, styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size2)),
         ]);
+        bytes += generator.hr();
+        final quote = await AiQuoteService.getUniqueQuoteForBill();
+        bytes += generator.text(quote.line1, styles: const PosStyles(align: PosAlign.center, bold: true));
+        bytes += generator.text(quote.line2, styles: const PosStyles(align: PosAlign.center));
       }
 
       bytes += generator.feed(2);

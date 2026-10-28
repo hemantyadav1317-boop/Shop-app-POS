@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/contact_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/customer.dart';
 import '../../providers/customer_provider.dart';
@@ -24,6 +25,27 @@ class CustomersScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final res = await ContactService.pickContact();
+                    if (res != null) {
+                      if (res.name.isNotEmpty) nameCtrl.text = res.name;
+                      if (res.phone.isNotEmpty) phoneCtrl.text = res.phone;
+                    }
+                  },
+                  icon: const Icon(Icons.perm_contact_calendar_outlined, size: 18),
+                  label: const Text('Import from Contacts / संपर्क से चुनें'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'ग्राहक का नाम *')),
               const SizedBox(height: 10),
               TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'मोबाइल नंबर')),

@@ -50,6 +50,7 @@ class _MainShellState extends State<MainShell> {
     if (mounted) {
       final auth = context.read<AuthProvider>();
       if (!auth.isAuthenticated) {
+        SupabaseService.instance.unsubscribeFromShopChanges();
         context.read<ShopProvider>().resetToGuest();
       } else {
         _syncUserCloudData();
@@ -59,6 +60,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    SupabaseService.instance.unsubscribeFromShopChanges();
     _authProvider?.removeListener(_onAuthChanged);
     super.dispose();
   }
@@ -80,6 +82,22 @@ class _MainShellState extends State<MainShell> {
           await productProvider.loadProducts(syncedShop.id);
           await customerProvider.loadCustomers(syncedShop.id);
           debugPrint("Cloud sync complete: Shop=${syncedShop.id} Products=${productProvider.products.length}");
+
+          // Establish Real-time WebSocket listener across all devices
+          SupabaseService.instance.subscribeToShopChanges(
+            shopId: syncedShop.id,
+            onEvent: (table, eventType, record) {
+              if (!mounted) return;
+              debugPrint('[MainShell] Real-time live event on: $table ($eventType)');
+              if (table == 'products') {
+                context.read<ProductProvider>().loadProducts(syncedShop.id);
+              } else if (table == 'customers' || table == 'customer_transactions') {
+                context.read<CustomerProvider>().loadCustomers(syncedShop.id);
+              } else if (table == 'sales') {
+                SupabaseService.instance.getSales(syncedShop.id);
+              }
+            },
+          );
         }
       }
     } catch (e) {

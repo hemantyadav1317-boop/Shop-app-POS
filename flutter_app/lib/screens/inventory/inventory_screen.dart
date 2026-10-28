@@ -12,6 +12,9 @@ import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import '../../core/utils/pos_sound_formatter.dart';
 import '../../core/services/sound_service.dart';
 import 'widgets/bulk_import_dialog.dart';
+import 'package:intl/intl.dart';
+import '../../data/models/stock_adjustment.dart';
+import '../../data/services/stock_adjustment_service.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -756,40 +759,274 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showStockAdjustmentDialog(BuildContext context, Product product) {
-    final qtyCtrl = TextEditingController();
+    final qtyCtrl = TextEditingController(text: product.stock.toString());
+    final reasonCtrl = TextEditingController();
+    String selectedType = 'audit';
+    double changeDelta = 0.0;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('${product.name} - स्टॉक अपडेट'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('वर्तमान स्टॉक: ${product.stock} ${product.unit}', style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: qtyCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'नया स्टॉक दर्ज करें (${product.unit})',
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              const Icon(Icons.tune_rounded, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '${product.name} - स्टॉक एडजस्टमेंट',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
               ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface.withOpacity(0.35),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('वर्तमान स्टॉक (Current):', style: TextStyle(fontSize: 13, color: AppColors.lightTextSecondary)),
+                      Text(
+                        '${product.stock} ${product.unit}',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Adjustment Reason Dropdown
+                DropdownButtonFormField<String>(
+                  value: selectedType,
+                  decoration: const InputDecoration(
+                    labelText: 'एडजस्टमेंट का प्रकार (Reason) *',
+                    prefixIcon: Icon(Icons.assignment_turned_in_outlined),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'audit', child: Text('भौतिक ऑडिट / गणना (Audit)')),
+                    DropdownMenuItem(value: 'damage', child: Text('टूटा / डैमेज माल (Damage)')),
+                    DropdownMenuItem(value: 'waste', child: Text('खराब / एक्सपायर (Wastage)')),
+                    DropdownMenuItem(value: 'restock', child: Text('नया स्टॉक आया (Restock)')),
+                    DropdownMenuItem(value: 'correction', child: Text('मैन्युअल सुधार (Correction)')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) setDialogState(() => selectedType = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                // New Stock Qty Field
+                TextField(
+                  controller: qtyCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [PosNumberSoundFormatter()],
+                  decoration: InputDecoration(
+                    labelText: 'नया वास्तविक स्टॉक (${product.unit}) *',
+                    hintText: 'उदा. 12',
+                    suffixText: product.unit,
+                  ),
+                  onChanged: (val) {
+                    final entered = double.tryParse(val) ?? product.stock;
+                    setDialogState(() {
+                      changeDelta = entered - product.stock;
+                    });
+                  },
+                ),
+                const SizedBox(height: 8),
+
+                // Live Delta indicator
+                if (changeDelta != 0.0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: changeDelta > 0 ? Colors.green.shade50 : Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: changeDelta > 0 ? Colors.green.shade200 : Colors.red.shade200),
+                    ),
+                    child: Text(
+                      changeDelta > 0
+                          ? 'स्टॉक में बढ़ोत्तरी: +$changeDelta ${product.unit}'
+                          : 'स्टॉक में कमी: $changeDelta ${product.unit}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: changeDelta > 0 ? Colors.green.shade800 : Colors.red.shade800,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: reasonCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'विवरण / टिप्पणी (Optional Note)',
+                    hintText: 'उदा. कार्टन फटने से नुकसान हुआ',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                final newStock = double.tryParse(qtyCtrl.text.trim());
+                if (newStock == null) return;
+
+                final prev = product.stock;
+                final delta = newStock - prev;
+                final shop = context.read<ShopProvider>().shop;
+                final updated = product.copyWith(stock: newStock);
+                await context.read<ProductProvider>().updateProduct(updated);
+
+                final adjustment = StockAdjustment(
+                  id: const Uuid().v4(),
+                  shopId: shop.id,
+                  productId: product.id,
+                  productName: product.name,
+                  previousStock: prev,
+                  newStock: newStock,
+                  changeQuantity: delta,
+                  adjustmentType: selectedType,
+                  reason: reasonCtrl.text.trim().isEmpty ? null : reasonCtrl.text.trim(),
+                  createdAt: DateTime.now(),
+                );
+
+                await StockAdjustmentService.instance.recordAdjustment(adjustment);
+
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${product.name} का स्टॉक अपडेट हो गया (लॉग सेव्ड)'),
+                      backgroundColor: AppColors.primaryDark,
+                    ),
+                  );
+                }
+              },
+              child: const Text('Save & Record Log'),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final newStock = double.tryParse(qtyCtrl.text);
-              if (newStock == null) return;
-              final updated = product.copyWith(stock: newStock);
-              await context.read<ProductProvider>().updateProduct(updated);
-              if (context.mounted) Navigator.pop(ctx);
-            },
-            child: const Text('Update Stock'),
-          ),
-        ],
+      ),
+    );
+  }
+
+  void _showStockAdjustmentLogs(BuildContext context) async {
+    final shop = context.read<ShopProvider>().shop;
+    final logs = await StockAdjustmentService.instance.getAdjustments(shop.id);
+
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        minChildSize: 0.4,
+        expand: false,
+        builder: (ctx, scrollCtrl) => Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.history_edu_rounded, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'स्टॉक ऑडिट व एडजस्टमेंट लॉग्स',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: logs.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.assignment_outlined, size: 48, color: Colors.grey.shade400),
+                          const SizedBox(height: 8),
+                          const Text('अभी तक कोई स्टॉक एडजस्टमेंट लॉग दर्ज नहीं है', style: TextStyle(color: AppColors.lightTextSecondary)),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      controller: scrollCtrl,
+                      padding: const EdgeInsets.all(12),
+                      itemCount: logs.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (ctx, idx) {
+                        final log = logs[idx];
+                        final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(log.createdAt);
+                        final isPositive = log.changeQuantity >= 0;
+
+                        return ListTile(
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          leading: CircleAvatar(
+                            backgroundColor: isPositive ? Colors.green.shade50 : Colors.red.shade50,
+                            child: Icon(
+                              isPositive ? Icons.add_circle_outline : Icons.remove_circle_outline,
+                              color: isPositive ? Colors.green.shade700 : Colors.red.shade700,
+                            ),
+                          ),
+                          title: Text(log.productName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('${log.typeLabelHindi} • $dateStr', style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
+                              if (log.reason != null && log.reason!.isNotEmpty)
+                                Text('नोट: ${log.reason}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic)),
+                            ],
+                          ),
+                          trailing: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${isPositive ? "+" : ""}${log.changeQuantity}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: isPositive ? Colors.green.shade700 : Colors.red.shade700,
+                                ),
+                              ),
+                              Text(
+                                '${log.previousStock} -> ${log.newStock}',
+                                style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -842,6 +1079,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
               },
             ),
             const SizedBox(width: 4),
+            IconButton(
+              icon: const Icon(Icons.history_edu_rounded, color: AppColors.primary, size: 24),
+              tooltip: 'स्टॉक ऑडिट लॉग्स (Adjustment Logs)',
+              onPressed: () => _showStockAdjustmentLogs(context),
+            ),
             IconButton(
               icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 28),
               tooltip: 'Add Product',

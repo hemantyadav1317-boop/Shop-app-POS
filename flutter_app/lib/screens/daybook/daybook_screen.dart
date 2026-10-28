@@ -9,6 +9,7 @@ import '../../data/models/expense.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
+import '../analytics/analytics_screen.dart';
 
 class DaybookScreen extends StatefulWidget {
   const DaybookScreen({super.key});
@@ -138,6 +139,14 @@ class _DaybookScreenState extends State<DaybookScreen> {
         title: const Text('दैनिक रोकड़ / Daybook', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
+            icon: const Icon(Icons.analytics_outlined, color: AppColors.primary),
+            tooltip: 'सेल्स व मुनाफा एनालिटिक्स / Analytics',
+            onPressed: () {
+              SoundService.instance.playButtonClick();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsScreen()));
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.add_card),
             tooltip: 'Add Expense',
             onPressed: _showAddExpenseDialog,
@@ -152,6 +161,56 @@ class _DaybookScreenState extends State<DaybookScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                const SizedBox(height: 8),
+                // Analytics Banner Button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: InkWell(
+                    onTap: () {
+                      SoundService.instance.playButtonClick();
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsScreen()));
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00875A), Color(0xFF0A4D2E)],
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF00875A).withOpacity(0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.insights_rounded, color: Colors.white, size: 20),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'बिक्री व मुनाफा एनालिटिक्स (Sales & Profit Reports)',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                Text(
+                                  'Top/Least बिकने वाले सामान, मार्जिन और ट्रेंड रिपोर्ट देखें',
+                                  style: TextStyle(color: Colors.white70, fontSize: 10.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
                 // Top Daybook Cash Tally Card
                 Container(
                   margin: const EdgeInsets.all(12),

@@ -261,41 +261,9 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
 
-        // 3. Section Header: '🍃 आज की खास पेशकश'
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: const [
-                    Icon(Icons.eco_rounded, size: 18, color: Color(0xFF00875A)),
-                    SizedBox(width: 6),
-                    Text(
-                      'आज की खास पेशकश',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: Color(0xFF0A4D2E),
-                      ),
-                    ),
-                  ],
-                ),
-                Text(
-                  'सभी देखें (${productProvider.filteredProducts.length})',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF00875A),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 6)),
 
-        // 5. 2-Column Product Grid
+        // 3. Dense Product Grid
         productProvider.filteredProducts.isEmpty
             ? SliverFillRemaining(
                 hasScrollBody: false,

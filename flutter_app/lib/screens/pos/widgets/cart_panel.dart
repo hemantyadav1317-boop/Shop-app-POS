@@ -9,6 +9,7 @@ import '../../../../providers/customer_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/contact_service.dart';
 import 'payment_dialog.dart';
 
 class CartPanel extends StatefulWidget {
@@ -119,13 +120,35 @@ class _CartPanelState extends State<CartPanel> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('नया ग्राहक जोड़ें / New Customer'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'नाम / Name')),
-            const SizedBox(height: 10),
-            TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'मोबाइल नंबर / Phone')),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final res = await ContactService.pickContact();
+                    if (res != null) {
+                      if (res.name.isNotEmpty) nameCtrl.text = res.name;
+                      if (res.phone.isNotEmpty) phoneCtrl.text = res.phone;
+                    }
+                  },
+                  icon: const Icon(Icons.perm_contact_calendar_outlined, size: 18),
+                  label: const Text('Import from Contacts'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'नाम / Name')),
+              const SizedBox(height: 10),
+              TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'मोबाइल नंबर / Phone')),
+            ],
+          ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),

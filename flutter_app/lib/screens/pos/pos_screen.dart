@@ -313,10 +313,35 @@ class PosScreen extends StatelessWidget {
                         ),
                       ),
 
-                      // Action Buttons: Share, Bookmark, Quick Sell
+                      // Action Buttons: Theme Toggle, Share, Bookmark, Quick Sell
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // Theme Change Toggle Button
+                          InkWell(
+                            onTap: () {
+                              SoundService.instance.playButtonClick();
+                              final sp = context.read<ShopProvider>();
+                              sp.setThemeMode(sp.isDarkMode ? ThemeMode.light : ThemeMode.dark);
+                            },
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.14),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                context.watch<ShopProvider>().isDarkMode
+                                    ? Icons.light_mode_rounded
+                                    : Icons.dark_mode_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+
                           // Share Button
                           InkWell(
                             onTap: () {

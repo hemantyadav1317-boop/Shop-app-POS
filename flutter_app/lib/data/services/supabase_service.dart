@@ -998,4 +998,47 @@ class SupabaseService {
     _localShop = _localShop.copyWith(id: cleanCode);
     return _localShop;
   }
+
+  RealtimeChannel? _realtimeChannel;
+
+  /// Subscribes to real-time events across products, sales, customers, and transactions
+  /// for the current active shop so changes from other devices are reflected immediately.
+  RealtimeChannel? subscribeToShopChanges({
+    required String shopId,
+    required void Function(String table, String eventType, Map<String, dynamic> record) onEvent,
+  }) {
+    if (client == null || shopId.isEmpty || shopId == 'demo-shop-101') return null;
+
+    try {
+      _realtimeChannel?.unsubscribe();
+
+      final channel = client!.channel('realtime_shop_$shopId');
+
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        callback: (payload) {
+          debugPrint('[RealtimeSync] Cloud DB change: ${payload.table} (${payload.eventType})');
+          onEvent(payload.table, payload.eventType.name, payload.newRecord);
+        },
+      );
+
+      channel.subscribe((status, [error]) {
+        debugPrint('[RealtimeSync] Subscription for shop $shopId: $status');
+      });
+
+      _realtimeChannel = channel;
+      return channel;
+    } catch (e) {
+      debugPrint('[RealtimeSync] Failed to subscribe: $e');
+      return null;
+    }
+  }
+
+  void unsubscribeFromShopChanges() {
+    try {
+      _realtimeChannel?.unsubscribe();
+      _realtimeChannel = null;
+    } catch (_) {}
+  }
 }

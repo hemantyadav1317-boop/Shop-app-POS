@@ -18,6 +18,7 @@ import '../../../../data/services/upi_service.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import 'bill_receipt_card.dart';
+import '../../../../core/services/ai_quote_service.dart';
 
 class PaymentDialog extends StatefulWidget {
   final VoidCallback onSaleCompleted;
@@ -36,6 +37,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   bool _onlinePaymentVerified = false;
   late int _billNo;
   final ScreenshotController _screenshotController = ScreenshotController();
+  BillQuote? _currentBillQuote;
 
   @override
   void initState() {
@@ -43,6 +45,16 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final cart = context.read<CartProvider>();
     _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
     _billNo = DateTime.now().millisecondsSinceEpoch % 100000;
+    _loadQuote();
+  }
+
+  void _loadQuote() async {
+    final quote = await AiQuoteService.getUniqueQuoteForBill();
+    if (mounted) {
+      setState(() {
+        _currentBillQuote = quote;
+      });
+    }
   }
 
   @override
@@ -676,6 +688,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 due: sale.due,
                 paymentMode: sale.paymentMode,
                 footerMessage: shop.receiptFooter,
+                quoteLine1: _currentBillQuote?.line1,
+                quoteLine2: _currentBillQuote?.line2,
               ),
             ),
           ),

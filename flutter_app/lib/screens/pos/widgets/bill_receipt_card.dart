@@ -62,6 +62,8 @@ class BillReceiptCard extends StatelessWidget {
   final double due;
   final String paymentMode;
   final String? footerMessage;
+  final String? quoteLine1;
+  final String? quoteLine2;
 
   const BillReceiptCard({
     super.key,
@@ -82,6 +84,8 @@ class BillReceiptCard extends StatelessWidget {
     this.due = 0.0,
     required this.paymentMode,
     this.footerMessage,
+    this.quoteLine1,
+    this.quoteLine2,
   });
 
   String _formatPaymentMode(String mode) {
@@ -410,11 +414,27 @@ class BillReceiptCard extends StatelessWidget {
 
           const DashedDivider(),
 
-          // 9. Clean Footer Greetings
+          // 9. Clean Footer Greetings & Dynamic AI Quote
           const SizedBox(height: 4),
           Center(
             child: Column(
               children: [
+                if (quoteLine1 != null && quoteLine1!.isNotEmpty) ...[
+                  Text(
+                    quoteLine1!,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 12.5, fontStyle: FontStyle.italic, fontWeight: FontWeight.w600, color: Colors.black87),
+                  ),
+                  if (quoteLine2 != null && quoteLine2!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      quoteLine2!,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, fontWeight: FontWeight.w500, color: Colors.black87),
+                    ),
+                  ],
+                  const SizedBox(height: 6),
+                ],
                 Text(
                   footerMessage ?? 'Thank you! Visit again 🙏',
                   textAlign: TextAlign.center,

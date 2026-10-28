@@ -10,6 +10,7 @@ import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
 import '../pos/widgets/bill_receipt_card.dart';
+import '../../core/services/ai_quote_service.dart';
 
 class BillsScreen extends StatefulWidget {
   const BillsScreen({super.key});
@@ -130,6 +131,8 @@ class _BillsScreenState extends State<BillsScreen> {
                       due: sale.due,
                       paymentMode: sale.paymentMode,
                       footerMessage: shop.receiptFooter,
+                      quoteLine1: AiQuoteService.getQuoteForBillNo(sale.billNo).line1,
+                      quoteLine2: AiQuoteService.getQuoteForBillNo(sale.billNo).line2,
                     ),
                   ),
                 ),

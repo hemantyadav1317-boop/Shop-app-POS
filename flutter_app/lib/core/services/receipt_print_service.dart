@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
 import 'bluetooth_printer_service.dart';
+import 'ai_quote_service.dart';
 
 class ReceiptPrintService {
   /// Generate PDF document for thermal receipt (58mm or 80mm) with Hindi Unicode support
@@ -199,6 +200,23 @@ class ReceiptPrintService {
                 ),
               pw.SizedBox(height: 6),
               pw.Divider(thickness: 0.8),
+
+              // AI Dynamic Quote
+              pw.Center(
+                child: pw.Text(
+                  AiQuoteService.getQuoteForBillNo(sale.billNo).line1,
+                  textAlign: pw.TextAlign.center,
+                  style: pw.TextStyle(fontSize: 7.5, fontStyle: pw.FontStyle.italic),
+                ),
+              ),
+              pw.Center(
+                child: pw.Text(
+                  AiQuoteService.getQuoteForBillNo(sale.billNo).line2,
+                  textAlign: pw.TextAlign.center,
+                  style: pw.TextStyle(fontSize: 7, fontStyle: pw.FontStyle.italic),
+                ),
+              ),
+              pw.SizedBox(height: 3),
 
               // Footer Message
               pw.Center(
