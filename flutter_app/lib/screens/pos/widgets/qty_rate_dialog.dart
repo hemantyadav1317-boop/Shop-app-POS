@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/sound_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
+import '../../../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'pos_numpad.dart';
 
@@ -95,6 +97,31 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
 
   void _confirmAndSubmit() {
     if (_qty <= 0) return;
+
+    final shop = context.read<ShopProvider>().shop;
+    if (!shop.allowNegativeStock) {
+      if (widget.product.stock <= 0) {
+        SoundService.instance.playError();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFDC2626),
+            content: Text('⚠️ \'${widget.product.name}\' का स्टॉक खत्म है (0 उपलब्ध)!'),
+          ),
+        );
+        return;
+      }
+      if (_qty > widget.product.stock) {
+        SoundService.instance.playError();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFFDC2626),
+            content: Text('⚠️ स्टॉक में केवल ${widget.product.stock} ${widget.product.unit} ही उपलब्ध हैं!'),
+          ),
+        );
+        return;
+      }
+    }
+
     SoundService.instance.playSuccess();
     widget.onConfirm(CartItem(
       productId: widget.product.id,
@@ -154,6 +181,20 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                             fontWeight: widget.product.isLowStock ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
+                        if (widget.product.stock <= 0)
+                          Container(
+                            margin: const EdgeInsets.only(top: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade100,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.red.shade300),
+                            ),
+                            child: const Text(
+                              '⚠️ आउट ऑफ स्टॉक / Out of Stock',
+                              style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                       ],
                     ),
                   ),

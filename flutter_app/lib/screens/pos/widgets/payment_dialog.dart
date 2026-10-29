@@ -17,6 +17,7 @@ import '../../../../data/services/supabase_service.dart';
 import '../../../../data/services/upi_service.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/shop_provider.dart';
+import '../../../../providers/product_provider.dart';
 import 'bill_receipt_card.dart';
 import '../../../../core/services/ai_quote_service.dart';
 
@@ -109,8 +110,32 @@ class _PaymentDialogState extends State<PaymentDialog> {
   Future<void> _processCheckout() async {
     final cart = context.read<CartProvider>();
     final shop = context.read<ShopProvider>().shop;
+    final productProv = context.read<ProductProvider>();
 
     if (cart.lines.isEmpty) return;
+
+    // Validate stock if negative stock is disallowed by shop owner
+    if (!shop.allowNegativeStock) {
+      for (final item in cart.lines) {
+        if (item.productId != null) {
+          final prod = productProv.getProductById(item.productId);
+          if (prod != null && prod.stock < item.qty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                backgroundColor: AppColors.error,
+                duration: const Duration(seconds: 4),
+                content: Text(
+                  prod.stock <= 0
+                      ? '⚠️ \'${item.name}\' का स्टॉक खत्म है (0 उपलब्ध)! बिल नहीं काटा जा सकता।'
+                      : '⚠️ \'${item.name}\' का स्टॉक केवल ${prod.stock} ${item.unit} उपलब्ध है (मांग: ${item.qty})!',
+                ),
+              ),
+            );
+            return;
+          }
+        }
+      }
+    }
 
     if (_paymentMode == 'credit' && cart.customer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -150,6 +175,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
       );
 
       final saved = await SupabaseService.instance.createSale(sale);
+
+      // Immediately deduct in UI memory so stock decreases right away on screen
+      productProv.deductStock(sale.items);
 
       setState(() {
         _completedSale = saved;

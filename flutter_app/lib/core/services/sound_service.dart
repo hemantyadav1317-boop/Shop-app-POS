@@ -60,6 +60,14 @@ class SoundService {
     } catch (_) {}
   }
 
+  void playError() {
+    if (!_enabled) return;
+    try {
+      HapticFeedback.heavyImpact();
+      _player.playDelete();
+    } catch (_) {}
+  }
+
   void playDot() {
     if (!_enabled) return;
     try {

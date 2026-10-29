@@ -764,6 +764,48 @@ class SupabaseService {
                 'qty': item.qty,
                 'line_total': item.price * item.qty,
               });
+
+              // Deduct stock in Cloud Supabase products table so all devices sync in real-time
+              if (item.productId != null && item.productId!.length >= 30) {
+                try {
+                  final pRow = await client!.from('products').select('stock').eq('id', item.productId!).maybeSingle();
+                  if (pRow != null && pRow['stock'] != null) {
+                    final curr = (pRow['stock'] as num).toDouble();
+                    final updatedStock = curr - item.qty;
+                    await client!.from('products').update({
+                      'stock': updatedStock,
+                      'updated_at': DateTime.now().toIso8601String(),
+                    }).eq('id', item.productId!);
+
+                    // Also record stock audit movement
+                    try {
+                      await client!.from('stock_movements').insert({
+                        'shop_id': validShopId,
+                        'product_id': item.productId!,
+                        'change': -item.qty,
+                        'reason': 'sale',
+                        'ref_id': saleId,
+                      });
+                    } catch (_) {}
+                  }
+                } catch (stockErr) {
+                  debugPrint("Error deducting stock in cloud for item ${item.name}: $stockErr");
+                }
+              }
+            } catch (_) {}
+          }
+
+          // Update customer balance in cloud if credit sale
+          if (targetSale.due > 0 && targetSale.customerId != null && targetSale.customerId!.length >= 30) {
+            try {
+              final cRow = await client!.from('customers').select('balance').eq('id', targetSale.customerId!).maybeSingle();
+              if (cRow != null && cRow['balance'] != null) {
+                final currBal = (cRow['balance'] as num).toDouble();
+                await client!.from('customers').update({
+                  'balance': currBal + targetSale.due,
+                  'updated_at': DateTime.now().toIso8601String(),
+                }).eq('id', targetSale.customerId!);
+              }
             } catch (_) {}
           }
         } catch (inner) {
@@ -773,6 +815,7 @@ class SupabaseService {
     }
 
     _saveCachedSales(validShopId, _localSales);
+    _saveCachedProducts(validShopId, _localProducts);
     return targetSale;
   }
 

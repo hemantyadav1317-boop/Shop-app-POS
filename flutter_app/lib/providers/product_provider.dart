@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/models/product.dart';
+import '../data/models/cart_item.dart';
 import '../data/services/supabase_service.dart';
 import '../core/constants/aliases.dart';
 
@@ -282,6 +283,34 @@ class ProductProvider extends ChangeNotifier {
       return _products.firstWhere((p) => p.barcode == barcode || p.sku == barcode);
     } catch (_) {
       return null;
+    }
+  }
+
+  Product? getProductById(String? id) {
+    if (id == null || id.isEmpty) return null;
+    try {
+      return _products.firstWhere((p) => p.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Deduct stock in-memory upon sale completion so UI updates immediately
+  void deductStock(List<CartItem> items) {
+    bool changed = false;
+    for (final item in items) {
+      if (item.productId != null) {
+        final idx = _products.indexWhere((p) => p.id == item.productId);
+        if (idx != -1) {
+          final current = _products[idx];
+          final newStock = current.stock - item.qty;
+          _products[idx] = current.copyWith(stock: newStock);
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      notifyListeners();
     }
   }
 }

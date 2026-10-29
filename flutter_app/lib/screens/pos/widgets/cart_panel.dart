@@ -7,6 +7,7 @@ import '../../../../data/models/customer.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/customer_provider.dart';
 import '../../../../providers/shop_provider.dart';
+import '../../../../providers/product_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import '../../../../core/services/sound_service.dart';
 import '../../../../core/services/contact_service.dart';
@@ -323,8 +324,25 @@ class _CartPanelState extends State<CartPanel> {
                                 icon: const Icon(Icons.add_circle_outline, size: 20),
                                 visualDensity: VisualDensity.compact,
                                 onPressed: () {
+                                  final shop = context.read<ShopProvider>().shop;
+                                  final productProv = context.read<ProductProvider>();
+                                  final prod = productProv.getProductById(item.productId);
+                                  final nextQty = item.qty + step;
+
+                                  if (prod != null && nextQty > prod.stock && !shop.allowNegativeStock) {
+                                    SoundService.instance.playError();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        backgroundColor: AppColors.error,
+                                        duration: const Duration(seconds: 2),
+                                        content: Text('⚠️ अधिकतम स्टॉक सीमा (${prod.stock} ${item.unit})!'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
                                   SoundService.instance.playProductAdd();
-                                  cart.setQty(item.productId, item.name, item.qty + step);
+                                  cart.setQty(item.productId, item.name, nextQty);
                                 },
                               ),
                             ],

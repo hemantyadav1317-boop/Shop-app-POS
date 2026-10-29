@@ -410,6 +410,35 @@ class _ProductGridState extends State<ProductGrid> {
                           ),
                         ),
                       ),
+
+                    // Out of stock overlay indicator
+                    if (product.stock <= 0)
+                      Positioned.fill(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(isMobile ? 10 : 12)),
+                          ),
+                          child: Center(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDC2626),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text(
+                                'OUT OF STOCK',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 7.5,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.3,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -502,13 +531,40 @@ class _ProductGridState extends State<ProductGrid> {
                         // Oval Dark Green Cart Button [ 🛒+ ] with touch sound
                         InkWell(
                           onTap: () {
+                            final shop = context.read<ShopProvider>().shop;
+                            final targetQty = (inCartQty > 0 ? inCartQty + 1 : 1.0);
+
+                            if (product.stock <= 0 && !shop.allowNegativeStock) {
+                              SoundService.instance.playError();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  duration: const Duration(seconds: 2),
+                                  content: Text('⚠️ \'${product.name}\' स्टॉक में उपलब्ध नहीं है (Out of Stock)!'),
+                                ),
+                              );
+                              return;
+                            }
+
+                            if (targetQty > product.stock && !shop.allowNegativeStock) {
+                              SoundService.instance.playError();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: const Color(0xFFDC2626),
+                                  duration: const Duration(seconds: 2),
+                                  content: Text('⚠️ स्टॉक में केवल ${product.stock} ${product.unit} ही उपलब्ध हैं!'),
+                                ),
+                              );
+                              return;
+                            }
+
                             SoundService.instance.playProductAdd();
                             // 1-Tap quick add to cart
                             cart.addLine(CartItem(
                               productId: product.id,
                               name: product.name,
                               price: product.price,
-                              qty: (inCartQty > 0 ? inCartQty + 1 : 1.0),
+                              qty: targetQty,
                               unit: product.unit,
                               imageUrl: product.imageUrl,
                               icon: product.icon,

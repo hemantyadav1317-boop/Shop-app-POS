@@ -128,3 +128,21 @@ BEGIN
   END LOOP;
 END $$;
 
+-- 7. Grant permissions on create_sale & ensure products stock updates are allowed
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'create_sale') THEN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.create_sale(uuid,jsonb,numeric,public.payment_mode,numeric,uuid,text,text,text) TO authenticated, anon, service_role, public;';
+  END IF;
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END $$;
+
+-- 8. Ensure products update policy allows shop members and owners to update stock
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "members update products" ON public.products;
+CREATE POLICY "members update products" ON public.products FOR UPDATE TO authenticated
+USING (public.is_shop_member(shop_id))
+WITH CHECK (public.is_shop_member(shop_id));
+
+
