@@ -145,12 +145,6 @@ class ProductProvider extends ChangeNotifier {
   /// List of all categories without 'All' (used in product add/edit dropdown & category management)
   List<String> get allCategories {
     final set = <String>{};
-    for (final c in defaultCategories) {
-      final upper = c.toUpperCase();
-      if (!_deletedCategories.contains(upper)) {
-        set.add(upper);
-      }
-    }
     for (final c in _customCategories) {
       final upper = c.toUpperCase();
       if (!_deletedCategories.contains(upper)) {
@@ -161,6 +155,16 @@ class ProductProvider extends ChangeNotifier {
       if (p.category.trim().isNotEmpty && p.category.toLowerCase() != 'all') {
         final upper = p.category.trim().toUpperCase();
         if (!_deletedCategories.contains(upper)) {
+          set.add(upper);
+        }
+      }
+    }
+    for (final c in defaultCategories) {
+      final upper = c.toUpperCase();
+      if (!_deletedCategories.contains(upper)) {
+        // Only include default categories if they still have products
+        final hasProducts = _products.any((p) => p.category.trim().toUpperCase() == upper);
+        if (hasProducts) {
           set.add(upper);
         }
       }
@@ -225,14 +229,17 @@ class ProductProvider extends ChangeNotifier {
     await _saveCustomCategories();
     await _saveDeletedCategories();
 
-    // Reassign products of this category to GENERAL locally & in Cloud Supabase
-    for (var i = 0; i < _products.length; i++) {
-      if (_products[i].category.trim().toUpperCase() == name) {
-        final updated = _products[i].copyWith(category: 'GENERAL');
-        _products[i] = updated;
-        await SupabaseService.instance.updateProduct(updated);
+    // Cascade Delete: Delete all products in this category from Cloud Supabase & Local Cache
+    final toDelete = _products.where((p) => p.category.trim().toUpperCase() == name).toList();
+    for (final p in toDelete) {
+      try {
+        await SupabaseService.instance.deleteProduct(p.id);
+      } catch (e) {
+        debugPrint("Error deleting product ${p.name} on category delete: $e");
       }
     }
+    _products.removeWhere((p) => p.category.trim().toUpperCase() == name);
+
     if (_selectedCategory.toUpperCase() == name) {
       _selectedCategory = 'All';
     }

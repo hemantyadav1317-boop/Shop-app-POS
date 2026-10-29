@@ -4,36 +4,52 @@ import '../../../../core/services/sound_service.dart';
 
 class PosNumpad extends StatelessWidget {
   final TextEditingController controller;
+  final ValueChanged<String>? onChanged;
   final VoidCallback? onSubmitted;
 
   const PosNumpad({
     super.key,
     required this.controller,
+    this.onChanged,
     this.onSubmitted,
   });
 
   void _onKey(String val) {
+    String current = controller.text;
+
     if (val == '.') {
       SoundService.instance.playDot();
-      if (!controller.text.contains('.')) {
-        controller.text += '.';
+      if (current.isEmpty || current == '1' || current == '0') {
+        current = '0.';
+      } else if (!current.contains('.')) {
+        current = '$current.';
       }
     } else if (val == 'BACK') {
       SoundService.instance.playDelete();
-      if (controller.text.isNotEmpty) {
-        controller.text = controller.text.substring(0, controller.text.length - 1);
+      if (current.isNotEmpty) {
+        current = current.substring(0, current.length - 1);
       }
     } else if (val == 'CLR') {
       SoundService.instance.playDelete();
-      controller.clear();
+      current = '';
     } else {
       SoundService.instance.playNumberKey();
-      controller.text += val;
+      // If default '1' is untouched and user types a digit, replace it
+      if (current == '1') {
+        current = val;
+      } else {
+        current = '$current$val';
+      }
     }
+
+    controller.text = current;
+    onChanged?.call(current);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final keys = [
       ['1', '2', '3'],
       ['4', '5', '6'],
@@ -44,9 +60,9 @@ class PosNumpad extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -56,13 +72,16 @@ class PosNumpad extends StatelessWidget {
             child: Row(
               children: row.map((k) {
                 final isAction = k == 'BACK' || k == '.';
+                final actionBg = isDark ? const Color(0xFF334155) : Colors.grey.shade200;
+                final normalBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+
                 return Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Material(
-                      color: isAction ? Colors.grey.shade200 : Colors.white,
+                      color: isAction ? actionBg : normalBg,
                       borderRadius: BorderRadius.circular(10),
-                      elevation: 1,
+                      elevation: isDark ? 0 : 1,
                       shadowColor: Colors.black12,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(10),
@@ -75,9 +94,11 @@ class PosNumpad extends StatelessWidget {
                               : Text(
                                   k,
                                   style: TextStyle(
-                                    fontSize: k == '.' ? 22 : 18,
+                                    fontSize: k == '.' ? 24 : 18,
                                     fontWeight: FontWeight.bold,
-                                    color: k == '.' ? AppColors.primary : Colors.black87,
+                                    color: k == '.'
+                                        ? AppColors.primary
+                                        : (isDark ? Colors.white : Colors.black87),
                                   ),
                                 ),
                         ),

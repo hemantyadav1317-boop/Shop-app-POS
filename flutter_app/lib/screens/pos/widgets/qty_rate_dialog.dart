@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/sound_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
-import '../../../../core/utils/pos_sound_formatter.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
@@ -27,10 +26,9 @@ class QtyRateDialog extends StatefulWidget {
 class _QtyRateDialogState extends State<QtyRateDialog> {
   late TextEditingController _qtyController;
   late TextEditingController _rateController;
-  late FocusNode _qtyFocusNode;
   late double _qty;
   late double _rate;
-  final bool _showNumpad = true; // Default Open as requested
+  bool _isEditingRate = false;
 
   @override
   void initState() {
@@ -39,14 +37,33 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
     _rate = widget.product.price;
     _qtyController = TextEditingController(text: _formatQty(_qty));
     _rateController = TextEditingController(text: _rate.toStringAsFixed(2));
-    _qtyFocusNode = FocusNode();
 
-    // Auto-focus quantity field on open
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        _qtyFocusNode.requestFocus();
-      }
-    });
+    _qtyController.addListener(_handleQtyChange);
+    _rateController.addListener(_handleRateChange);
+  }
+
+  void _handleQtyChange() {
+    final text = _qtyController.text.trim();
+    if (text.isEmpty || text == '.') {
+      setState(() => _qty = 0.0);
+      return;
+    }
+    final parsed = double.tryParse(text);
+    if (parsed != null && parsed >= 0) {
+      setState(() => _qty = parsed);
+    }
+  }
+
+  void _handleRateChange() {
+    final text = _rateController.text.trim();
+    if (text.isEmpty) {
+      setState(() => _rate = 0.0);
+      return;
+    }
+    final parsed = double.tryParse(text);
+    if (parsed != null && parsed >= 0) {
+      setState(() => _rate = parsed);
+    }
   }
 
   String _formatQty(double q) {
@@ -56,20 +73,24 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
 
   @override
   void dispose() {
+    _qtyController.removeListener(_handleQtyChange);
+    _rateController.removeListener(_handleRateChange);
     _qtyController.dispose();
     _rateController.dispose();
-    _qtyFocusNode.dispose();
     super.dispose();
   }
 
   void _adjustQty(double delta) {
     SoundService.instance.playClick();
-    setState(() {
-      _qty = (_qty + delta);
-      if (_qty < 0.1) _qty = 0.1;
-      _qty = double.parse(_qty.toStringAsFixed(3));
-      _qtyController.text = _formatQty(_qty);
-    });
+    double newQty = _qty + delta;
+    if (newQty < 0.05) newQty = 0.05;
+    newQty = double.parse(newQty.toStringAsFixed(3));
+    _qtyController.text = _formatQty(newQty);
+  }
+
+  void _setDirectWeight(double val) {
+    SoundService.instance.playClick();
+    _qtyController.text = _formatQty(val);
   }
 
   void _confirmAndSubmit() {
@@ -89,6 +110,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isKg = widget.product.unit.toLowerCase() == 'kg';
     final totalAmount = _qty * _rate;
 
@@ -125,7 +147,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Stock: ${widget.product.stock} ${widget.product.unit}',
+                          'स्टॉक: ${widget.product.stock} ${widget.product.unit}  •  दर: ₹${widget.product.price.toStringAsFixed(2)}/${widget.product.unit}',
                           style: TextStyle(
                             fontSize: 12,
                             color: widget.product.isLowStock ? AppColors.error : AppColors.lightTextSecondary,
@@ -144,97 +166,182 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
             ),
             const Divider(height: 1),
 
-            // 2. SCROLLABLE BODY (Qty, Rate, Tactile Numpad)
+            // 2. SCROLLABLE BODY (Quantity, Rate, Tactile Numpad)
             Flexible(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Quantity Selector Row
-                    Text(
-                      'मात्रा / Quantity (${widget.product.unit})',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                    ),
-                    const SizedBox(height: 6),
+                    // Quantity and Rate selector tabs
                     Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setState(() => _isEditingRate = false),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: !_isEditingRate
+                                    ? AppColors.primarySurface
+                                    : (isDark ? Colors.white10 : Colors.grey.shade100),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: !_isEditingRate ? AppColors.primary : Colors.transparent,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'मात्रा (${widget.product.unit})',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: !_isEditingRate ? AppColors.primary : AppColors.lightTextSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    _qtyController.text.isNotEmpty ? '${_qtyController.text} ${widget.product.unit}' : '0 ${widget.product.unit}',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: !_isEditingRate ? AppColors.primary : (isDark ? Colors.white : Colors.black87),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setState(() => _isEditingRate = true),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: _isEditingRate
+                                    ? AppColors.primarySurface
+                                    : (isDark ? Colors.white10 : Colors.grey.shade100),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: _isEditingRate ? AppColors.primary : Colors.transparent,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'दर (₹ प्रति ${widget.product.unit})',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: _isEditingRate ? AppColors.primary : AppColors.lightTextSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '₹ ${_rateController.text}',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      color: _isEditingRate ? AppColors.primary : (isDark ? Colors.white : Colors.black87),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Quick weight shortcuts if product is in Kg
+                    if (isKg && !_isEditingRate) ...[
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          {'label': '100g', 'val': 0.1},
+                          {'label': '200g', 'val': 0.2},
+                          {'label': '250g', 'val': 0.25},
+                          {'label': '500g', 'val': 0.5},
+                          {'label': '1 kg', 'val': 1.0},
+                          {'label': '2 kg', 'val': 2.0},
+                        ].map((w) {
+                          final double v = w['val'] as double;
+                          final isSel = (_qty - v).abs() < 0.001;
+                          return InkWell(
+                            onTap: () => _setDirectWeight(v),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: isSel ? AppColors.primary : (isDark ? const Color(0xFF334155) : Colors.grey.shade200),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                w['label'] as String,
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSel ? Colors.white : (isDark ? Colors.white : Colors.black87),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+
+                    // Quick +/- stepper
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         OutlinedButton(
                           onPressed: () => _adjustQty(isKg ? -0.25 : -1.0),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Icon(Icons.remove, size: 20),
+                          child: const Icon(Icons.remove, size: 18),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _qtyController,
-                            focusNode: _qtyFocusNode,
-                            inputFormatters: [PosNumberSoundFormatter()],
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.primaryDark),
-                            decoration: InputDecoration(
-                              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
-                            onChanged: (val) {
-                              final parsed = double.tryParse(val) ?? 1.0;
-                              setState(() {
-                                _qty = parsed;
-                              });
-                            },
-                          ),
+                        const SizedBox(width: 14),
+                        Text(
+                          !_isEditingRate ? '${_formatQty(_qty)} ${widget.product.unit}' : '₹ ${_rate.toStringAsFixed(2)}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 14),
                         OutlinedButton(
                           onPressed: () => _adjustQty(isKg ? 0.25 : 1.0),
                           style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                          child: const Icon(Icons.add, size: 20),
+                          child: const Icon(Icons.add, size: 18),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-
-                    // Rate per unit
-                    Text(
-                      'दर / Rate (₹ प्रति ${widget.product.unit})',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                    ),
                     const SizedBox(height: 6),
-                    TextField(
-                      controller: _rateController,
-                      inputFormatters: [PosNumberSoundFormatter()],
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      decoration: InputDecoration(
-                        prefixText: '₹ ',
-                        contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
+
+                    // Tactile POS Touch Keypad (Directly operates without mobile keyboard)
+                    PosNumpad(
+                      controller: !_isEditingRate ? _qtyController : _rateController,
                       onChanged: (val) {
-                        final parsed = double.tryParse(val) ?? widget.product.price;
-                        setState(() {
-                          _rate = parsed;
-                        });
+                        if (!_isEditingRate) {
+                          _handleQtyChange();
+                        } else {
+                          _handleRateChange();
+                        }
                       },
                     ),
-                    const SizedBox(height: 10),
-
-                    // Tactile POS Touch Keypad (Always Visible)
-                    if (_showNumpad) ...[
-                      const Text(
-                        'टच कीपैड (Tactile Pad)',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.lightTextSecondary),
-                      ),
-                      const SizedBox(height: 4),
-                      PosNumpad(controller: _qtyController),
-                    ],
                   ],
                 ),
               ),
@@ -265,8 +372,8 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                         CurrencyFormatter.format(totalAmount),
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
-                          fontSize: 20,
-                          color: AppColors.primaryDark,
+                          fontSize: 22,
+                          color: Color(0xFF00875A),
                         ),
                       ),
                     ],
@@ -281,7 +388,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: const Color(0xFF00875A),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),

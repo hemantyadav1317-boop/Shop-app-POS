@@ -13,6 +13,7 @@ import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
 import '../pos/widgets/bill_receipt_card.dart';
+import '../widgets/product_image_view.dart';
 import '../../core/services/ai_quote_service.dart';
 
 class BillsScreen extends StatefulWidget {
@@ -235,6 +236,8 @@ class _BillsScreenState extends State<BillsScreen> {
       context: context,
       builder: (editCtx) => StatefulBuilder(
         builder: (editCtx, setEditState) {
+          final isDark = Theme.of(editCtx).brightness == Brightness.dark;
+
           double subtotal = 0.0;
           for (final it in items) {
             subtotal += it.total;
@@ -247,6 +250,7 @@ class _BillsScreenState extends State<BillsScreen> {
           return Dialog(
             insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 460, maxHeight: 720),
               padding: const EdgeInsets.all(16),
@@ -258,79 +262,131 @@ class _BillsScreenState extends State<BillsScreen> {
                     children: [
                       Text(
                         'बिल एडिट करें (Bill #${sale.billNo})',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.black87),
                         onPressed: () => Navigator.pop(editCtx),
                       ),
                     ],
                   ),
-                  const Divider(),
+                  Divider(color: isDark ? Colors.white12 : Colors.grey.shade300),
                   Expanded(
                     child: SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('सामान की लिस्ट (Items):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          const SizedBox(height: 6),
+                          Text(
+                            'सामान की लिस्ट (Items):',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
                           ...items.asMap().entries.map((entry) {
                             final idx = entry.key;
                             final item = entry.value;
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                               decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8),
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: isDark ? Colors.white12 : Colors.grey.shade300,
+                                ),
                               ),
                               child: Row(
                                 children: [
                                   Expanded(
                                     flex: 3,
-                                    child: Text(
-                                      item.name,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          item.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          '₹${item.price.toStringAsFixed(2)}/${item.unit}',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark ? Colors.white60 : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       IconButton(
-                                        icon: const Icon(Icons.remove_circle_outline, size: 18),
+                                        icon: Icon(Icons.remove_circle_outline, size: 20, color: isDark ? Colors.white70 : Colors.black87),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                         onPressed: () {
-                                          if (item.qty > 1) {
+                                          if (item.qty > 0.05) {
                                             setEditState(() {
-                                              final newQty = item.qty - (item.unit.toLowerCase() == 'kg' ? 0.25 : 1);
+                                              final step = item.unit.toLowerCase() == 'kg' ? 0.25 : 1.0;
+                                              final newQty = item.qty - step;
                                               if (newQty > 0) {
-                                                items[idx] = item.copyWith(qty: newQty);
+                                                items[idx] = item.copyWith(qty: double.parse(newQty.toStringAsFixed(3)));
                                               }
                                             });
                                           }
                                         },
                                       ),
-                                      Text(
-                                        '${item.qty} ${item.unit}',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                                        child: Text(
+                                          '${item.qty} ${item.unit}',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: isDark ? Colors.white : Colors.black87,
+                                          ),
+                                        ),
                                       ),
                                       IconButton(
-                                        icon: const Icon(Icons.add_circle_outline, size: 18),
+                                        icon: Icon(Icons.add_circle_outline, size: 20, color: isDark ? Colors.white70 : Colors.black87),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                         onPressed: () {
                                           setEditState(() {
-                                            final newQty = item.qty + (item.unit.toLowerCase() == 'kg' ? 0.25 : 1);
-                                            items[idx] = item.copyWith(qty: newQty);
+                                            final step = item.unit.toLowerCase() == 'kg' ? 0.25 : 1.0;
+                                            final newQty = item.qty + step;
+                                            items[idx] = item.copyWith(qty: double.parse(newQty.toStringAsFixed(3)));
                                           });
                                         },
                                       ),
                                     ],
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     '₹${item.total.toStringAsFixed(2)}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Color(0xFF00875A),
+                                    ),
                                   ),
+                                  const SizedBox(width: 4),
                                   IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                                    icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
                                     onPressed: () {
                                       setEditState(() {
                                         items.removeAt(idx);
@@ -345,11 +401,11 @@ class _BillsScreenState extends State<BillsScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: OutlinedButton.icon(
-                              icon: const Icon(Icons.add, size: 18),
+                              icon: const Icon(Icons.add_shopping_cart, size: 18),
                               label: const Text('+ सामान जोड़ें (+ Add Product)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: AppColors.primary,
-                                side: const BorderSide(color: AppColors.primary),
+                                foregroundColor: const Color(0xFF00875A),
+                                side: const BorderSide(color: Color(0xFF00875A), width: 1.5),
                                 padding: const EdgeInsets.symmetric(vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
@@ -362,11 +418,19 @@ class _BillsScreenState extends State<BillsScreen> {
                               },
                             ),
                           ),
-                          const Divider(height: 20),
-                          const Text('Payment Mode:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Divider(height: 24, color: isDark ? Colors.white12 : Colors.grey.shade300),
+                          Text(
+                            'Payment Mode:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
                           const SizedBox(height: 6),
                           DropdownButtonFormField<String>(
                             value: mode,
+                            dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
                             decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
                             items: const [
                               DropdownMenuItem(value: 'cash', child: Text('नकद (Cash)')),
@@ -428,7 +492,7 @@ class _BillsScreenState extends State<BillsScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text('कुल राशि (Total):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              Text(CurrencyFormatter.format(total), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                              Text(CurrencyFormatter.format(total), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF00875A))),
                             ],
                           ),
                           if (due > 0) ...[
@@ -445,10 +509,10 @@ class _BillsScreenState extends State<BillsScreen> {
                       ),
                     ),
                   ),
-                  const Divider(),
+                  Divider(color: isDark ? Colors.white12 : Colors.grey.shade300),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: const Color(0xFF00875A),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -456,6 +520,24 @@ class _BillsScreenState extends State<BillsScreen> {
                     onPressed: items.isEmpty
                         ? null
                         : () async {
+                            // Deduct stock for any new items or increased quantities
+                            final productProv = context.read<ProductProvider>();
+                            for (final item in items) {
+                              if (item.productId != null) {
+                                final origIdx = sale.items.indexWhere((o) => o.productId == item.productId);
+                                final origQty = origIdx != -1 ? sale.items[origIdx].qty : 0.0;
+                                final diff = item.qty - origQty;
+                                if (diff != 0) {
+                                  final prodIdx = productProv.products.indexWhere((p) => p.id == item.productId);
+                                  if (prodIdx != -1) {
+                                    final currentProd = productProv.products[prodIdx];
+                                    final newStock = currentProd.stock - diff;
+                                    await productProv.updateProduct(currentProd.copyWith(stock: newStock > 0 ? newStock : 0.0));
+                                  }
+                                }
+                              }
+                            }
+
                             final updated = sale.copyWith(
                               items: List.from(items),
                               subtotal: subtotal,
@@ -472,7 +554,7 @@ class _BillsScreenState extends State<BillsScreen> {
                             _loadSales();
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(backgroundColor: AppColors.primary, content: Text('बिल सफलतापूर्वक अपडेट हो गया!')),
+                                const SnackBar(backgroundColor: Color(0xFF00875A), content: Text('बिल व स्टॉक सफलतापूर्वक अपडेट हो गया!')),
                               );
                             }
                           },
@@ -488,131 +570,308 @@ class _BillsScreenState extends State<BillsScreen> {
   }
 
   void _showAddItemToExistingBill(BuildContext parentCtx, Function(CartItem) onAdd) {
-    final products = parentCtx.read<ProductProvider>().products;
+    final productProv = parentCtx.read<ProductProvider>();
+    final allProds = productProv.products;
+    String searchQuery = '';
     Product? selectedProduct;
-    final nameCtrl = TextEditingController();
+    double selectedQty = 1.0;
     final qtyCtrl = TextEditingController(text: '1');
-    final rateCtrl = TextEditingController();
-    String unit = 'kg';
 
-    showDialog(
+    showModalBottomSheet(
       context: parentCtx,
-      builder: (addCtx) => StatefulBuilder(
-        builder: (addCtx, setAddState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('सामान जोड़ें (+ Add Product)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            content: SizedBox(
-              width: 360,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (products.isNotEmpty) ...[
-                      const Text('इन्वेंटरी से चुनें:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 6),
-                      DropdownButtonFormField<Product>(
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                          border: OutlineInputBorder(),
-                        ),
-                        hint: const Text('प्रोडक्ट चुनें (Select)'),
-                        value: selectedProduct,
-                        items: products.map((p) {
-                          return DropdownMenuItem<Product>(
-                            value: p,
-                            child: Text('${p.name} (₹${p.price}/${p.unit})', overflow: TextOverflow.ellipsis),
-                          );
-                        }).toList(),
-                        onChanged: (p) {
-                          if (p != null) {
-                            setAddState(() {
-                              selectedProduct = p;
-                              nameCtrl.text = p.name;
-                              rateCtrl.text = p.price.toStringAsFixed(2);
-                              unit = p.unit;
-                            });
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      const Center(child: Text('— या नया सामान लिखें —', style: TextStyle(fontSize: 11, color: Colors.grey))),
-                      const SizedBox(height: 8),
-                    ],
-                    TextField(
-                      controller: nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'सामान का नाम (Name)',
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: qtyCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: InputDecoration(
-                              labelText: 'मात्रा ($unit)',
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              border: const OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: rateCtrl,
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(
-                              labelText: 'दर (Rate ₹)',
-                              prefixText: '₹ ',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(addCtx),
-                child: const Text('रद्द करें'),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                onPressed: () {
-                  final name = nameCtrl.text.trim();
-                  final qty = double.tryParse(qtyCtrl.text) ?? 1.0;
-                  final rate = double.tryParse(rateCtrl.text) ?? 0.0;
-                  if (name.isEmpty || qty <= 0 || rate <= 0) return;
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (sheetCtx, setSheetState) {
+          final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
+          final filtered = allProds.where((p) {
+            return searchQuery.isEmpty ||
+                p.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                p.category.toLowerCase().contains(searchQuery.toLowerCase());
+          }).toList();
 
-                  onAdd(CartItem(
-                    productId: selectedProduct?.id,
-                    name: name,
-                    unit: unit,
-                    price: rate,
-                    qty: qty,
-                    imageUrl: selectedProduct?.imageUrl,
-                    icon: selectedProduct?.icon,
-                  ));
-                  Navigator.pop(addCtx);
-                },
-                child: const Text('जोड़ें (Add)'),
-              ),
-            ],
+          return Container(
+            height: MediaQuery.of(sheetCtx).size.height * 0.85,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.inventory_2_outlined, color: Color(0xFF00875A)),
+                      const SizedBox(width: 8),
+                      Text(
+                        selectedProduct == null ? 'दुकान के स्टॉक से सामान चुनें' : '${selectedProduct!.name} जोड़ें',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: isDark ? Colors.white : const Color(0xFF0F172A),
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.black87),
+                        onPressed: () => Navigator.pop(sheetCtx),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: isDark ? Colors.white12 : Colors.grey.shade300),
+
+                // If no product selected: Search + List
+                if (selectedProduct == null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'सामान खोजें (उदा. मिर्च, आलू, चीनी)...',
+                        prefixIcon: const Icon(Icons.search, color: Color(0xFF00875A)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onChanged: (val) {
+                        setSheetState(() => searchQuery = val.trim());
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? const Center(child: Text('कोई सामान नहीं मिला', style: TextStyle(color: Colors.grey)))
+                        : ListView.separated(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => const SizedBox(height: 6),
+                            itemBuilder: (ctx, i) {
+                              final p = filtered[i];
+                              return ListTile(
+                                tileColor: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200),
+                                ),
+                                leading: ProductImageView(
+                                  imageUrl: p.imageUrl,
+                                  fallbackIcon: p.icon,
+                                  size: 40,
+                                ),
+                                title: Text(
+                                  p.name,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'स्टॉक: ${p.stock} ${p.unit} • Cat: ${p.category}',
+                                  style: TextStyle(fontSize: 11, color: isDark ? Colors.white60 : Colors.grey.shade600),
+                                ),
+                                trailing: Text(
+                                  '₹${p.price.toStringAsFixed(2)}/${p.unit}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF00875A)),
+                                ),
+                                onTap: () {
+                                  setSheetState(() {
+                                    selectedProduct = p;
+                                    selectedQty = p.unit.toLowerCase() == 'kg' ? 0.2 : 1.0;
+                                    qtyCtrl.text = selectedQty.toString();
+                                  });
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ] else ...[
+                  // Product selected: weight buttons & amount calculation
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              ProductImageView(imageUrl: selectedProduct!.imageUrl, fallbackIcon: selectedProduct!.icon, size: 50),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      selectedProduct!.name,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                      ),
+                                    ),
+                                    Text(
+                                      'दर: ₹${selectedProduct!.price.toStringAsFixed(2)} / ${selectedProduct!.unit}  •  स्टॉक: ${selectedProduct!.stock} ${selectedProduct!.unit}',
+                                      style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => setSheetState(() => selectedProduct = null),
+                                child: const Text('बदलें (Change)'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'मात्रा / वज़न चुनें:',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              color: isDark ? Colors.white70 : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // If Kg: Quick weight buttons (100g, 200g, 250g, 500g, 1kg, 2kg)
+                          if (selectedProduct!.unit.toLowerCase() == 'kg') ...[
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                {'label': '100 gm', 'val': 0.1},
+                                {'label': '200 gm', 'val': 0.2},
+                                {'label': '250 gm', 'val': 0.25},
+                                {'label': '500 gm', 'val': 0.5},
+                                {'label': '1 kg', 'val': 1.0},
+                                {'label': '2 kg', 'val': 2.0},
+                              ].map((w) {
+                                final double v = w['val'] as double;
+                                final isSel = (selectedQty - v).abs() < 0.001;
+                                return ChoiceChip(
+                                  label: Text(w['label'] as String),
+                                  selected: isSel,
+                                  selectedColor: const Color(0xFF00875A),
+                                  labelStyle: TextStyle(
+                                    color: isSel ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  onSelected: (_) {
+                                    setSheetState(() {
+                                      selectedQty = v;
+                                      qtyCtrl.text = v.toString();
+                                    });
+                                  },
+                                );
+                              }).toList(),
+                            ),
+                            const SizedBox(height: 14),
+                          ],
+
+                          // Interactive Qty input
+                          Row(
+                            children: [
+                              OutlinedButton(
+                                onPressed: () {
+                                  final step = selectedProduct!.unit.toLowerCase() == 'kg' ? 0.1 : 1.0;
+                                  if (selectedQty > step) {
+                                    setSheetState(() {
+                                      selectedQty = double.parse((selectedQty - step).toStringAsFixed(3));
+                                      qtyCtrl.text = selectedQty.toString();
+                                    });
+                                  }
+                                },
+                                child: const Icon(Icons.remove),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: qtyCtrl,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                                  decoration: InputDecoration(
+                                    suffixText: selectedProduct!.unit,
+                                    border: const OutlineInputBorder(),
+                                  ),
+                                  onChanged: (val) {
+                                    final parsed = double.tryParse(val);
+                                    if (parsed != null && parsed > 0) {
+                                      setSheetState(() => selectedQty = parsed);
+                                    }
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              OutlinedButton(
+                                onPressed: () {
+                                  final step = selectedProduct!.unit.toLowerCase() == 'kg' ? 0.1 : 1.0;
+                                  setSheetState(() {
+                                    selectedQty = double.parse((selectedQty + step).toStringAsFixed(3));
+                                    qtyCtrl.text = selectedQty.toString();
+                                  });
+                                },
+                                child: const Icon(Icons.add),
+                              ),
+                            ],
+                          ),
+                          const Spacer(),
+
+                          // Total amount display
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE8F5E9),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFF00875A).withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('सामान की कुल राशि:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                Text(
+                                  '₹${(selectedQty * selectedProduct!.price).toStringAsFixed(2)}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Color(0xFF00875A)),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00875A),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: Text(
+                              'बिल में जोड़ें • ₹${(selectedQty * selectedProduct!.price).toStringAsFixed(2)}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
+                            onPressed: () {
+                              if (selectedQty <= 0) return;
+                              onAdd(CartItem(
+                                productId: selectedProduct!.id,
+                                name: selectedProduct!.name,
+                                unit: selectedProduct!.unit,
+                                price: selectedProduct!.price,
+                                qty: selectedQty,
+                                imageUrl: selectedProduct!.imageUrl,
+                                icon: selectedProduct!.icon,
+                              ));
+                              Navigator.pop(sheetCtx);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           );
         },
       ),

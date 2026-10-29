@@ -312,7 +312,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   border: Border.all(color: AppColors.error.withOpacity(0.3)),
                 ),
                 child: Text(
-                  'इस कैटेगरी में $count सामान हैं। ये सभी सामान स्वतः "GENERAL" कैटेगरी में चले जाएंगे।',
+                  'इस कैटेगरी में $count सामान हैं। ये सभी सामान दुकान और डेटाबेस से पूरी तरह डिलीट हो जाएंगे।',
                   style: const TextStyle(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.bold),
                 ),
               ),
