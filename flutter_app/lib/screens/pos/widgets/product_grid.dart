@@ -24,6 +24,7 @@ class _ProductGridState extends State<ProductGrid> {
     required IconData icon,
     required bool isSelected,
     required bool isDark,
+    double size = 20,
   }) {
     if (catImg != null && catImg.trim().isNotEmpty) {
       final clean = catImg.trim();
@@ -33,15 +34,15 @@ class _ProductGridState extends State<ProductGrid> {
           final base64Data = commaIndex != -1 ? clean.substring(commaIndex + 1) : clean;
           final bytes = base64Decode(base64Data);
           return ClipRRect(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(6),
             child: Image.memory(
               bytes,
-              width: 24,
-              height: 24,
+              width: size,
+              height: size,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Icon(
                 icon,
-                size: 22,
+                size: size,
                 color: isSelected ? Colors.white : const Color(0xFF00875A),
               ),
             ),
@@ -49,15 +50,15 @@ class _ProductGridState extends State<ProductGrid> {
         } catch (_) {}
       } else {
         return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(6),
           child: Image.network(
             clean,
-            width: 24,
-            height: 24,
+            width: size,
+            height: size,
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Icon(
               icon,
-              size: 22,
+              size: size,
               color: isSelected ? Colors.white : const Color(0xFF00875A),
             ),
           ),
@@ -66,7 +67,7 @@ class _ProductGridState extends State<ProductGrid> {
     }
     return Icon(
       icon,
-      size: 22,
+      size: size,
       color: isSelected ? Colors.white : const Color(0xFF00875A),
     );
   }
@@ -115,16 +116,16 @@ class _ProductGridState extends State<ProductGrid> {
         // 1. Search Bar (Floating white pill with soft shadow)
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            padding: EdgeInsets.fromLTRB(isMobile ? 10 : 14, isMobile ? 8 : 10, isMobile ? 10 : 14, 6),
             child: Container(
               decoration: BoxDecoration(
                 color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(28),
+                borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
                 border: Border.all(
@@ -135,13 +136,13 @@ class _ProductGridState extends State<ProductGrid> {
                 decoration: InputDecoration(
                   hintText: 'सर्च करें: नाम (Aloo, आलू, Potato) या बारकोड...',
                   hintStyle: TextStyle(
-                    fontSize: 13,
+                    fontSize: isMobile ? 12 : 13,
                     color: isDark ? Colors.white60 : Colors.grey.shade500,
                   ),
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search_rounded,
-                    size: 22,
-                    color: Color(0xFF00875A),
+                    size: isMobile ? 20 : 22,
+                    color: const Color(0xFF00875A),
                   ),
                   suffixIcon: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -153,21 +154,21 @@ class _ProductGridState extends State<ProductGrid> {
                         ),
                       Container(
                         margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(5),
                         decoration: BoxDecoration(
                           color: isDark ? Colors.white10 : Colors.grey.shade100,
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.tune_rounded,
-                          size: 18,
+                          size: 16,
                           color: isDark ? Colors.white70 : Colors.grey.shade700,
                         ),
                       ),
                     ],
                   ),
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: isMobile ? 8 : 10),
                 ),
                 onChanged: (val) {
                   SoundService.instance.playTypeKey();
@@ -181,12 +182,12 @@ class _ProductGridState extends State<ProductGrid> {
         // 2. Category Cards Row (All, Vegetables, Fruits, Grocery, etc.)
         SliverToBoxAdapter(
           child: SizedBox(
-            height: 82,
+            height: isMobile ? 62 : 68,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
               scrollDirection: Axis.horizontal,
               itemCount: productProvider.categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, i) {
                 final cat = productProvider.categories[i];
                 final isSelected = productProvider.selectedCategory == cat;
@@ -199,16 +200,16 @@ class _ProductGridState extends State<ProductGrid> {
                     SoundService.instance.playButtonClick();
                     productProvider.selectCategory(cat);
                   },
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(12),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
-                    width: 78,
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                    width: isMobile ? 70 : 80,
+                    padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFF00875A) // Vibrant Forest Green
                           : (isDark ? const Color(0xFF1E293B) : Colors.white),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
                             ? const Color(0xFF00875A)
@@ -218,9 +219,9 @@ class _ProductGridState extends State<ProductGrid> {
                       boxShadow: [
                         BoxShadow(
                           color: isSelected
-                              ? const Color(0xFF00875A).withValues(alpha: 0.3)
+                              ? const Color(0xFF00875A).withValues(alpha: 0.25)
                               : Colors.black.withValues(alpha: 0.03),
-                          blurRadius: isSelected ? 8 : 4,
+                          blurRadius: isSelected ? 6 : 3,
                           offset: const Offset(0, 2),
                         ),
                       ],
@@ -233,14 +234,15 @@ class _ProductGridState extends State<ProductGrid> {
                           icon: icon,
                           isSelected: isSelected,
                           isDark: isDark,
+                          size: isMobile ? 18 : 22,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           cat,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: isMobile ? 10 : 11,
                             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                             color: isSelected ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E293B)),
                           ),
@@ -248,7 +250,7 @@ class _ProductGridState extends State<ProductGrid> {
                         Text(
                           '($count)',
                           style: TextStyle(
-                            fontSize: 10,
+                            fontSize: isMobile ? 9 : 10,
                             color: isSelected ? Colors.white70 : Colors.grey.shade500,
                           ),
                         ),
@@ -261,7 +263,7 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: 6)),
+        const SliverToBoxAdapter(child: SizedBox(height: 4)),
 
         // 3. Dense Product Grid
         productProvider.filteredProducts.isEmpty
@@ -283,20 +285,20 @@ class _ProductGridState extends State<ProductGrid> {
                 ),
               )
             : SliverPadding(
-                padding: EdgeInsets.fromLTRB(isMobile ? 10 : 14, 0, isMobile ? 10 : 14, 80),
+                padding: EdgeInsets.fromLTRB(isMobile ? 8 : 12, 0, isMobile ? 8 : 12, 80),
                 sliver: SliverGrid(
                   gridDelegate: isMobile
                       ? const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 3,
-                          childAspectRatio: 0.66,
-                          crossAxisSpacing: 8,
-                          mainAxisSpacing: 8,
+                          childAspectRatio: 0.82,
+                          crossAxisSpacing: 6,
+                          mainAxisSpacing: 6,
                         )
                       : const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 220,
-                          childAspectRatio: 0.76,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
+                          maxCrossAxisExtent: 145,
+                          childAspectRatio: 0.84,
+                          crossAxisSpacing: 8,
+                          mainAxisSpacing: 8,
                         ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
@@ -331,7 +333,7 @@ class _ProductGridState extends State<ProductGrid> {
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(isMobile ? 14 : 18),
+        borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
         border: Border.all(
           color: inCartQty > 0
               ? const Color(0xFF00875A)
@@ -340,16 +342,16 @@ class _ProductGridState extends State<ProductGrid> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(isMobile ? 14 : 18),
+          borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
           onTap: () {
             // Touch sound effect on tapping product card
             SoundService.instance.playProductAdd();
@@ -366,13 +368,13 @@ class _ProductGridState extends State<ProductGrid> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Product Image container with floating status badge (Heart button removed)
+              // Product Image container with floating status badge
               Expanded(
-                flex: isMobile ? 7 : 11,
+                flex: 5,
                 child: Stack(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(isMobile ? 14 : 18)),
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(isMobile ? 10 : 12)),
                       child: Container(
                         width: double.infinity,
                         color: isDark ? Colors.black26 : Colors.grey.shade50,
@@ -380,8 +382,8 @@ class _ProductGridState extends State<ProductGrid> {
                           child: ProductImageView(
                             imageUrl: product.imageUrl,
                             fallbackIcon: product.icon,
-                            size: isMobile ? 90 : 130,
-                            borderRadius: isMobile ? 12 : 14,
+                            size: isMobile ? 46 : 54,
+                            borderRadius: 8,
                           ),
                         ),
                       ),
@@ -390,41 +392,21 @@ class _ProductGridState extends State<ProductGrid> {
                     // Top Left Status Badge (ताजा, बेस्टसेलर, ऑर्गैनिक, नई आवक / कस्टम टैग) - Optional & Default OFF
                     if (context.watch<ShopProvider>().showProductBadges)
                       Positioned(
-                        top: isMobile ? 6 : 8,
-                        left: isMobile ? 6 : 8,
+                        top: 3,
+                        left: 3,
                         child: Container(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isMobile ? 5 : 8,
-                            vertical: isMobile ? 2 : 3,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
                           decoration: BoxDecoration(
                             color: badgeColor,
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: badgeColor.withValues(alpha: 0.35),
-                                blurRadius: 4,
-                              ),
-                            ],
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                badge == 'बेस्टसेलर' ? Icons.star_rounded : Icons.eco,
-                                size: isMobile ? 9 : 11,
-                                color: Colors.white,
-                              ),
-                              const SizedBox(width: 2),
-                              Text(
-                                badge,
-                                style: TextStyle(
-                                  fontSize: isMobile ? 8.5 : 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            badge,
+                            style: const TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -434,72 +416,76 @@ class _ProductGridState extends State<ProductGrid> {
 
               // Product Info & Price
               Padding(
-                padding: EdgeInsets.fromLTRB(isMobile ? 6 : 10, 6, isMobile ? 6 : 10, isMobile ? 6 : 10),
+                padding: const EdgeInsets.fromLTRB(5, 3, 5, 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     // Product Name
                     Text(
                       product.name,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        fontSize: isMobile ? 11 : 13,
-                        height: 1.2,
+                        fontSize: isMobile ? 10.5 : 11.5,
+                        height: 1.15,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
 
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
 
                     // Price & Stock row
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               // Bold Green Price
                               RichText(
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 text: TextSpan(
                                   children: [
                                     TextSpan(
                                       text: CurrencyFormatter.formatCompact(product.price),
                                       style: TextStyle(
-                                        fontSize: isMobile ? 12.5 : 15,
+                                        fontSize: isMobile ? 11.5 : 12.5,
                                         fontWeight: FontWeight.w800,
                                         color: const Color(0xFF00875A), // Vibrant Green
                                       ),
                                     ),
                                     TextSpan(
-                                      text: ' / ${product.unit}',
+                                      text: ' /${product.unit}',
                                       style: TextStyle(
-                                        fontSize: isMobile ? 9.5 : 11,
+                                        fontSize: isMobile ? 8.5 : 9.5,
                                         color: isDark ? Colors.white60 : Colors.grey.shade600,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              const SizedBox(height: 1),
 
                               // Stock
                               Row(
                                 children: [
                                   Icon(
                                     Icons.inventory_2_outlined,
-                                    size: isMobile ? 9 : 11,
+                                    size: 8,
                                     color: product.isLowStock ? Colors.red : const Color(0xFF00875A),
                                   ),
-                                  const SizedBox(width: 2),
+                                  const SizedBox(width: 1.5),
                                   Expanded(
                                     child: Text(
-                                      'Stock: ${product.stock} ${product.unit}',
+                                      '${product.stock} ${product.unit}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
-                                        fontSize: isMobile ? 8.5 : 10,
+                                        fontSize: 8,
                                         color: product.isLowStock
                                             ? Colors.red.shade700
                                             : (isDark ? Colors.white60 : Colors.grey.shade600),
@@ -528,40 +514,30 @@ class _ProductGridState extends State<ProductGrid> {
                               icon: product.icon,
                             ));
                           },
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: isMobile ? 7 : 10,
-                              vertical: isMobile ? 5 : 7,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
                             decoration: BoxDecoration(
                               color: const Color(0xFF004D40), // Dark Forest Green
-                              borderRadius: BorderRadius.circular(14),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: const Color(0xFF004D40).withValues(alpha: 0.3),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 2),
-                                ),
-                              ],
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
+                                const Icon(
                                   Icons.shopping_cart_outlined,
-                                  size: isMobile ? 12 : 14,
+                                  size: 10,
                                   color: Colors.white,
                                 ),
-                                const SizedBox(width: 2),
+                                const SizedBox(width: 1),
                                 Text(
                                   inCartQty > 0
                                       ? '+${inCartQty % 1 == 0 ? inCartQty.toInt() : inCartQty.toStringAsFixed(1)}'
                                       : '+',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: isMobile ? 10.5 : 12,
+                                    fontSize: 9.5,
                                   ),
                                 ),
                               ],
