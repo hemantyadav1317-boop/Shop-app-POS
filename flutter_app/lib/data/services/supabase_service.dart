@@ -842,8 +842,10 @@ class SupabaseService {
     _localShop = shop;
     if (_isInitialized && client != null) {
       final user = client!.auth.currentUser;
+      if (user == null) return _localShop;
+
       try {
-        final payload = <String, dynamic>{
+        final fullPayload = <String, dynamic>{
           'name': shop.name,
           if (shop.phone != null) 'phone': shop.phone,
           if (shop.address != null) 'address': shop.address,
@@ -857,6 +859,14 @@ class SupabaseService {
           'updated_at': DateTime.now().toIso8601String(),
         };
 
+        final corePayload = <String, dynamic>{
+          'name': shop.name,
+          if (shop.phone != null) 'phone': shop.phone,
+          if (shop.address != null) 'address': shop.address,
+          if (shop.gstin != null) 'gst_number': shop.gstin,
+          'updated_at': DateTime.now().toIso8601String(),
+        };
+
         String cleanId = shop.id.trim();
         if (cleanId.startsWith('shop-')) {
           cleanId = cleanId.replaceFirst('shop-', '');
@@ -864,61 +874,108 @@ class SupabaseService {
 
         final isUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(cleanId);
 
+        String targetShopId;
+        bool isExistingInDb = false;
+
         if (isUuid) {
           final existing = await client!.from('shops').select('id').eq('id', cleanId).maybeSingle();
           if (existing != null) {
-            final updated = await client!.from('shops').update(payload).eq('id', cleanId).select().maybeSingle();
-            if (updated != null) {
-              _localShop = Shop.fromJson(updated);
-            }
-          } else if (user != null) {
-            await client!.from('shops').insert({
-              'id': cleanId,
-              'owner_id': user.id,
-              ...payload,
-            });
-            try {
-              await client!.from('shop_members').upsert({
-                'shop_id': cleanId,
-                'user_id': user.id,
-                'role': 'owner',
-              });
-            } catch (_) {}
-            final created = await client!.from('shops').select('*').eq('id', cleanId).maybeSingle();
-            if (created != null) {
-              _localShop = Shop.fromJson(created);
-            }
-          }
-        } else if (user != null) {
-          final existing = await client!.from('shops').select('*').eq('owner_id', user.id).maybeSingle();
-          if (existing != null && existing['id'] != null) {
-            final realId = existing['id'] as String;
-            final updated = await client!.from('shops').update(payload).eq('id', realId).select().maybeSingle();
-            if (updated != null) {
-              _localShop = Shop.fromJson(updated);
-            } else {
-              _localShop = shop.copyWith(id: realId);
-            }
+            targetShopId = cleanId;
+            isExistingInDb = true;
           } else {
-            final newId = const Uuid().v4();
-            await client!.from('shops').insert({
-              'id': newId,
-              ...payload,
-              'owner_id': user.id,
-            });
-            try {
-              await client!.from('shop_members').upsert({
-                'shop_id': newId,
-                'user_id': user.id,
-                'role': 'owner',
-              });
-            } catch (_) {}
-            final created = await client!.from('shops').select('*').eq('id', newId).maybeSingle();
-            if (created != null) {
-              _localShop = Shop.fromJson(created);
+            targetShopId = cleanId;
+            isExistingInDb = false;
+          }
+        } else {
+          // Check if user already owns a shop in cloud
+          final member = await client!.from('shop_members').select('shop_id').eq('user_id', user.id).maybeSingle();
+          if (member != null && member['shop_id'] != null) {
+            targetShopId = member['shop_id'].toString();
+            isExistingInDb = true;
+          } else {
+            final owned = await client!.from('shops').select('id').eq('owner_id', user.id).maybeSingle();
+            if (owned != null && owned['id'] != null) {
+              targetShopId = owned['id'].toString();
+              isExistingInDb = true;
+            } else {
+              targetShopId = const Uuid().v4();
+              isExistingInDb = false;
             }
           }
         }
+
+        // Try updating/inserting full payload first; fallback to core payload if columns missing
+        try {
+          if (isExistingInDb) {
+            final updated = await client!.from('shops').update(fullPayload).eq('id', targetShopId).select().maybeSingle();
+            if (updated != null) {
+              _localShop = Shop.fromJson(updated);
+            }
+          } else {
+            await client!.from('shops').insert({
+              'id': targetShopId,
+              'owner_id': user.id,
+              ...fullPayload,
+            });
+            try {
+              await client!.from('shop_members').upsert({
+                'shop_id': targetShopId,
+                'user_id': user.id,
+                'role': 'owner',
+              });
+            } catch (_) {}
+            final created = await client!.from('shops').select('*').eq('id', targetShopId).maybeSingle();
+            if (created != null) {
+              _localShop = Shop.fromJson(created);
+            } else {
+              _localShop = shop.copyWith(id: targetShopId);
+            }
+          }
+        } catch (fullErr) {
+          debugPrint("Full shop update failed (likely missing columns), falling back to core payload: $fullErr");
+          if (isExistingInDb) {
+            final updated = await client!.from('shops').update(corePayload).eq('id', targetShopId).select().maybeSingle();
+            if (updated != null) {
+              _localShop = _localShop.copyWith(
+                id: targetShopId,
+                name: updated['name'] ?? _localShop.name,
+                phone: updated['phone'] ?? _localShop.phone,
+                address: updated['address'] ?? _localShop.address,
+                gstin: updated['gst_number'] ?? _localShop.gstin,
+              );
+            }
+          } else {
+            await client!.from('shops').insert({
+              'id': targetShopId,
+              'owner_id': user.id,
+              ...corePayload,
+            });
+            try {
+              await client!.from('shop_members').upsert({
+                'shop_id': targetShopId,
+                'user_id': user.id,
+                'role': 'owner',
+              });
+            } catch (_) {}
+            final created = await client!.from('shops').select('*').eq('id', targetShopId).maybeSingle();
+            if (created != null) {
+              _localShop = _localShop.copyWith(
+                id: targetShopId,
+                name: created['name'] ?? _localShop.name,
+                phone: created['phone'] ?? _localShop.phone,
+                address: created['address'] ?? _localShop.address,
+                gstin: created['gst_number'] ?? _localShop.gstin,
+              );
+            } else {
+              _localShop = shop.copyWith(id: targetShopId);
+            }
+          }
+        }
+
+        // Cache the newly resolved shop
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('saved_shop_data', jsonEncode(_localShop.toJson()));
+        await prefs.setString('saved_shop_data_${user.id}', jsonEncode(_localShop.toJson()));
       } catch (e) {
         debugPrint("Error updating shop settings in cloud: $e");
       }
