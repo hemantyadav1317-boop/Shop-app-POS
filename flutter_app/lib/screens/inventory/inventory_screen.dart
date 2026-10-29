@@ -64,8 +64,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
               children: [
                 if (existingCat == null) ...[
                   const Text(
-                    'जैसे: FRUITS, VEGETABLES, DAIRY, SNACKS, SWEETS आदि',
-                    style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                    'जैसे: किराना, फल, सब्जियां, स्नैक्स, डेयरी, कोल्ड ड्रिंक्स आदि',
+                    style: TextStyle(fontSize: 11.5, color: AppColors.lightTextSecondary),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -74,11 +74,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     autofocus: true,
                     decoration: const InputDecoration(
                       labelText: 'कैटेगरी का नाम *',
-                      hintText: 'उदा. COLD DRINKS',
+                      hintText: 'उदा. किराना (GROCERY)',
                       prefixIcon: Icon(Icons.label_outline),
                     ),
                   ),
-                  const SizedBox(height: 12),
                 ] else ...[
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -91,158 +90,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                     ),
                   ),
-                  const SizedBox(height: 12),
                 ],
-
-                // Category Image Upload Card
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySurface.withOpacity(0.35),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      ProductImageView(
-                        imageUrl: selectedImageUrl,
-                        fallbackIcon: catNameCtrl.text.isNotEmpty ? catNameCtrl.text.substring(0, 1) : '📁',
-                        size: 64,
-                        borderRadius: 12,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              selectedImageUrl != null && selectedImageUrl!.trim().isNotEmpty
-                                  ? 'कैटेगरी फोटो सेट है'
-                                  : 'कोई फोटो नहीं (खाली)',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                            ),
-                            const SizedBox(height: 3),
-                            const Text(
-                              'कैमरा या गैलरी से फोटो अपलोड करें:',
-                              style: TextStyle(fontSize: 10, color: AppColors.lightTextSecondary),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 6,
-                              children: [
-                                ElevatedButton.icon(
-                                  icon: const Icon(Icons.photo_library, size: 14),
-                                  label: const Text('गैलरी (Upload)', style: TextStyle(fontSize: 11)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  onPressed: () async {
-                                    try {
-                                      final img = await picker.pickImage(
-                                        source: ImageSource.gallery,
-                                        maxWidth: 400,
-                                        maxHeight: 400,
-                                        imageQuality: 80,
-                                      );
-                                      if (img != null) {
-                                        final bytes = await img.readAsBytes();
-                                        final shop = context.read<ShopProvider>().shop;
-                                        final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
-                                          shopId: shop.id,
-                                          folder: 'categories',
-                                          fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
-                                          bytes: bytes,
-                                        );
-                                        setDialogState(() {
-                                          selectedImageUrl = uploadedUrl;
-                                          catImgCtrl.text = uploadedUrl;
-                                        });
-                                      }
-                                    } catch (e) {
-                                      debugPrint("Category gallery error: $e");
-                                    }
-                                  },
-                                ),
-                                ElevatedButton.icon(
-                                  icon: const Icon(Icons.camera_alt, size: 14),
-                                  label: const Text('कैमरा (Photo)', style: TextStyle(fontSize: 11)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  onPressed: () async {
-                                    try {
-                                      final img = await picker.pickImage(
-                                        source: ImageSource.camera,
-                                        maxWidth: 400,
-                                        maxHeight: 400,
-                                        imageQuality: 80,
-                                      );
-                                      if (img != null) {
-                                        final bytes = await img.readAsBytes();
-                                        final shop = context.read<ShopProvider>().shop;
-                                        final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
-                                          shopId: shop.id,
-                                          folder: 'categories',
-                                          fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
-                                          bytes: bytes,
-                                        );
-                                        setDialogState(() {
-                                          selectedImageUrl = uploadedUrl;
-                                          catImgCtrl.text = uploadedUrl;
-                                        });
-                                      }
-                                    } catch (e) {
-                                      debugPrint("Category camera error: $e");
-                                    }
-                                  },
-                                ),
-                                if (selectedImageUrl != null && selectedImageUrl!.trim().isNotEmpty)
-                                  OutlinedButton.icon(
-                                    icon: const Icon(Icons.close, size: 13, color: AppColors.error),
-                                    label: const Text('हटाएं', style: TextStyle(fontSize: 11, color: AppColors.error)),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      visualDensity: VisualDensity.compact,
-                                      side: const BorderSide(color: AppColors.error),
-                                    ),
-                                    onPressed: () {
-                                      setDialogState(() {
-                                        selectedImageUrl = '';
-                                        catImgCtrl.clear();
-                                      });
-                                    },
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: catImgCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'या इमेज का लिंक/URL डालें (वैकल्पिक)',
-                    hintText: 'https://...',
-                    prefixIcon: Icon(Icons.link, size: 18),
-                    isDense: true,
-                  ),
-                  onChanged: (val) {
-                    setDialogState(() {
-                      selectedImageUrl = val.trim();
-                    });
-                  },
-                ),
               ],
             ),
           ),
@@ -260,8 +108,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 if (existingCat == null) {
                   await provider.addCategory(cat);
                 }
-                final finalImg = (selectedImageUrl ?? catImgCtrl.text.trim()).trim();
-                await provider.setCategoryImage(cat, finalImg);
                 SoundService.instance.playSuccess();
                 if (context.mounted) {
                   Navigator.pop(ctx);
@@ -269,7 +115,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: AppColors.primary,
-                      content: Text('कैटेगरी "$cat" की फोटो व विवरण सुरक्षित हो गया'),
+                      content: Text('कैटेगरी "$cat" सफलतापूर्वक सुरक्षित हो गई'),
                     ),
                   );
                 }
@@ -387,7 +233,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     final purchasePriceCtrl = TextEditingController(text: existing?.purchasePrice?.toString() ?? '');
     final stockCtrl = TextEditingController(text: existing != null ? existing.stock.toString() : '0');
     final lowStockCtrl = TextEditingController(text: existing != null ? existing.lowStockAt.toString() : '5');
-    final tagCtrl = TextEditingController(text: existing?.tag ?? '');
     String unit = existing?.unit ?? 'kg';
     String icon = existing?.icon ?? '📦';
     String? imageUrl = existing?.imageUrl;
@@ -697,37 +542,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-
-                // Product Tag / Batch Input
-                TextField(
-                  controller: tagCtrl,
-                  decoration: InputDecoration(
-                    labelText: 'प्रोडक्ट बैच / टैग (Badge on Card)',
-                    hintText: 'उदा. ताजा, बेस्टसेलर, ऑर्गैनिक, नई आवक, Batch #1',
-                    prefixIcon: const Icon(Icons.bookmark_border_rounded),
-                    suffixIcon: tagCtrl.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 16),
-                            onPressed: () => setDialogState(() => tagCtrl.clear()),
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: ['ताजा', 'बेस्टसेलर', 'ऑर्गैनिक', 'नई आवक', 'डिस्काउंट']
-                      .map((preset) => ActionChip(
-                            label: Text(preset, style: const TextStyle(fontSize: 11)),
-                            onPressed: () => setDialogState(() => tagCtrl.text = preset),
-                            backgroundColor: tagCtrl.text == preset
-                                ? AppColors.primarySurface
-                                : Colors.grey.shade100,
-                          ))
-                      .toList(),
-                ),
               ],
             ),
           ),
@@ -765,7 +579,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   lowStockAt: double.tryParse(lowStockCtrl.text) ?? 5.0,
                   imageUrl: imageUrl,
                   icon: icon,
-                  tag: tagCtrl.text.trim().isNotEmpty ? tagCtrl.text.trim() : null,
                 );
 
                 final provider = context.read<ProductProvider>();

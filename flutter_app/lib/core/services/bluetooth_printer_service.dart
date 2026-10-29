@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
 import 'ai_quote_service.dart';
+import 'printer_settings_service.dart';
 
 class BluetoothPrinterService {
   static const String _prefMacKey = 'saved_bt_printer_mac';
@@ -108,7 +109,8 @@ class BluetoothPrinterService {
 
     try {
       final profile = await CapabilityProfile.load();
-      final is80mm = shop.printPaperSize == '80mm';
+      final ps = PrinterSettingsService.instance;
+      final is80mm = ps.paperSize == '80mm' || shop.printPaperSize == '80mm';
       final paperSize = is80mm ? PaperSize.mm80 : PaperSize.mm58;
       final generator = Generator(paperSize, profile);
 
@@ -116,7 +118,7 @@ class BluetoothPrinterService {
       bytes += generator.reset();
 
       if (imageBytes != null && imageBytes.isNotEmpty) {
-        // High-fidelity image mode (Supports Hindi, Barcode, Logo, Exact Layout)
+        // High-fidelity image mode (Supports Hindi, Barcode, Logo, Exact Scaled Fonts)
         img.Image? decoded = img.decodeImage(imageBytes);
         if (decoded != null) {
           final targetWidth = is80mm ? 576 : 384;
@@ -128,21 +130,26 @@ class BluetoothPrinterService {
           bytes += generator.imageRaster(whiteBg, align: PosAlign.center);
         }
       } else {
-        // Text mode fallback
-        bytes += generator.text(
-          shop.name,
-          styles: const PosStyles(
-            align: PosAlign.center,
-            height: PosTextSize.size2,
-            width: PosTextSize.size2,
-            bold: true,
-          ),
-        );
-        if (shop.address != null && shop.address!.isNotEmpty) {
+        // Text mode fallback respecting toggles & scaling
+        if (ps.showShopName) {
+          bytes += generator.text(
+            shop.name,
+            styles: const PosStyles(
+              align: PosAlign.center,
+              height: PosTextSize.size2,
+              width: PosTextSize.size2,
+              bold: true,
+            ),
+          );
+        }
+        if (ps.showAddress && shop.address != null && shop.address!.isNotEmpty) {
           bytes += generator.text(shop.address!, styles: const PosStyles(align: PosAlign.center));
         }
-        if (shop.phone != null && shop.phone!.isNotEmpty) {
+        if (ps.showPhone && shop.phone != null && shop.phone!.isNotEmpty) {
           bytes += generator.text('Tel: ${shop.phone!}', styles: const PosStyles(align: PosAlign.center));
+        }
+        if (ps.showGstin && shop.gstin != null && shop.gstin!.isNotEmpty) {
+          bytes += generator.text('GSTIN: ${shop.gstin!}', styles: const PosStyles(align: PosAlign.center));
         }
         bytes += generator.hr();
 
@@ -167,9 +174,16 @@ class BluetoothPrinterService {
           PosColumn(text: '₹${sale.total.toStringAsFixed(2)}', width: 6, styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size2)),
         ]);
         bytes += generator.hr();
-        final quote = await AiQuoteService.getUniqueQuoteForBill();
-        bytes += generator.text(quote.line1, styles: const PosStyles(align: PosAlign.center, bold: true));
-        bytes += generator.text(quote.line2, styles: const PosStyles(align: PosAlign.center));
+
+        if (ps.showQuote) {
+          final quote = await AiQuoteService.getUniqueQuoteForBill();
+          bytes += generator.text(quote.line1, styles: const PosStyles(align: PosAlign.center, bold: true));
+          bytes += generator.text(quote.line2, styles: const PosStyles(align: PosAlign.center));
+        }
+
+        if (ps.showFooter) {
+          bytes += generator.text(shop.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏', styles: const PosStyles(align: PosAlign.center));
+        }
       }
 
       bytes += generator.feed(2);

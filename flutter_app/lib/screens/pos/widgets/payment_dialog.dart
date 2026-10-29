@@ -718,6 +718,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 footerMessage: shop.receiptFooter,
                 quoteLine1: _currentBillQuote?.line1,
                 quoteLine2: _currentBillQuote?.line2,
+                upiId: shop.upiId,
               ),
             ),
           ),

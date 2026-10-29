@@ -31,6 +31,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
   late double _qty;
   late double _rate;
   bool _isEditingRate = false;
+  bool _replaceOnNextKey = true;
 
   @override
   void initState() {
@@ -38,7 +39,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
     _qty = widget.initialQty > 0 ? widget.initialQty : 1.0;
     _rate = widget.product.price;
     _qtyController = TextEditingController(text: _formatQty(_qty));
-    _rateController = TextEditingController(text: _rate.toStringAsFixed(2));
+    _rateController = TextEditingController(text: _formatRate(_rate));
 
     _qtyController.addListener(_handleQtyChange);
     _rateController.addListener(_handleRateChange);
@@ -73,6 +74,11 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
     return q.toString();
   }
 
+  String _formatRate(double r) {
+    if (r % 1 == 0) return r.toInt().toString();
+    return r.toStringAsFixed(2);
+  }
+
   @override
   void dispose() {
     _qtyController.removeListener(_handleQtyChange);
@@ -87,16 +93,53 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
     double newQty = _qty + delta;
     if (newQty < 0.05) newQty = 0.05;
     newQty = double.parse(newQty.toStringAsFixed(3));
-    _qtyController.text = _formatQty(newQty);
+    setState(() {
+      _replaceOnNextKey = false;
+      _qtyController.text = _formatQty(newQty);
+    });
   }
 
   void _setDirectWeight(double val) {
     SoundService.instance.playClick();
-    _qtyController.text = _formatQty(val);
+    setState(() {
+      _replaceOnNextKey = false;
+      _qtyController.text = _formatQty(val);
+    });
+  }
+
+  void _switchTab(bool toRate) {
+    SoundService.instance.playButtonClick();
+    setState(() {
+      _isEditingRate = toRate;
+      _replaceOnNextKey = true;
+    });
+  }
+
+  void _allClear() {
+    SoundService.instance.playDelete();
+    setState(() {
+      _replaceOnNextKey = false;
+      if (!_isEditingRate) {
+        _qtyController.text = '';
+        _qty = 0.0;
+      } else {
+        _rateController.text = '';
+        _rate = 0.0;
+      }
+    });
   }
 
   void _confirmAndSubmit() {
-    if (_qty <= 0) return;
+    if (_qty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFFDC2626),
+          content: Text('⚠️ कृपया सही मात्रा (Quantity) दर्ज करें!'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
 
     final shop = context.read<ShopProvider>().shop;
     if (!shop.allowNegativeStock) {
@@ -217,9 +260,10 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                     // Quantity and Rate selector tabs
                     Row(
                       children: [
+                        // Quantity Tab
                         Expanded(
                           child: InkWell(
-                            onTap: () => setState(() => _isEditingRate = false),
+                            onTap: () => _switchTab(false),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -236,7 +280,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                               child: Column(
                                 children: [
                                   Text(
-                                    'मात्रा (${widget.product.unit})',
+                                    '1. मात्रा (${widget.product.unit})',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -258,9 +302,11 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                           ),
                         ),
                         const SizedBox(width: 8),
+
+                        // Rate Tab
                         Expanded(
                           child: InkWell(
-                            onTap: () => setState(() => _isEditingRate = true),
+                            onTap: () => _switchTab(true),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -277,7 +323,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                               child: Column(
                                 children: [
                                   Text(
-                                    'दर (₹ प्रति ${widget.product.unit})',
+                                    '2. दर (₹ प्रति ${widget.product.unit})',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -286,7 +332,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '₹ ${_rateController.text}',
+                                    _rateController.text.isNotEmpty ? '₹ ${_rateController.text}' : '₹ 0',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.w900,
@@ -295,6 +341,37 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                                   ),
                                 ],
                               ),
+                            ),
+                          ),
+                        ),
+
+                        // AC Button
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: _allClear,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: const Column(
+                              children: [
+                                Text(
+                                  'AC',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                                Text(
+                                  'Clear',
+                                  style: TextStyle(fontSize: 8.5, color: Colors.red, fontWeight: FontWeight.bold),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -342,39 +419,45 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                       const SizedBox(height: 8),
                     ],
 
-                    // Quick +/- stepper
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        OutlinedButton(
-                          onPressed: () => _adjustQty(isKg ? -0.25 : -1.0),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    // Quick +/- stepper for quantity
+                    if (!_isEditingRate)
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () => _adjustQty(isKg ? -0.25 : -1.0),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Icon(Icons.remove, size: 18),
                           ),
-                          child: const Icon(Icons.remove, size: 18),
-                        ),
-                        const SizedBox(width: 14),
-                        Text(
-                          !_isEditingRate ? '${_formatQty(_qty)} ${widget.product.unit}' : '₹ ${_rate.toStringAsFixed(2)}',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                        const SizedBox(width: 14),
-                        OutlinedButton(
-                          onPressed: () => _adjustQty(isKg ? 0.25 : 1.0),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          const SizedBox(width: 14),
+                          Text(
+                            '${_formatQty(_qty)} ${widget.product.unit}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          child: const Icon(Icons.add, size: 18),
-                        ),
-                      ],
-                    ),
+                          const SizedBox(width: 14),
+                          OutlinedButton(
+                            onPressed: () => _adjustQty(isKg ? 0.25 : 1.0),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Icon(Icons.add, size: 18),
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: 6),
 
-                    // Tactile POS Touch Keypad (Directly operates without mobile keyboard)
+                    // Tactile POS Touch Keypad with AC, Backspace, and Done
                     PosNumpad(
                       controller: !_isEditingRate ? _qtyController : _rateController,
+                      replaceOnNextKey: _replaceOnNextKey,
+                      onFirstKeyConsumed: () {
+                        setState(() => _replaceOnNextKey = false);
+                      },
+                      onAllClear: _allClear,
                       onChanged: (val) {
                         if (!_isEditingRate) {
                           _handleQtyChange();
@@ -382,6 +465,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                           _handleRateChange();
                         }
                       },
+                      onSubmitted: _confirmAndSubmit,
                     ),
                   ],
                 ),

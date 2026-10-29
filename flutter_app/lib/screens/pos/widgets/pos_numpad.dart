@@ -6,12 +6,18 @@ class PosNumpad extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onSubmitted;
+  final VoidCallback? onAllClear;
+  final bool replaceOnNextKey;
+  final VoidCallback? onFirstKeyConsumed;
 
   const PosNumpad({
     super.key,
     required this.controller,
     this.onChanged,
     this.onSubmitted,
+    this.onAllClear,
+    this.replaceOnNextKey = false,
+    this.onFirstKeyConsumed,
   });
 
   void _onKey(String val) {
@@ -19,8 +25,9 @@ class PosNumpad extends StatelessWidget {
 
     if (val == '.') {
       SoundService.instance.playDot();
-      if (current.isEmpty || current == '1' || current == '0') {
+      if (replaceOnNextKey || current.isEmpty || current == '0') {
         current = '0.';
+        onFirstKeyConsumed?.call();
       } else if (!current.contains('.')) {
         current = '$current.';
       }
@@ -29,16 +36,23 @@ class PosNumpad extends StatelessWidget {
       if (current.isNotEmpty) {
         current = current.substring(0, current.length - 1);
       }
-    } else if (val == 'CLR') {
+      onFirstKeyConsumed?.call();
+    } else if (val == 'AC') {
       SoundService.instance.playDelete();
       current = '';
+      onFirstKeyConsumed?.call();
+      onAllClear?.call();
     } else {
       SoundService.instance.playNumberKey();
-      // If default '1' is untouched and user types a digit, replace it
-      if (current == '1') {
+      if (replaceOnNextKey) {
         current = val;
+        onFirstKeyConsumed?.call();
       } else {
-        current = '$current$val';
+        if (current == '0' && val != '00') {
+          current = val;
+        } else {
+          current = '$current$val';
+        }
       }
     }
 
@@ -50,57 +64,88 @@ class PosNumpad extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // 4x4 Tactile Layout with dedicated 'AC' (All Clear), Backspace, and double zero
     final keys = [
-      ['1', '2', '3'],
-      ['4', '5', '6'],
-      ['7', '8', '9'],
-      ['.', '0', 'BACK'],
+      ['1', '2', '3', 'AC'],
+      ['4', '5', '6', 'BACK'],
+      ['7', '8', '9', '00'],
+      ['.', '0', '000', 'DONE'],
     ];
 
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: keys.map((row) {
           return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.symmetric(vertical: 2.5),
             child: Row(
               children: row.map((k) {
-                final isAction = k == 'BACK' || k == '.';
-                final actionBg = isDark ? const Color(0xFF334155) : Colors.grey.shade200;
-                final normalBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+                final isAC = k == 'AC';
+                final isBack = k == 'BACK';
+                final isDone = k == 'DONE';
+                final isAction = isBack || k == '.' || k == '00' || k == '000';
+
+                Color btnBg;
+                if (isAC) {
+                  btnBg = Colors.red.shade50;
+                } else if (isDone) {
+                  btnBg = const Color(0xFF00875A);
+                } else if (isAction) {
+                  btnBg = isDark ? const Color(0xFF334155) : Colors.grey.shade200;
+                } else {
+                  btnBg = isDark ? const Color(0xFF0F172A) : Colors.white;
+                }
 
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 2.5),
                     child: Material(
-                      color: isAction ? actionBg : normalBg,
-                      borderRadius: BorderRadius.circular(10),
-                      elevation: isDark ? 0 : 1,
+                      color: btnBg,
+                      borderRadius: BorderRadius.circular(8),
+                      elevation: isDone ? 1 : (isDark ? 0 : 0.5),
                       shadowColor: Colors.black12,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => _onKey(k),
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          if (isDone) {
+                            SoundService.instance.playButtonClick();
+                            onSubmitted?.call();
+                          } else {
+                            _onKey(k);
+                          }
+                        },
                         child: Container(
-                          height: 44,
+                          height: 42,
                           alignment: Alignment.center,
-                          child: k == 'BACK'
-                              ? const Icon(Icons.backspace_outlined, size: 20, color: AppColors.error)
-                              : Text(
-                                  k,
-                                  style: TextStyle(
-                                    fontSize: k == '.' ? 24 : 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: k == '.'
-                                        ? AppColors.primary
-                                        : (isDark ? Colors.white : Colors.black87),
-                                  ),
-                                ),
+                          child: isBack
+                              ? const Icon(Icons.backspace_outlined, size: 19, color: AppColors.error)
+                              : isDone
+                                  ? const Icon(Icons.check, size: 20, color: Colors.white)
+                                  : isAC
+                                      ? const Text(
+                                          'AC',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.red,
+                                          ),
+                                        )
+                                      : Text(
+                                          k,
+                                          style: TextStyle(
+                                            fontSize: (k == '00' || k == '000') ? 14 : 17,
+                                            fontWeight: FontWeight.bold,
+                                            color: k == '.'
+                                                ? AppColors.primary
+                                                : (isDark ? Colors.white : Colors.black87),
+                                          ),
+                                        ),
                         ),
                       ),
                     ),

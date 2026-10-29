@@ -88,6 +88,21 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
+  void setPrice(String? productId, String name, double newPrice) {
+    if (newPrice < 0) return;
+
+    final index = _lines.indexWhere(
+      (line) => (line.productId != null && line.productId == productId) ||
+          (line.productId == null && line.name.toLowerCase() == name.toLowerCase()),
+    );
+
+    if (index != -1) {
+      _lines[index] = _lines[index].copyWith(price: newPrice);
+      SoundService.instance.playButtonClick();
+      notifyListeners();
+    }
+  }
+
   void setDiscount(double value) {
     _discount = value < 0 ? 0.0 : value;
     notifyListeners();

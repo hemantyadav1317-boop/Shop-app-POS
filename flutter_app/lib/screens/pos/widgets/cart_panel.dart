@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/customer.dart';
+import '../../../../data/models/cart_item.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/customer_provider.dart';
 import '../../../../providers/shop_provider.dart';
@@ -110,6 +111,88 @@ class _CartPanelState extends State<CartPanel> {
           ),
         );
       },
+    );
+  }
+
+  void _showEditRateDialog(BuildContext context, CartItem item, CartProvider cart) {
+    SoundService.instance.playButtonClick();
+    final rateCtrl = TextEditingController(
+      text: item.price % 1 == 0 ? item.price.toInt().toString() : item.price.toStringAsFixed(2),
+    );
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.edit_note_rounded, color: Color(0xFF00875A), size: 24),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'दर बदलें / Update Rate',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'वर्तमान दर: ₹${item.price} प्रति ${item.unit}  •  मात्रा: ${item.qty} ${item.unit}',
+              style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: rateCtrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: 'नई दर (₹ प्रति ${item.unit}) *',
+                prefixIcon: const Icon(Icons.currency_rupee),
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('रद्द करें (Cancel)'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00875A),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              final newRate = double.tryParse(rateCtrl.text.trim());
+              if (newRate != null && newRate >= 0) {
+                cart.setPrice(item.productId, item.name, newRate);
+                SoundService.instance.playSuccess();
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: const Color(0xFF00875A),
+                    duration: const Duration(seconds: 2),
+                    content: Text('\'${item.name}\' की नई दर ₹$newRate सुरक्षित हो गई'),
+                  ),
+                );
+              }
+            },
+            child: const Text('अपडेट करें (Save)'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -268,91 +351,157 @@ class _CartPanelState extends State<CartPanel> {
                   itemBuilder: (context, i) {
                     final item = cart.lines[i];
                     final step = item.unit.toLowerCase() == 'kg' ? 0.25 : 1.0;
+                    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Row(
-                        children: [
-                          ProductImageView(
-                            imageUrl: item.imageUrl,
-                            fallbackIcon: item.icon,
-                            size: 38,
-                            borderRadius: 6,
+                    return Dismissible(
+                      key: ValueKey('cart_line_${item.productId ?? item.name}_$i'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: AppColors.error,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 22),
+                            SizedBox(width: 4),
+                            Text(
+                              'हटाएं',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                      onDismissed: (_) {
+                        SoundService.instance.playDelete();
+                        cart.removeLine(item.productId, item.name);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            duration: const Duration(seconds: 2),
+                            content: Text('\'${item.name}\' बिल से हटा दिया गया'),
+                            action: SnackBarAction(
+                              label: 'वापस जोड़ें (Undo)',
+                              textColor: Colors.amber,
+                              onPressed: () => cart.addLine(item),
+                            ),
                           ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                        );
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            ProductImageView(
+                              imageUrl: item.imageUrl,
+                              fallbackIcon: item.icon,
+                              size: 38,
+                              borderRadius: 6,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.name,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  // Editable Rate with pencil icon
+                                  InkWell(
+                                    onTap: () => _showEditRateDialog(context, item, cart),
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '₹${item.price.toStringAsFixed(item.price % 1 == 0 ? 0 : 2)}/${item.unit}',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark ? Colors.white70 : Colors.black87,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        const Icon(Icons.edit_outlined, size: 12, color: Color(0xFF00875A)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Qty buttons with High-Contrast Quantity Pill
+                            Row(
                               children: [
-                                Text(
-                                  item.name,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
+                                IconButton(
+                                  icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () {
+                                    if (item.qty <= step) {
+                                      SoundService.instance.playDelete();
+                                    } else {
+                                      SoundService.instance.playClick();
+                                    }
+                                    cart.setQty(item.productId, item.name, item.qty - step);
+                                  },
                                 ),
-                                Text(
-                                  '${CurrencyFormatter.format(item.price)} / ${item.unit}',
-                                  style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                                Container(
+                                  constraints: const BoxConstraints(minWidth: 44),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
+                                  ),
+                                  child: Text(
+                                    item.qty % 1 == 0 ? '${item.qty.toInt()} ${item.unit}' : '${item.qty.toStringAsFixed(2)} ${item.unit}',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 12,
+                                      color: Color(0xFF00875A),
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_outline, size: 20),
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () {
+                                    final shop = context.read<ShopProvider>().shop;
+                                    final productProv = context.read<ProductProvider>();
+                                    final prod = productProv.getProductById(item.productId);
+                                    final nextQty = item.qty + step;
+
+                                    if (prod != null && nextQty > prod.stock && !shop.allowNegativeStock) {
+                                      SoundService.instance.playError();
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          backgroundColor: AppColors.error,
+                                          duration: const Duration(seconds: 2),
+                                          content: Text('⚠️ अधिकतम स्टॉक सीमा (${prod.stock} ${item.unit})!'),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    SoundService.instance.playProductAdd();
+                                    cart.setQty(item.productId, item.name, nextQty);
+                                  },
                                 ),
                               ],
                             ),
-                          ),
-                          // Qty buttons
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline, size: 20),
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () {
-                                  if (item.qty <= step) {
-                                    SoundService.instance.playDelete();
-                                  } else {
-                                    SoundService.instance.playClick();
-                                  }
-                                  cart.setQty(item.productId, item.name, item.qty - step);
-                                },
-                              ),
-                              Container(
-                                constraints: const BoxConstraints(minWidth: 36),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  item.qty % 1 == 0 ? item.qty.toInt().toString() : item.qty.toStringAsFixed(2),
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.add_circle_outline, size: 20),
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () {
-                                  final shop = context.read<ShopProvider>().shop;
-                                  final productProv = context.read<ProductProvider>();
-                                  final prod = productProv.getProductById(item.productId);
-                                  final nextQty = item.qty + step;
-
-                                  if (prod != null && nextQty > prod.stock && !shop.allowNegativeStock) {
-                                    SoundService.instance.playError();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        backgroundColor: AppColors.error,
-                                        duration: const Duration(seconds: 2),
-                                        content: Text('⚠️ अधिकतम स्टॉक सीमा (${prod.stock} ${item.unit})!'),
-                                      ),
-                                    );
-                                    return;
-                                  }
-
-                                  SoundService.instance.playProductAdd();
-                                  cart.setQty(item.productId, item.name, nextQty);
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            CurrencyFormatter.format(item.total),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Text(
+                              CurrencyFormatter.format(item.total),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },

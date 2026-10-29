@@ -23,6 +23,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/customer_provider.dart';
 import '../auth/login_screen.dart';
+import 'printer_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -250,6 +251,116 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
+  void _confirmLogout(BuildContext context) {
+    SoundService.instance.playButtonClick();
+    final authProvider = context.read<AuthProvider>();
+    final shop = context.read<ShopProvider>().shop;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.logout_rounded, color: Colors.red, size: 28),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'लॉगआउट करें? (Confirm Logout)',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'क्या आप वाकई "${shop.name}" के खाते से लॉगआउट करना चाहते हैं?',
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF00875A).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.cloud_done_rounded, color: Color(0xFF00875A), size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'चिंता न करें! आपका सारा डेटा (बिल, स्टॉक, खाता) क्लाउड पर सुरक्षित है।',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00875A)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('रद्द करें (Cancel)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await authProvider.signOut();
+                      if (context.mounted) {
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          (route) => false,
+                        );
+                      }
+                    },
+                    child: const Text('हाँ, लॉगआउट करें', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveSettings() async {
     FocusScope.of(context).unfocus();
     final currentShop = context.read<ShopProvider>().shop;
@@ -270,25 +381,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
     SoundService.instance.playSuccess();
 
     if (mounted) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.green.shade700,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          content: Row(
-            children: const [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'दुकान की जानकारी (GST/नाम/मोबाइल) सुरक्षित हो गई! ✅',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00875A).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_rounded, color: Color(0xFF00875A), size: 48),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'All Details Saved Successfully! 🎉',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  color: Color(0xFF00875A),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'दुकान की सभी जानकारी व सेटिंग्स सफलतापूर्वक सुरक्षित कर ली गई हैं।',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey, height: 1.35),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF00875A),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('ठीक है (Done)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ),
             ],
           ),
-          duration: const Duration(seconds: 3),
         ),
       );
     }
@@ -562,20 +702,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         visualDensity: VisualDensity.compact,
                       ),
-                      onPressed: () async {
-                        await authProvider.signOut();
-                        if (context.mounted) {
-                          Navigator.pushAndRemoveUntil(
-                            context,
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
-                            (route) => false,
-                          );
-                        }
-                      },
+                      onPressed: () => _confirmLogout(context),
                       child: const Text('लॉगआउट', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // 🖨️ Dedicated Printer Settings Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
+              ),
+              child: ListTile(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00875A).withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.print_rounded, color: Color(0xFF00875A), size: 24),
+                ),
+                title: const Text(
+                  '🖨️ प्रिंटर सेटिंग्स (Printer Settings)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+                subtitle: const Text(
+                  'ब्लूटूथ प्रिंटर, फ़ॉन्ट साइज़ और बिल लेआउट कस्टमाइज़ करें',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                ),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF00875A)),
+                onTap: () {
+                  SoundService.instance.playButtonClick();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+                  );
+                },
               ),
             ),
             const SizedBox(height: 12),
@@ -694,7 +863,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               )
                             : const Icon(Icons.sync, size: 18),
                         label: Text(
-                          _isSyncingCloud ? 'क्लाउड से डेटा सिंक हो रहा है...' : 'अभी डेटा सिंक करें (Sync Data Now)',
+                          _isSyncingCloud ? 'सिंक हो रहा है...' : 'Sync Data (डेटा सिंक)',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                         ),
                       ),
@@ -1335,22 +1504,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         SoundService.instance.playButtonClick();
                         setState(() => _allowNegativeStock = val);
                       },
-                    ),
-                    const Divider(height: 16),
-                    Consumer<ShopProvider>(
-                      builder: (context, sp, _) => SwitchListTile(
-                        title: const Text('प्रोडक्ट बैज दिखाएं (ताजा / बेस्टसेलर)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                        subtitle: Text(
-                          sp.showProductBadges ? 'चालू (दुकान में बैज दिखेंगे)' : 'बंद (क्लीन ग्रिड - बैज छिपे हैं)',
-                          style: TextStyle(fontSize: 11, color: sp.showProductBadges ? Colors.green : Colors.grey),
-                        ),
-                        value: sp.showProductBadges,
-                        contentPadding: EdgeInsets.zero,
-                        onChanged: (val) async {
-                          SoundService.instance.playButtonClick();
-                          await sp.setShowProductBadges(val);
-                        },
-                      ),
                     ),
                   ],
                 ),

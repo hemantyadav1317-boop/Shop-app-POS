@@ -138,6 +138,7 @@ class _BillsScreenState extends State<BillsScreen> {
                       footerMessage: shop.receiptFooter,
                       quoteLine1: AiQuoteService.getQuoteForBillNo(sale.billNo).line1,
                       quoteLine2: AiQuoteService.getQuoteForBillNo(sale.billNo).line2,
+                      upiId: shop.upiId,
                     ),
                   ),
                 ),

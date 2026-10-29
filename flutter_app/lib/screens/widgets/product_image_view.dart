@@ -8,6 +8,8 @@ class ProductImageView extends StatelessWidget {
   final String? imageUrl;
   final String? fallbackIcon;
   final double size;
+  final double? width;
+  final double? height;
   final double borderRadius;
   final BoxFit fit;
 
@@ -16,6 +18,8 @@ class ProductImageView extends StatelessWidget {
     this.imageUrl,
     this.fallbackIcon,
     this.size = 48.0,
+    this.width,
+    this.height,
     this.borderRadius = 8.0,
     this.fit = BoxFit.cover,
   });
@@ -23,6 +27,8 @@ class ProductImageView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+    final w = width ?? size;
+    final h = height ?? size;
 
     Widget imageContent;
 
@@ -35,8 +41,8 @@ class ProductImageView extends StatelessWidget {
           final bytes = base64Decode(base64Data);
           imageContent = Image.memory(
             bytes,
-            width: size,
-            height: size,
+            width: w,
+            height: h,
             fit: fit,
             errorBuilder: (context, error, stackTrace) => _buildFallback(),
           );
@@ -46,15 +52,15 @@ class ProductImageView extends StatelessWidget {
       } else if (url.startsWith('http://') || url.startsWith('https://')) {
         imageContent = Image.network(
           url,
-          width: size,
-          height: size,
+          width: w,
+          height: h,
           fit: fit,
           errorBuilder: (context, error, stackTrace) => _buildFallback(),
           loadingBuilder: (ctx, child, progress) {
             if (progress == null) return child;
             return Container(
-              width: size,
-              height: size,
+              width: w,
+              height: h,
               color: AppColors.lightMuted,
               child: const Center(
                 child: SizedBox(
@@ -73,8 +79,8 @@ class ProductImageView extends StatelessWidget {
           if (file.existsSync()) {
             imageContent = Image.file(
               file,
-              width: size,
-              height: size,
+              width: w,
+              height: h,
               fit: fit,
               errorBuilder: (context, error, stackTrace) => _buildFallback(),
             );
@@ -94,12 +100,12 @@ class ProductImageView extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: Container(
-        width: size,
-        height: size,
+        width: w,
+        height: h,
         decoration: BoxDecoration(
           color: AppColors.lightMuted,
           borderRadius: BorderRadius.circular(borderRadius),
-          border: Border.all(color: AppColors.lightBorder, width: 0.5),
+          border: borderRadius > 0 ? Border.all(color: AppColors.lightBorder, width: 0.5) : null,
         ),
         child: imageContent,
       ),
@@ -107,10 +113,11 @@ class ProductImageView extends StatelessWidget {
   }
 
   Widget _buildFallback() {
+    final iconSize = (height != null && height != double.infinity) ? height! * 0.45 : size * 0.45;
     return Center(
       child: Text(
         fallbackIcon ?? '📦',
-        style: TextStyle(fontSize: size * 0.5),
+        style: TextStyle(fontSize: iconSize.clamp(16.0, 48.0)),
       ),
     );
   }
