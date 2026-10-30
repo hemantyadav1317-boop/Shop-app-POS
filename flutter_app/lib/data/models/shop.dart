@@ -10,6 +10,7 @@ class Shop {
   final String printPaperSize; // '58mm', '80mm'
   final String? receiptFooter;
   final String? qrImageUrl; // Custom Standee QR Image URL or path
+  final String storeType; // 'vegetable', 'kirana', 'mix'
 
   Shop({
     required this.id,
@@ -23,6 +24,7 @@ class Shop {
     this.printPaperSize = '58mm',
     this.receiptFooter = 'धन्यवाद! फिर पधारें 🙏',
     this.qrImageUrl,
+    this.storeType = 'vegetable',
   });
 
   factory Shop.fromJson(Map<String, dynamic> json) {
@@ -38,6 +40,7 @@ class Shop {
       printPaperSize: json['print_paper_size'] as String? ?? '58mm',
       receiptFooter: json['receipt_footer'] as String? ?? 'धन्यवाद! फिर पधारें 🙏',
       qrImageUrl: json['qr_image_url'] as String?,
+      storeType: json['store_type'] as String? ?? 'vegetable',
     );
   }
 
@@ -55,6 +58,7 @@ class Shop {
       'print_paper_size': printPaperSize,
       'receipt_footer': receiptFooter,
       if (qrImageUrl != null) 'qr_image_url': qrImageUrl,
+      'store_type': storeType,
     };
   }
 
@@ -70,6 +74,7 @@ class Shop {
     String? printPaperSize,
     String? receiptFooter,
     String? qrImageUrl,
+    String? storeType,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -83,6 +88,7 @@ class Shop {
       printPaperSize: printPaperSize ?? this.printPaperSize,
       receiptFooter: receiptFooter ?? this.receiptFooter,
       qrImageUrl: qrImageUrl ?? this.qrImageUrl,
+      storeType: storeType ?? this.storeType,
     );
   }
 }

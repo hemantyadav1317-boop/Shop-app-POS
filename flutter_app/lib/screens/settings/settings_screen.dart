@@ -361,6 +361,193 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildStoreModeCard(BuildContext context, ShopProvider shopProvider) {
+    final currentType = shopProvider.storeType;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final modes = [
+      {
+        'id': 'vegetable',
+        'title': 'फल व सब्ज़ी स्टोर (Produce Store)',
+        'subtitle': 'तौल-आधारित (Kg/Gram), टच-स्क्रीन काउंटर',
+        'icon': '🥕',
+        'tag': 'टच फर्स्ट',
+        'color': const Color(0xFF00875A),
+      },
+      {
+        'id': 'kirana',
+        'title': 'किराना व जनरल स्टोर (Kirana & Grocery)',
+        'subtitle': 'बारकोड गन स्कैन, 2026 MRP, पैकेट वैरिएंट, मुनाफा मार्जिन',
+        'icon': '🛒',
+        'tag': 'बारकोड & MRP',
+        'color': const Color(0xFF2563EB),
+      },
+      {
+        'id': 'mix',
+        'title': 'मिक्स सुपरमार्ट (Produce + Grocery)',
+        'subtitle': 'किराना सामान + ताज़ा फल-सब्ज़ी एक ही बिल में',
+        'icon': '🏪',
+        'tag': 'ऑल-इन-वन',
+        'color': const Color(0xFF7C3AED),
+      },
+    ];
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: currentType == 'kirana'
+              ? const Color(0xFF2563EB).withValues(alpha: 0.4)
+              : (currentType == 'mix'
+                  ? const Color(0xFF7C3AED).withValues(alpha: 0.4)
+                  : const Color(0xFF00875A).withValues(alpha: 0.4)),
+          width: 1.5,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: (currentType == 'kirana'
+                            ? const Color(0xFF2563EB)
+                            : (currentType == 'mix' ? const Color(0xFF7C3AED) : const Color(0xFF00875A)))
+                        .withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    currentType == 'kirana' ? '🛒' : (currentType == 'mix' ? '🏪' : '🥕'),
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'दुकान का प्रकार (Store Business Mode)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Text(
+                        'अपनी दुकान के अनुसार बिलिंग इंटरफेस चुनें',
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...modes.map((m) {
+              final isSelected = currentType == m['id'];
+              final color = m['color'] as Color;
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: InkWell(
+                  onTap: () async {
+                    SoundService.instance.playButtonClick();
+                    await shopProvider.setStoreType(m['id'] as String);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: color,
+                          behavior: SnackBarBehavior.floating,
+                          duration: const Duration(seconds: 2),
+                          content: Row(
+                            children: [
+                              Text(m['icon'] as String, style: const TextStyle(fontSize: 18)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text('मोड बदला गया: "${m['title']}" सक्रिय है!'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? color.withValues(alpha: isDark ? 0.2 : 0.08)
+                          : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade50),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected ? color : (isDark ? Colors.white12 : Colors.grey.shade300),
+                        width: isSelected ? 2 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Text(m['icon'] as String, style: const TextStyle(fontSize: 24)),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    m['title'] as String,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13.5,
+                                      color: isSelected ? color : null,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: color.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      m['tag'] as String,
+                                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                m['subtitle'] as String,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? Colors.white70 : Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                          color: isSelected ? color : Colors.grey.shade400,
+                          size: 22,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _saveSettings() async {
     FocusScope.of(context).unfocus();
     final currentShop = context.read<ShopProvider>().shop;
@@ -709,6 +896,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+
+            // 🏪 3-Door Store Mode Switcher Card
+            _buildStoreModeCard(context, shopProvider),
             const SizedBox(height: 12),
 
             // 🖨️ Dedicated Printer Settings Card

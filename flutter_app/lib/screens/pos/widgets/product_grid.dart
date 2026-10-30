@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/fmcg_catalog_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
 import '../../../../providers/product_provider.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'qty_rate_dialog.dart';
 
@@ -52,6 +55,107 @@ class ProductGrid extends StatefulWidget {
 }
 
 class _ProductGridState extends State<ProductGrid> {
+  late TextEditingController _searchCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchCtrl = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleBarcodeScan(
+    String rawCode,
+    ProductProvider productProvider,
+    CartProvider cart,
+    ShopProvider shopProvider,
+  ) async {
+    final code = rawCode.trim();
+    if (code.isEmpty) return;
+
+    // 1. First look for existing product in shop inventory
+    Product? matched;
+    try {
+      matched = productProvider.products.firstWhere((p) => p.barcode?.trim() == code);
+    } catch (_) {
+      matched = null;
+    }
+
+    if (matched != null) {
+      cart.incrementOrAdd(matched);
+      SoundService.instance.playSuccess();
+      _searchCtrl.clear();
+      productProvider.setSearchQuery('');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF00875A),
+            duration: const Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text('✓ "${matched.name}" जोड़ा गया (+1)')),
+              ],
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // 2. Look in preloaded FMCG catalog
+    final fmcg = FmcgCatalogService.instance.findByBarcode(code);
+    if (fmcg != null) {
+      final shop = shopProvider.shop;
+      final newProd = Product(
+        id: const Uuid().v4(),
+        shopId: shop.id,
+        name: fmcg.name,
+        nameHi: fmcg.nameHi,
+        category: fmcg.category,
+        unit: fmcg.unit,
+        price: fmcg.mrp,
+        mrp: fmcg.mrp,
+        purchasePrice: fmcg.defaultCostPrice,
+        barcode: fmcg.barcode,
+        icon: fmcg.icon,
+        stock: 50.0,
+      );
+
+      await productProvider.addProduct(newProd);
+      cart.incrementOrAdd(newProd);
+      SoundService.instance.playSuccess();
+      _searchCtrl.clear();
+      productProvider.setSearchQuery('');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF2563EB),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            content: Row(
+              children: [
+                Text(fmcg.icon, style: const TextStyle(fontSize: 18)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('⚡ "${fmcg.name}" कैटलॉग से जुड़कर बिल में आ गया!'),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   void _showQuickSellDialog(BuildContext context) {
     SoundService.instance.playButtonClick();
     final nameCtrl = TextEditingController(text: 'खुला सामान');
@@ -221,6 +325,7 @@ class _ProductGridState extends State<ProductGrid> {
   Widget build(BuildContext context) {
     final productProvider = context.watch<ProductProvider>();
     final cart = context.watch<CartProvider>();
+    final shopProvider = context.watch<ShopProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -249,21 +354,29 @@ class _ProductGridState extends State<ProductGrid> {
                       ),
                     ),
                     child: TextField(
+                      controller: _searchCtrl,
                       decoration: InputDecoration(
-                        hintText: 'सर्च करें: नाम (Aloo, आलू, Potato) या बारकोड...',
+                        hintText: shopProvider.isKiranaMode
+                            ? 'बारकोड गन स्कैन या सामान खोजें...'
+                            : (shopProvider.isMixMode
+                                ? 'सब्जी या किराना बारकोड सर्च...'
+                                : 'सर्च करें: नाम (Aloo, आलू, Potato) या बारकोड...'),
                         hintStyle: TextStyle(
                           fontSize: isMobile ? 11.5 : 13,
                           color: isDark ? Colors.white60 : Colors.grey.shade500,
                         ),
                         prefixIcon: Icon(
-                          Icons.search_rounded,
+                          shopProvider.isKiranaMode ? Icons.qr_code_scanner_rounded : Icons.search_rounded,
                           size: isMobile ? 20 : 22,
                           color: const Color(0xFF00875A),
                         ),
-                        suffixIcon: productProvider.searchQuery.isNotEmpty
+                        suffixIcon: _searchCtrl.text.isNotEmpty
                             ? IconButton(
                                 icon: const Icon(Icons.clear, size: 18),
-                                onPressed: () => productProvider.setSearchQuery(''),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  productProvider.setSearchQuery('');
+                                },
                               )
                             : null,
                         border: InputBorder.none,
@@ -272,6 +385,13 @@ class _ProductGridState extends State<ProductGrid> {
                       onChanged: (val) {
                         SoundService.instance.playTypeKey();
                         productProvider.setSearchQuery(val);
+                        // Fast barcode auto-detect (if 8 to 14 consecutive digits entered from scanner)
+                        if (RegExp(r'^\d{8,14}$').hasMatch(val.trim())) {
+                          _handleBarcodeScan(val.trim(), productProvider, cart, shopProvider);
+                        }
+                      },
+                      onSubmitted: (val) {
+                        _handleBarcodeScan(val, productProvider, cart, shopProvider);
                       },
                     ),
                   ),
@@ -483,9 +603,31 @@ class _ProductGridState extends State<ProductGrid> {
         child: InkWell(
           borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
           onTap: () {
-            // Touch sound effect on tapping product card
             SoundService.instance.playProductAdd();
-            // Detailed quantity and rate dialog on tapping product card
+            final shop = context.read<ShopProvider>();
+            final isPackaged = product.unit == 'pc' ||
+                product.unit == 'pkt' ||
+                product.unit == 'packet' ||
+                product.unit == 'bottle' ||
+                product.unit == 'pack';
+
+            if ((shop.isKiranaMode && isPackaged) || (shop.isMixMode && isPackaged)) {
+              // ⚡ 1-Tap Fast Add for Kirana Packaged Goods (Billiz / Vyapar fast flow)
+              cart.incrementOrAdd(product);
+            } else {
+              // ⚖️ Detailed weight/qty dialog for produce
+              showDialog(
+                context: context,
+                builder: (_) => QtyRateDialog(
+                  product: product,
+                  initialQty: inCartQty > 0 ? inCartQty : 1.0,
+                  onConfirm: (cartItem) => cart.addLine(cartItem),
+                ),
+              );
+            }
+          },
+          onLongPress: () {
+            SoundService.instance.playButtonClick();
             showDialog(
               context: context,
               builder: (_) => QtyRateDialog(
@@ -618,6 +760,16 @@ class _ProductGridState extends State<ProductGrid> {
                               color: isDark ? Colors.white60 : Colors.grey.shade600,
                             ),
                           ),
+                          if (product.mrp != null && product.mrp! > product.price) ...[
+                            TextSpan(
+                              text: '  ₹${product.mrp!.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: isMobile ? 8.5 : 9.5,
+                                color: isDark ? Colors.white38 : Colors.grey.shade500,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

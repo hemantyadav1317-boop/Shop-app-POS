@@ -899,6 +899,7 @@ class SupabaseService {
           'print_paper_size': shop.printPaperSize,
           if (shop.receiptFooter != null) 'receipt_footer': shop.receiptFooter,
           if (shop.qrImageUrl != null) 'qr_image_url': shop.qrImageUrl,
+          'store_type': shop.storeType,
           'updated_at': DateTime.now().toIso8601String(),
         };
 

@@ -61,6 +61,32 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Fast add or increment (+1) for barcode gun or Kirana item tap
+  void incrementOrAdd(dynamic productOrItem, [double delta = 1.0]) {
+    final String prodId = productOrItem.id as String;
+    final String prodName = productOrItem.name as String;
+    final double prodPrice = (productOrItem.price as num).toDouble();
+    final String prodUnit = productOrItem.unit as String;
+    final String? prodIcon = productOrItem.icon as String?;
+
+    final index = _lines.indexWhere((line) => line.productId == prodId);
+    if (index != -1) {
+      final existing = _lines[index];
+      _lines[index] = existing.copyWith(qty: existing.qty + delta);
+    } else {
+      _lines.add(CartItem(
+        productId: prodId,
+        name: prodName,
+        price: prodPrice,
+        qty: delta,
+        unit: prodUnit,
+        icon: prodIcon,
+      ));
+    }
+    SoundService.instance.playProductAdd();
+    notifyListeners();
+  }
+
   void removeLine(String? productId, String name) {
     _lines.removeWhere(
       (line) => (line.productId != null && line.productId == productId) ||

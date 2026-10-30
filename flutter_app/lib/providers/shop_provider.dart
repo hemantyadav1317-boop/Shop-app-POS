@@ -14,6 +14,10 @@ class ShopProvider extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
   bool get isDarkMode => _themeMode == ThemeMode.dark;
   bool get showProductBadges => _showProductBadges;
+  String get storeType => _shop.storeType;
+  bool get isKiranaMode => _shop.storeType == 'kirana';
+  bool get isVegetableMode => _shop.storeType == 'vegetable';
+  bool get isMixMode => _shop.storeType == 'mix';
 
   static Shop get defaultShop => Shop(
         id: 'demo-shop-101',
@@ -61,6 +65,12 @@ class ShopProvider extends ChangeNotifier {
       try {
         final decoded = jsonDecode(savedShopJson) as Map<String, dynamic>;
         _shop = Shop.fromJson(decoded);
+        if (decoded['store_type'] == null) {
+          final fallbackStoreType = prefs.getString('shop_store_type');
+          if (fallbackStoreType != null) {
+            _shop = _shop.copyWith(storeType: fallbackStoreType);
+          }
+        }
         SupabaseService.instance.setLocalShop(_shop);
       } catch (e) {
         debugPrint("Error decoding saved shop: $e");
@@ -133,6 +143,12 @@ class ShopProvider extends ChangeNotifier {
     await prefs.setString('theme_mode', mode == ThemeMode.dark ? 'dark' : (mode == ThemeMode.light ? 'light' : 'system'));
   }
 
+  Future<void> setStoreType(String type) async {
+    if (_shop.storeType == type) return;
+    final updated = _shop.copyWith(storeType: type);
+    await updateShop(updated);
+  }
+
   Future<void> setShop(Shop shop) async {
     _shop = shop;
     SupabaseService.instance.setLocalShop(shop);
@@ -161,6 +177,7 @@ class ShopProvider extends ChangeNotifier {
     if (updated.receiptFooter != null) await prefs.setString('shop_receipt_footer', updated.receiptFooter!);
     await prefs.setString('shop_paper_size', updated.printPaperSize);
     await prefs.setBool('shop_allow_negative_stock', updated.allowNegativeStock);
+    await prefs.setString('shop_store_type', updated.storeType);
     if (updated.qrImageUrl != null) await prefs.setString('shop_qr_image_url', updated.qrImageUrl!);
 
     final synced = await SupabaseService.instance.updateShop(updated);

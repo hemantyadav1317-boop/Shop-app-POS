@@ -7,11 +7,20 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
   bool _useNative = true;
 
   // Fallback AudioPlayer if native channel is unavailable
-  final AudioPlayer _fallbackPlayer = AudioPlayer()..setPlayerMode(PlayerMode.lowLatency);
+  AudioPlayer? _fallbackPlayer;
 
-  SoundPlayerImpl() {
-    _fallbackPlayer.setReleaseMode(ReleaseMode.stop);
+  AudioPlayer? _getPlayer() {
+    if (_fallbackPlayer == null) {
+      try {
+        _fallbackPlayer = AudioPlayer()
+          ..setPlayerMode(PlayerMode.lowLatency)
+          ..setReleaseMode(ReleaseMode.stop);
+      } catch (_) {}
+    }
+    return _fallbackPlayer;
   }
+
+  SoundPlayerImpl();
 
   void _play(String nativeMethod, String assetName, double volume) {
     if (_useNative) {
@@ -30,8 +39,10 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
 
   void _fallbackPlay(String assetName, double volume) async {
     try {
-      await _fallbackPlayer.stop();
-      await _fallbackPlayer.play(
+      final p = _getPlayer();
+      if (p == null) return;
+      await p.stop();
+      await p.play(
         AssetSource('sounds/$assetName'),
         volume: volume,
         mode: PlayerMode.lowLatency,

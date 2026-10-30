@@ -48,6 +48,129 @@ class PosScreen extends StatelessWidget {
     );
   }
 
+  void _showQuickStoreModeSheet(BuildContext context) {
+    SoundService.instance.playButtonClick();
+    final shopProvider = context.read<ShopProvider>();
+    final currentType = shopProvider.storeType;
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.storefront_rounded, color: Color(0xFF00875A), size: 24),
+                  SizedBox(width: 8),
+                  Text(
+                    'दुकान का मोड चुनें / Switch Store Mode',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              _buildStoreModeTile(
+                ctx,
+                shopProvider,
+                id: 'vegetable',
+                title: '🥕 फल व सब्ज़ी स्टोर',
+                subtitle: 'तौल आधारित (Kg/Gram), टच-स्क्रीन काउंटर',
+                isSelected: currentType == 'vegetable',
+                color: const Color(0xFF00875A),
+              ),
+              const SizedBox(height: 8),
+              _buildStoreModeTile(
+                ctx,
+                shopProvider,
+                id: 'kirana',
+                title: '🛒 किराना व जनरल स्टोर',
+                subtitle: 'बारकोड गन, 2026 MRPs, पैकेट वैरिएंट्स, मुनाफा मार्जिन',
+                isSelected: currentType == 'kirana',
+                color: const Color(0xFF2563EB),
+              ),
+              const SizedBox(height: 8),
+              _buildStoreModeTile(
+                ctx,
+                shopProvider,
+                id: 'mix',
+                title: '🏪 मिक्स सुपरमार्ट',
+                subtitle: 'किराना + ताज़ा फल-सब्ज़ी एक ही बिल में',
+                isSelected: currentType == 'mix',
+                color: const Color(0xFF7C3AED),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStoreModeTile(
+    BuildContext context,
+    ShopProvider shopProvider, {
+    required String id,
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required Color color,
+  }) {
+    return InkWell(
+      onTap: () async {
+        SoundService.instance.playSuccess();
+        Navigator.pop(context);
+        await shopProvider.setStoreType(id);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.withValues(alpha: 0.3),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: isSelected ? color : null,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: isSelected ? color : Colors.grey,
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showSavedOrders(BuildContext context) {
     final cart = context.read<CartProvider>();
     showDialog(
@@ -177,18 +300,44 @@ class PosScreen extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
 
-                      // Shop Name
+                      // Shop Name & Store Mode Pill
                       Expanded(
-                        child: Text(
-                          shop.name.isNotEmpty ? shop.name : 'Meri Dukan',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                            letterSpacing: 0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              shop.name.isNotEmpty ? shop.name : 'Meri Dukan',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 15,
+                                letterSpacing: 0.2,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            InkWell(
+                              onTap: () => _showQuickStoreModeSheet(context),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    shop.storeType == 'kirana'
+                                        ? '🛒 किराना स्टोर'
+                                        : (shop.storeType == 'mix' ? '🏪 मिक्स सुपरमार्ट' : '🥕 फल व सब्ज़ी'),
+                                    style: const TextStyle(
+                                      color: Color(0xFF4ADE80),
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Icon(Icons.arrow_drop_down, color: Color(0xFF4ADE80), size: 14),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
 
