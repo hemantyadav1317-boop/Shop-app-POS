@@ -83,7 +83,9 @@ class CartProvider extends ChangeNotifier {
         icon: prodIcon,
       ));
     }
-    SoundService.instance.playProductAdd();
+    try {
+      SoundService.instance.playProductAdd();
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -92,7 +94,9 @@ class CartProvider extends ChangeNotifier {
       (line) => (line.productId != null && line.productId == productId) ||
           (line.productId == null && line.name.toLowerCase() == name.toLowerCase()),
     );
-    SoundService.instance.playDelete();
+    try {
+      SoundService.instance.playDelete();
+    } catch (_) {}
     notifyListeners();
   }
 

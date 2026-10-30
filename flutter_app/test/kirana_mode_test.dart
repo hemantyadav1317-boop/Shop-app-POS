@@ -1,11 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shop_pos/core/services/fmcg_catalog_service.dart';
+import 'package:shop_pos/core/services/sound_service.dart';
 import 'package:shop_pos/core/constants/aliases.dart';
 import 'package:shop_pos/data/models/shop.dart';
 import 'package:shop_pos/data/models/product.dart';
 import 'package:shop_pos/providers/cart_provider.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() {
+    SoundService.instance.setSoundEnabled(false);
+  });
+
   group('🏪 Kirana & FMCG Catalog 2026 Tests', () {
     test('FmcgCatalogService has 2026 updated Maggi price of ₹15', () {
       final maggi = FmcgCatalogService.instance.findByBarcode('8901058852448');
