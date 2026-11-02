@@ -211,16 +211,16 @@ class _WeighingScaleSettingsScreenState
                 scale.liveWeight.toStringAsFixed(3),
                 style: const TextStyle(
                   fontFamily: 'monospace',
-                  fontSize: 54,
+                  fontSize: 52,
                   fontWeight: FontWeight.w900,
                   color: Color(0xFF34D399),
                   letterSpacing: 2,
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                scale.unit.toUpperCase(),
-                style: const TextStyle(
+              const Text(
+                'KG',
+                style: TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 22,
                   fontWeight: FontWeight.w700,
@@ -228,6 +228,28 @@ class _WeighingScaleSettingsScreenState
                 ),
               ),
             ],
+          ),
+
+          // Secondary Grams & Billing indicator badge
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 4, bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                '= ${scale.liveWeightGrams.toStringAsFixed(0)} g • Kirana Billing Qty: ${scale.liveWeight.toStringAsFixed(3)} kg',
+                style: const TextStyle(
+                  color: Color(0xFFA7F3D0),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
           ),
 
           const SizedBox(height: 12),
@@ -352,7 +374,14 @@ class _WeighingScaleSettingsScreenState
                     OutlinedButton(
                       onPressed: () {
                         SoundService.instance.playButtonClick();
+                        final name = scale.scaleName ?? 'Weighing Scale';
                         scale.disconnectScale();
+                        _showConnectionMessage(
+                          context,
+                          title: 'Disconnected',
+                          message: '$name has been disconnected.',
+                          isSuccess: false,
+                        );
                       },
                       style: OutlinedButton.styleFrom(
                         foregroundColor: Colors.red,
@@ -479,6 +508,51 @@ class _WeighingScaleSettingsScreenState
                     if (newProtocol != null) {
                       SoundService.instance.playButtonClick();
                       scale.setProtocol(newProtocol);
+                    }
+                  },
+                ),
+              ),
+            ),
+            const Divider(height: 28),
+            const Text(
+              'Weight Unit & Decimal Calibration',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'How raw numbers from your scale are converted to Kilograms for billing',
+              style: TextStyle(color: Colors.grey, fontSize: 11.5),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<ScaleUnitMode>(
+                  value: scale.unitMode,
+                  isExpanded: true,
+                  icon: const Icon(Icons.arrow_drop_down),
+                  items: const [
+                    DropdownMenuItem(
+                      value: ScaleUnitMode.autoDetect,
+                      child: Text('Smart Auto: 540g / 540 count ➔ 0.540 kg (Recommended)'),
+                    ),
+                    DropdownMenuItem(
+                      value: ScaleUnitMode.gramsToKg,
+                      child: Text('Grams ÷ 1000 (For 3-decimal scales without dot: 540 ➔ 0.540 kg)'),
+                    ),
+                    DropdownMenuItem(
+                      value: ScaleUnitMode.directKg,
+                      child: Text('Direct Kilograms (For scales sending dot: 0.540 ➔ 0.540 kg)'),
+                    ),
+                  ],
+                  onChanged: (newMode) {
+                    if (newMode != null) {
+                      SoundService.instance.playButtonClick();
+                      scale.setUnitMode(newMode);
                     }
                   },
                 ),
@@ -699,98 +773,371 @@ class _WeighingScaleSettingsScreenState
     List<Device> devices = [];
     try {
       devices = await scale.getPairedDevices();
+      // Bring currently connected scale to the top of list
+      if (scale.scaleMac != null && devices.isNotEmpty) {
+        devices.sort((a, b) {
+          if (a.address == scale.scaleMac) return -1;
+          if (b.address == scale.scaleMac) return 1;
+          return 0;
+        });
+      }
     } catch (e) {
       debugPrint("Error getting paired devices: $e");
     }
 
     if (!context.mounted) return;
 
+    String? connectingAddress;
+    String? selectedAddress = scale.scaleMac;
+
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            return Container(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.bluetooth_searching, color: Color(0xFF00875A)),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Select Paired Scale',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00875A).withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.bluetooth_searching, color: Color(0xFF00875A), size: 22),
+                      ),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Select Paired Scale',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                            Text(
+                              'Tap your electronic scale to connect',
+                              style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(ctx),
+                  const Divider(height: 20),
+
+                  if (devices.isEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(Icons.bluetooth_disabled_rounded, size: 44, color: Colors.grey),
+                            SizedBox(height: 12),
+                            Text(
+                              'No paired Bluetooth devices found.\nPlease pair your weighing scale in Android Settings first.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey, fontSize: 13, height: 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          scale.connectToScale('SIM:00:11:22:33', name: 'Virtual Bluetooth Scale');
+                          _showConnectionMessage(
+                            context,
+                            title: 'Demo Scale Connected',
+                            message: 'Virtual scale active for testing live weight.',
+                            isSuccess: true,
+                          );
+                        },
+                        child: const Text('Connect Virtual Demo Scale'),
+                      ),
+                    ),
+                  ] else ...[
+                    Flexible(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: devices.length,
+                        itemBuilder: (listCtx, i) {
+                          final d = devices[i];
+                          final name = (d.name != null && d.name!.isNotEmpty)
+                              ? d.name!
+                              : 'Bluetooth Weighing Scale';
+                          final address = d.address;
+                          final isConnected = scale.isConnected && (scale.scaleMac == address);
+                          final isConnectingThis = connectingAddress == address;
+                          final isSelected = isConnected || (selectedAddress == address);
+
+                          Color cardBg;
+                          Color cardBorder;
+                          if (isConnected) {
+                            cardBg = const Color(0xFF10B981).withValues(alpha: 0.14);
+                            cardBorder = const Color(0xFF10B981);
+                          } else if (isConnectingThis) {
+                            cardBg = const Color(0xFF2563EB).withValues(alpha: 0.12);
+                            cardBorder = const Color(0xFF3B82F6);
+                          } else if (isSelected) {
+                            cardBg = const Color(0xFF00875A).withValues(alpha: 0.08);
+                            cardBorder = const Color(0xFF00875A).withValues(alpha: 0.5);
+                          } else {
+                            cardBg = isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC);
+                            cardBorder = Colors.grey.withValues(alpha: 0.2);
+                          }
+
+                          return InkWell(
+                            onTap: () async {
+                              if (connectingAddress != null) return;
+
+                              if (isConnected) {
+                                Navigator.pop(ctx);
+                                _showConnectionMessage(
+                                  context,
+                                  title: 'Already Connected',
+                                  message: 'Scale "$name" is already connected and active.',
+                                  isSuccess: true,
+                                );
+                                return;
+                              }
+
+                              setModalState(() {
+                                connectingAddress = address;
+                                selectedAddress = address;
+                              });
+                              SoundService.instance.playButtonClick();
+
+                              final ok = await scale.connectToScale(address, name: name);
+                              if (!context.mounted) return;
+
+                              setModalState(() {
+                                connectingAddress = null;
+                              });
+
+                              if (ok) {
+                                SoundService.instance.playSuccess();
+                                // Wait 600ms so the user sees the green CONNECTED badge
+                                await Future.delayed(const Duration(milliseconds: 600));
+                                if (context.mounted) {
+                                  Navigator.pop(ctx);
+                                  _showConnectionMessage(
+                                    context,
+                                    title: 'Connected Successfully!',
+                                    message: 'Connected with $name. Live weight reading is active for billing.',
+                                    isSuccess: true,
+                                  );
+                                }
+                              } else {
+                                SoundService.instance.playError();
+                                _showConnectionMessage(
+                                  context,
+                                  title: 'Connection Failed',
+                                  message: 'Could not connect to $name. Please check if scale is powered ON.',
+                                  isSuccess: false,
+                                );
+                              }
+                            },
+                            borderRadius: BorderRadius.circular(14),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              margin: const EdgeInsets.symmetric(vertical: 5),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: cardBg,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: cardBorder, width: isConnected || isConnectingThis ? 2.0 : 1.0),
+                                boxShadow: isConnected
+                                    ? [
+                                        BoxShadow(
+                                          color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Row(
+                                children: [
+                                  // Leading Status Icon / Spinner
+                                  if (isConnectingThis)
+                                    const SizedBox(
+                                      width: 26,
+                                      height: 26,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        color: Color(0xFF2563EB),
+                                      ),
+                                    )
+                                  else if (isConnected)
+                                    const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 26)
+                                  else
+                                    Icon(
+                                      Icons.scale_rounded,
+                                      color: isSelected ? const Color(0xFF00875A) : Colors.grey,
+                                      size: 26,
+                                    ),
+                                  const SizedBox(width: 14),
+
+                                  // Device Name & MAC Address
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14.5,
+                                            color: isConnected
+                                                ? const Color(0xFF10B981)
+                                                : (isConnectingThis ? const Color(0xFF2563EB) : null),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          isConnectingThis ? 'Connecting via Bluetooth SPP...' : address,
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            color: isConnectingThis ? const Color(0xFF3B82F6) : Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // Trailing Status Pill
+                                  if (isConnected)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981),
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: const Text(
+                                        'CONNECTED ✓',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 10.5,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    )
+                                  else if (isConnectingThis)
+                                    const Text(
+                                      'Connecting...',
+                                      style: TextStyle(
+                                        color: Color(0xFF2563EB),
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    )
+                                  else
+                                    const Icon(
+                                      Icons.arrow_forward_ios_rounded,
+                                      size: 14,
+                                      color: Colors.grey,
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ==========================================
+  // ELEGANT FLOATING CONNECTION MESSAGE BANNER
+  // ==========================================
+  void _showConnectionMessage(
+    BuildContext context, {
+    required String title,
+    required String message,
+    required bool isSuccess,
+  }) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        elevation: 8,
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: isSuccess ? const Color(0xFF065F46) : const Color(0xFF991B1B),
+        content: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isSuccess ? const Color(0xFF10B981) : const Color(0xFFEF4444),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                isSuccess ? Icons.bluetooth_connected_rounded : Icons.bluetooth_disabled_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isSuccess ? const Color(0xFFA7F3D0) : const Color(0xFFFECACA),
+                    ),
                   ),
                 ],
               ),
-              const Divider(),
-              if (devices.isEmpty) ...[
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: Text(
-                      'No paired Bluetooth devices found.\nPlease pair your weighing scale in Android Settings first.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                ),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      // In web or simulation mode, let user connect a virtual scale
-                      scale.connectToScale('SIM:00:11:22:33', name: 'Virtual Bluetooth Scale');
-                    },
-                    child: const Text('Connect Virtual Demo Scale'),
-                  ),
-                ),
-              ] else ...[
-                Expanded(
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: devices.length,
-                    itemBuilder: (context, i) {
-                      final d = devices[i];
-                      final name = d.name ?? 'Unknown Bluetooth Scale';
-                      final address = d.address;
-                      return ListTile(
-                        leading: const Icon(Icons.scale, color: Color(0xFF00875A)),
-                        title: Text(
-                          name.isNotEmpty ? name : 'Unknown Bluetooth Scale',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        subtitle: Text(address, style: const TextStyle(fontSize: 12)),
-                        onTap: () async {
-                          Navigator.pop(ctx);
-                          if (address.isNotEmpty) {
-                            final ok = await scale.connectToScale(address, name: name);
-                            if (ok) {
-                              SoundService.instance.playSuccess();
-                            } else {
-                              SoundService.instance.playError();
-                            }
-                          }
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ],
-          ),
-        );
-      },
+            ),
+          ],
+        ),
+        duration: const Duration(seconds: 4),
+      ),
     );
   }
 }

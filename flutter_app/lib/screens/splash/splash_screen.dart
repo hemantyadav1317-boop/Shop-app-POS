@@ -356,7 +356,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             right: 0,
             child: Center(
               child: Text(
-                'v1.3.4 • Made for Retail Stores',
+                'v1.3.5 • Made for Retail Stores',
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   color: Colors.white30,

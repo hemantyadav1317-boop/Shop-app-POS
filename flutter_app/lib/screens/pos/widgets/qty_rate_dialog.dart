@@ -287,7 +287,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                               const SizedBox(width: 8),
                               const Text('⚖️ ', style: TextStyle(fontSize: 13)),
                               Text(
-                                'Scale: ${scale.liveWeight.toStringAsFixed(3)} ${scale.unit}',
+                                'Scale: ${scale.liveWeight.toStringAsFixed(3)} kg (${scale.liveWeightGrams.toStringAsFixed(0)}g)',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12.5,

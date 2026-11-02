@@ -14,6 +14,7 @@ class WeighingScaleService {
   static const String _prefMacKey = 'saved_scale_mac';
   static const String _prefNameKey = 'saved_scale_name';
   static const String _prefProtocolKey = 'saved_scale_protocol';
+  static const String _prefUnitModeKey = 'saved_scale_unit_mode';
   static const String _prefAutoFillKey = 'saved_scale_auto_fill';
   static const String _prefAutoAddKey = 'saved_scale_auto_add_stable';
 
@@ -46,6 +47,9 @@ class WeighingScaleService {
   ScaleProtocol _protocol = ScaleProtocol.autoDetect;
   ScaleProtocol get protocol => _protocol;
 
+  ScaleUnitMode _unitMode = ScaleUnitMode.autoDetect;
+  ScaleUnitMode get unitMode => _unitMode;
+
   bool _autoFillDialog = true;
   bool get autoFillDialog => _autoFillDialog;
 
@@ -59,6 +63,8 @@ class WeighingScaleService {
     final prefs = await SharedPreferences.getInstance();
     final protocolIndex = prefs.getInt(_prefProtocolKey) ?? 0;
     _protocol = ScaleProtocol.values[protocolIndex.clamp(0, ScaleProtocol.values.length - 1)];
+    final unitModeIndex = prefs.getInt(_prefUnitModeKey) ?? 0;
+    _unitMode = ScaleUnitMode.values[unitModeIndex.clamp(0, ScaleUnitMode.values.length - 1)];
     _autoFillDialog = prefs.getBool(_prefAutoFillKey) ?? true;
     _autoAddOnStable = prefs.getBool(_prefAutoAddKey) ?? false;
 
@@ -69,6 +75,7 @@ class WeighingScaleService {
 
   Future<void> saveSettings({
     ScaleProtocol? protocol,
+    ScaleUnitMode? unitMode,
     bool? autoFillDialog,
     bool? autoAddOnStable,
   }) async {
@@ -76,6 +83,10 @@ class WeighingScaleService {
     if (protocol != null) {
       _protocol = protocol;
       await prefs.setInt(_prefProtocolKey, protocol.index);
+    }
+    if (unitMode != null) {
+      _unitMode = unitMode;
+      await prefs.setInt(_prefUnitModeKey, unitMode.index);
     }
     if (autoFillDialog != null) {
       _autoFillDialog = autoFillDialog;
@@ -233,7 +244,11 @@ class WeighingScaleService {
         for (final seg in segments) {
           final trimmed = seg.trim();
           if (trimmed.isNotEmpty) {
-            final reading = ScaleDataParser.parse(trimmed, _protocol);
+            final reading = ScaleDataParser.parse(
+              trimmed,
+              _protocol,
+              unitMode: _unitMode,
+            );
             if (reading != null) {
               _lastReading = reading;
               _readingController.add(reading);

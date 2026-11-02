@@ -585,7 +585,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(height: 6),
         const Text(
-          'V 1.3.4',
+          'V 1.3.5',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
         ),

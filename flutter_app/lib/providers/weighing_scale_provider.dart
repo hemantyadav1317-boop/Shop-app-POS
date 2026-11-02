@@ -12,6 +12,7 @@ class WeighingScaleProvider extends ChangeNotifier {
 
   double _liveWeight = 0.0;
   double get liveWeight => _liveWeight;
+  double get liveWeightGrams => (_liveWeight * 1000.0);
 
   bool _isStable = true;
   bool get isStable => _isStable;
@@ -35,6 +36,7 @@ class WeighingScaleProvider extends ChangeNotifier {
   String? get scaleMac => _scaleMac;
 
   ScaleProtocol get protocol => _service.protocol;
+  ScaleUnitMode get unitMode => _service.unitMode;
   bool get autoFillDialog => _service.autoFillDialog;
   bool get autoAddOnStable => _service.autoAddOnStable;
   bool get isHardwareSupported => _service.isHardwareSupported;
@@ -106,6 +108,11 @@ class WeighingScaleProvider extends ChangeNotifier {
 
   Future<void> setProtocol(ScaleProtocol proto) async {
     await _service.saveSettings(protocol: proto);
+    notifyListeners();
+  }
+
+  Future<void> setUnitMode(ScaleUnitMode mode) async {
+    await _service.saveSettings(unitMode: mode);
     notifyListeners();
   }
 

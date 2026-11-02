@@ -65,6 +65,20 @@ void main() {
 
       await provider.toggleAutoAdd(true);
       expect(provider.autoAddOnStable, isTrue);
+
+      await provider.setUnitMode(ScaleUnitMode.gramsToKg);
+      expect(provider.unitMode, ScaleUnitMode.gramsToKg);
+    });
+
+    test('WeighingScaleProvider calculates liveWeightGrams correctly', () async {
+      final provider = WeighingScaleProvider();
+      await Future.delayed(const Duration(milliseconds: 20));
+
+      provider.simulateWeight(0.540, isStable: true);
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      expect(provider.liveWeight, 0.540);
+      expect(provider.liveWeightGrams, closeTo(540.0, 0.001));
     });
   });
 }
