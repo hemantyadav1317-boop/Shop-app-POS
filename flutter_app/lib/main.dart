@@ -11,9 +11,7 @@ import 'providers/shop_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/customer_provider.dart';
-import 'screens/auth/login_screen.dart';
-import 'screens/main_shell.dart';
-
+import 'providers/weighing_scale_provider.dart';
 import 'core/services/sound_service.dart';
 import 'screens/splash/splash_screen.dart';
 
@@ -59,6 +57,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()..loadProducts(initialShopId)),
         ChangeNotifierProvider(create: (_) => CustomerProvider()..loadCustomers(initialShopId)),
+        ChangeNotifierProvider(create: (_) => WeighingScaleProvider()),
       ],
       child: const ShopPosApp(),
     ),
@@ -71,7 +70,6 @@ class ShopPosApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shopProvider = context.watch<ShopProvider>();
-    final auth = context.watch<AuthProvider>();
 
     return MaterialApp(
       title: 'Shop POS — Billing, Stock & Khata',

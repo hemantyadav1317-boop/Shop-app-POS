@@ -6,8 +6,11 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/services/sound_service.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../../providers/weighing_scale_provider.dart';
+import '../settings/weighing_scale_settings_screen.dart';
 import 'widgets/product_grid.dart';
 import 'widgets/cart_panel.dart';
+import 'kirana_pos_screen.dart';
 
 class PosScreen extends StatelessWidget {
   const PosScreen({super.key});
@@ -27,7 +30,7 @@ class PosScreen extends StatelessWidget {
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
           child: Scaffold(
             appBar: AppBar(
-              title: const Text('करंट आर्डर / Current Order', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              title: const Text('Current Order', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               automaticallyImplyLeading: false,
               actions: [
                 IconButton(
@@ -70,7 +73,7 @@ class PosScreen extends StatelessWidget {
                   Icon(Icons.storefront_rounded, color: Color(0xFF00875A), size: 24),
                   SizedBox(width: 8),
                   Text(
-                    'दुकान का मोड चुनें / Switch Store Mode',
+                    'Switch Store Mode',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ],
@@ -80,8 +83,8 @@ class PosScreen extends StatelessWidget {
                 ctx,
                 shopProvider,
                 id: 'vegetable',
-                title: '🥕 फल व सब्ज़ी स्टोर',
-                subtitle: 'तौल आधारित (Kg/Gram), टच-स्क्रीन काउंटर',
+                title: '🥬 Vegetable & Fruit Store',
+                subtitle: 'Weight-based (Kg/Gram), Touchscreen Counter',
                 isSelected: currentType == 'vegetable',
                 color: const Color(0xFF00875A),
               ),
@@ -90,8 +93,8 @@ class PosScreen extends StatelessWidget {
                 ctx,
                 shopProvider,
                 id: 'kirana',
-                title: '🛒 किराना व जनरल स्टोर',
-                subtitle: 'बारकोड गन, 2026 MRPs, पैकेट वैरिएंट्स, मुनाफा मार्जिन',
+                title: '🛒 Grocery & Kirana Store',
+                subtitle: 'Barcode Gun, 2026 FMCG Catalog, MRP & Profit',
                 isSelected: currentType == 'kirana',
                 color: const Color(0xFF2563EB),
               ),
@@ -99,10 +102,10 @@ class PosScreen extends StatelessWidget {
               _buildStoreModeTile(
                 ctx,
                 shopProvider,
-                id: 'mix',
-                title: '🏪 मिक्स सुपरमार्ट',
-                subtitle: 'किराना + ताज़ा फल-सब्ज़ी एक ही बिल में',
-                isSelected: currentType == 'mix',
+                id: 'other',
+                title: '📦 Other Retail Store',
+                subtitle: 'Standard retail counter billing',
+                isSelected: currentType == 'other',
                 color: const Color(0xFF7C3AED),
               ),
             ],
@@ -176,13 +179,13 @@ class PosScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('होल्ड किए गए बिल / Saved Bills'),
+        title: const Text('Saved / Held Bills'),
         content: SizedBox(
           width: 360,
           child: cart.savedCarts.isEmpty
               ? const Padding(
                   padding: EdgeInsets.all(20),
-                  child: Text('कोई सेव किया गया बिल नहीं है', textAlign: TextAlign.center),
+                  child: Text('No saved bills found', textAlign: TextAlign.center),
                 )
               : ListView.separated(
                   shrinkWrap: true,
@@ -229,6 +232,9 @@ class PosScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shop = context.watch<ShopProvider>().shop;
+    if (shop.isKiranaMode) {
+      return const KiranaPosScreen();
+    }
     final cart = context.watch<CartProvider>();
     final isTablet = MediaQuery.of(context).size.width >= 768;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -325,8 +331,8 @@ class PosScreen extends StatelessWidget {
                                 children: [
                                   Text(
                                     shop.storeType == 'kirana'
-                                        ? '🛒 किराना स्टोर'
-                                        : (shop.storeType == 'mix' ? '🏪 मिक्स सुपरमार्ट' : '🥕 फल व सब्ज़ी'),
+                                        ? '🛒 Kirana Mode'
+                                        : (shop.storeType == 'other' ? '📦 Other Retail' : '🥬 Vegetable Mode'),
                                     style: const TextStyle(
                                       color: Color(0xFF4ADE80),
                                       fontSize: 10.5,
@@ -345,6 +351,70 @@ class PosScreen extends StatelessWidget {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // ⚖️ Weighing Scale Live Status Pill
+                          Consumer<WeighingScaleProvider>(
+                            builder: (context, scale, _) {
+                              return InkWell(
+                                onTap: () {
+                                  SoundService.instance.playButtonClick();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (_) =>
+                                            const WeighingScaleSettingsScreen()),
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: scale.isConnected
+                                        ? const Color(0xFF10B981)
+                                            .withValues(alpha: 0.25)
+                                        : Colors.white.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: scale.isConnected
+                                          ? const Color(0xFF10B981)
+                                          : Colors.white24,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.scale_rounded,
+                                        color: scale.isConnected
+                                            ? const Color(0xFF34D399)
+                                            : Colors.white70,
+                                        size: 15,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        scale.isConnected
+                                            ? '${scale.liveWeight.toStringAsFixed(3)} kg'
+                                            : 'Scale',
+                                        style: TextStyle(
+                                          color: scale.isConnected
+                                              ? const Color(0xFF34D399)
+                                              : Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          fontFamily: scale.isConnected
+                                              ? 'monospace'
+                                              : null,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+
                           // Theme Change Toggle Button
                           InkWell(
                             onTap: () {

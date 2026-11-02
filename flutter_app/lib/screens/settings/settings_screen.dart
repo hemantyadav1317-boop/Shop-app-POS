@@ -24,6 +24,8 @@ import '../../providers/product_provider.dart';
 import '../../providers/customer_provider.dart';
 import '../auth/login_screen.dart';
 import 'printer_settings_screen.dart';
+import 'weighing_scale_settings_screen.dart';
+import '../../providers/weighing_scale_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -934,6 +936,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // ⚖️ Electronic Weighing Scale (इलेक्ट्रॉनिक कांटा) Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
+              ),
+              child: Consumer<WeighingScaleProvider>(
+                builder: (context, scale, _) {
+                  return ListTile(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    leading: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.scale_rounded, color: Color(0xFF2563EB), size: 24),
+                    ),
+                    title: Row(
+                      children: [
+                        const Text(
+                          '⚖️ इलेक्ट्रॉनिक कांटा (Weighing Scale)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (scale.isConnected ? const Color(0xFF10B981) : Colors.grey)
+                                .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            scale.isConnected ? 'CONNECTED' : 'DISCONNECTED',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: scale.isConnected ? const Color(0xFF10B981) : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      scale.isConnected
+                          ? '${scale.scaleName ?? "Scale"} • Live: ${scale.liveWeight.toStringAsFixed(3)} ${scale.unit}'
+                          : 'Connect Bluetooth weighing scale for instant weight sync',
+                      style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF2563EB)),
+                    onTap: () {
+                      SoundService.instance.playButtonClick();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const WeighingScaleSettingsScreen()),
+                      );
+                    },
                   );
                 },
               ),

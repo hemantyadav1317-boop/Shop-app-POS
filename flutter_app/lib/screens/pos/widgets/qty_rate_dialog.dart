@@ -6,6 +6,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
 import '../../../../providers/shop_provider.dart';
+import '../../../../providers/weighing_scale_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'pos_numpad.dart';
 
@@ -217,7 +218,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'स्टॉक: ${widget.product.stock} ${widget.product.unit}  •  दर: ₹${widget.product.price.toStringAsFixed(2)}/${widget.product.unit}',
+                          'Stock: ${widget.product.stock} ${widget.product.unit}  •  Rate: ₹${widget.product.price.toStringAsFixed(2)}/${widget.product.unit}',
                           style: TextStyle(
                             fontSize: 12,
                             color: widget.product.isLowStock ? AppColors.error : AppColors.lightTextSecondary,
@@ -234,7 +235,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                               border: Border.all(color: Colors.red.shade300),
                             ),
                             child: const Text(
-                              '⚠️ आउट ऑफ स्टॉक / Out of Stock',
+                              '⚠️ Out of Stock',
                               style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -257,6 +258,75 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // ⚖️ Live Scale Indicator & Sync Action
+                    Consumer<WeighingScaleProvider>(
+                      builder: (context, scale, _) {
+                        if (!scale.isConnected) return const SizedBox.shrink();
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: scale.isStable
+                                      ? const Color(0xFF10B981)
+                                      : const Color(0xFFF59E0B),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text('⚖️ ', style: TextStyle(fontSize: 13)),
+                              Text(
+                                'Scale: ${scale.liveWeight.toStringAsFixed(3)} ${scale.unit}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: Color(0xFF047857),
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                              const Spacer(),
+                              InkWell(
+                                onTap: () {
+                                  SoundService.instance.playClick();
+                                  setState(() {
+                                    _qty = scale.liveWeight;
+                                    _qtyController.text = _formatQty(_qty);
+                                    _replaceOnNextKey = false;
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF00875A),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    'Use Scale Weight',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
                     // Quantity and Rate selector tabs
                     Row(
                       children: [
@@ -280,7 +350,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                               child: Column(
                                 children: [
                                   Text(
-                                    '1. मात्रा (${widget.product.unit})',
+                                    '1. Quantity (${widget.product.unit})',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -323,7 +393,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                               child: Column(
                                 children: [
                                   Text(
-                                    '2. दर (₹ प्रति ${widget.product.unit})',
+                                    '2. Rate (₹ per ${widget.product.unit})',
                                     style: TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
@@ -490,7 +560,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'कुल राशि / Amount:',
+                        'Total Amount:',
                         style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                       Text(
@@ -509,7 +579,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                   ElevatedButton.icon(
                     icon: const Icon(Icons.check_circle_outline, size: 20),
                     label: const Text(
-                      'बिल में जोड़ें / Add to Bill',
+                      'Add to Bill',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                     style: ElevatedButton.styleFrom(

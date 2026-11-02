@@ -49,7 +49,7 @@ class _CartPanelState extends State<CartPanel> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('ग्राहक चुनें / Select Customer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const Text('Select Customer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   TextButton.icon(
                     icon: const Icon(Icons.person_add, size: 16),
                     label: const Text('New'),
@@ -63,7 +63,7 @@ class _CartPanelState extends State<CartPanel> {
               const SizedBox(height: 8),
               TextField(
                 decoration: const InputDecoration(
-                  hintText: 'नाम या मोबाइल नंबर से खोजें...',
+                  hintText: 'Search by name or mobile...',
                   prefixIcon: Icon(Icons.search),
                 ),
                 onChanged: (q) => custProvider.setSearchQuery(q),
@@ -71,7 +71,7 @@ class _CartPanelState extends State<CartPanel> {
               const SizedBox(height: 12),
               ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-                title: const Text('Walk-in Customer (नकद ग्राहक)'),
+                title: const Text('Walk-in Customer'),
                 selected: cart.customer == null,
                 onTap: () {
                   cart.setCustomer(null);
@@ -95,7 +95,7 @@ class _CartPanelState extends State<CartPanel> {
                       subtitle: Text(cust.phone ?? 'No phone'),
                       trailing: cust.balance > 0
                           ? Text(
-                              'उधार: ${CurrencyFormatter.format(cust.balance)}',
+                              'Due: ${CurrencyFormatter.format(cust.balance)}',
                               style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold, fontSize: 12),
                             )
                           : null,
@@ -130,7 +130,7 @@ class _CartPanelState extends State<CartPanel> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'दर बदलें / Update Rate',
+                'Update Rate',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
@@ -146,7 +146,7 @@ class _CartPanelState extends State<CartPanel> {
             ),
             const SizedBox(height: 4),
             Text(
-              'वर्तमान दर: ₹${item.price} प्रति ${item.unit}  •  मात्रा: ${item.qty} ${item.unit}',
+              'Current Rate: ₹${item.price} per ${item.unit}  •  Qty: ${item.qty} ${item.unit}',
               style: const TextStyle(fontSize: 11.5, color: Colors.grey),
             ),
             const SizedBox(height: 12),
@@ -155,7 +155,7 @@ class _CartPanelState extends State<CartPanel> {
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                labelText: 'नई दर (₹ प्रति ${item.unit}) *',
+                labelText: 'New Rate (₹ per ${item.unit}) *',
                 prefixIcon: const Icon(Icons.currency_rupee),
                 border: const OutlineInputBorder(),
                 isDense: true,
@@ -166,7 +166,7 @@ class _CartPanelState extends State<CartPanel> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('रद्द करें (Cancel)'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -184,12 +184,12 @@ class _CartPanelState extends State<CartPanel> {
                   SnackBar(
                     backgroundColor: const Color(0xFF00875A),
                     duration: const Duration(seconds: 2),
-                    content: Text('\'${item.name}\' की नई दर ₹$newRate सुरक्षित हो गई'),
+                    content: Text('\'${item.name}\' rate updated to ₹$newRate'),
                   ),
                 );
               }
             },
-            child: const Text('अपडेट करें (Save)'),
+            child: const Text('Save'),
           ),
         ],
       ),
@@ -203,7 +203,7 @@ class _CartPanelState extends State<CartPanel> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('नया ग्राहक जोड़ें / New Customer'),
+        title: const Text('Add New Customer'),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -228,9 +228,9 @@ class _CartPanelState extends State<CartPanel> {
                 ),
               ),
               const SizedBox(height: 10),
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'नाम / Name')),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Customer Name *')),
               const SizedBox(height: 10),
-              TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'मोबाइल नंबर / Phone')),
+              TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone Number (Optional)')),
             ],
           ),
         ),
@@ -337,7 +337,7 @@ class _CartPanelState extends State<CartPanel> {
                       Icon(Icons.shopping_cart_outlined, size: 48, color: AppColors.lightTextSecondary.withOpacity(0.5)),
                       const SizedBox(height: 8),
                       const Text(
-                        'कार्ट खाली है\nसामान पर टैप करके बिल में जोड़ें',
+                        'Cart is empty\nTap items to add to bill',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.lightTextSecondary, fontSize: 13),
                       ),
@@ -369,7 +369,7 @@ class _CartPanelState extends State<CartPanel> {
                             Icon(Icons.delete_sweep_rounded, color: Colors.white, size: 22),
                             SizedBox(width: 4),
                             Text(
-                              'हटाएं',
+                              'Remove',
                               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                           ],
@@ -381,9 +381,9 @@ class _CartPanelState extends State<CartPanel> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             duration: const Duration(seconds: 2),
-                            content: Text('\'${item.name}\' बिल से हटा दिया गया'),
+                            content: Text('\'${item.name}\' removed from bill'),
                             action: SnackBarAction(
-                              label: 'वापस जोड़ें (Undo)',
+                              label: 'Undo',
                               textColor: Colors.amber,
                               onPressed: () => cart.addLine(item),
                             ),
@@ -483,7 +483,7 @@ class _CartPanelState extends State<CartPanel> {
                                         SnackBar(
                                           backgroundColor: AppColors.error,
                                           duration: const Duration(seconds: 2),
-                                          content: Text('⚠️ अधिकतम स्टॉक सीमा (${prod.stock} ${item.unit})!'),
+                                          content: Text('⚠️ Maximum stock limit reached (${prod.stock} ${item.unit})!'),
                                         ),
                                       );
                                       return;
@@ -538,7 +538,7 @@ class _CartPanelState extends State<CartPanel> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Discount (छूट):', style: TextStyle(fontSize: 13, color: AppColors.lightTextSecondary)),
+                  const Text('Discount:', style: TextStyle(fontSize: 13, color: AppColors.lightTextSecondary)),
                   SizedBox(
                     width: 90,
                     height: 32,
@@ -563,7 +563,7 @@ class _CartPanelState extends State<CartPanel> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Payable / कुल राशि:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const Text('Total Payable:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   Text(
                     CurrencyFormatter.format(cart.total),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: AppColors.primary),
@@ -594,7 +594,7 @@ class _CartPanelState extends State<CartPanel> {
                             SoundService.instance.playButtonClick();
                             cart.saveCurrentCart();
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('बिल सेव (Park) कर दिया गया')),
+                              const SnackBar(content: Text('Bill saved and held')),
                             );
                           },
                   ),

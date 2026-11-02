@@ -10,7 +10,11 @@ class Shop {
   final String printPaperSize; // '58mm', '80mm'
   final String? receiptFooter;
   final String? qrImageUrl; // Custom Standee QR Image URL or path
-  final String storeType; // 'vegetable', 'kirana', 'mix'
+  final String storeType; // 'vegetable', 'kirana', 'mix', 'other'
+
+  bool get isKiranaMode => storeType == 'kirana';
+  bool get isVegetableMode => storeType == 'vegetable';
+  bool get isOtherMode => storeType == 'other';
 
   Shop({
     required this.id,

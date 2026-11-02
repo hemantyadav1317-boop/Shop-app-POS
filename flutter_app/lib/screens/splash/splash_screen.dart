@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/sound_service.dart';
 import '../../providers/auth_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/login_screen.dart';
 import '../main_shell.dart';
 
@@ -91,26 +92,32 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     });
   }
 
-  void _navigateToNextScreen() {
-    Future.delayed(const Duration(milliseconds: 150), () {
-      if (!mounted) return;
-      SoundService.instance.playAppStartup();
-      final auth = context.read<AuthProvider>();
-      final targetWidget = auth.isAuthenticated ? const MainShell() : const LoginScreen();
+  void _navigateToNextScreen() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    SoundService.instance.playAppStartup();
+    final auth = context.read<AuthProvider>();
+    final userKey = auth.user != null ? 'setup_done_${auth.user!.id}' : 'setup_done_guest';
+    final isSetupDone = prefs.getBool(userKey) ?? false;
+    final hasCategory = prefs.getString('selected_store_type') != null;
 
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 600),
-          pageBuilder: (context, animation, secondaryAnimation) => targetWidget,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(
-              opacity: animation,
-              child: child,
-            );
-          },
-        ),
-      );
-    });
+    // Only skip directly to MainShell if a real authenticated user exists AND setup is complete
+    final targetWidget = (auth.isAuthenticated && !auth.isGuestMode && isSetupDone && hasCategory)
+        ? const MainShell()
+        : const LoginScreen();
+
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (context, animation, secondaryAnimation) => targetWidget,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: animation,
+            child: child,
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -323,7 +330,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             right: 0,
             child: Center(
               child: Text(
-                'v1.0.8 • Made for Retail Stores',
+                'v1.3.2 • Made for Retail Stores',
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   color: Colors.white30,

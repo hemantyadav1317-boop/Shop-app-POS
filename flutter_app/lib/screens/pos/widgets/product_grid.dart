@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:uuid/uuid.dart';
 import '../../../../core/services/sound_service.dart';
-import '../../../../core/services/fmcg_catalog_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
 import '../../../../providers/product_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/shop_provider.dart';
+import '../../../../providers/weighing_scale_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'qty_rate_dialog.dart';
 
@@ -69,101 +68,14 @@ class _ProductGridState extends State<ProductGrid> {
     super.dispose();
   }
 
-  Future<void> _handleBarcodeScan(
-    String rawCode,
-    ProductProvider productProvider,
-    CartProvider cart,
-    ShopProvider shopProvider,
-  ) async {
-    final code = rawCode.trim();
-    if (code.isEmpty) return;
-
-    // 1. First look for existing product in shop inventory
-    Product? matched;
-    try {
-      matched = productProvider.products.firstWhere((p) => p.barcode?.trim() == code);
-    } catch (_) {
-      matched = null;
-    }
-
-    if (matched != null) {
-      cart.incrementOrAdd(matched);
-      SoundService.instance.playSuccess();
-      _searchCtrl.clear();
-      productProvider.setSearchQuery('');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF00875A),
-            duration: const Duration(seconds: 1),
-            behavior: SnackBarBehavior.floating,
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-                const SizedBox(width: 8),
-                Expanded(child: Text('✓ "${matched.name}" जोड़ा गया (+1)')),
-              ],
-            ),
-          ),
-        );
-      }
-      return;
-    }
-
-    // 2. Look in preloaded FMCG catalog
-    final fmcg = FmcgCatalogService.instance.findByBarcode(code);
-    if (fmcg != null) {
-      final shop = shopProvider.shop;
-      final newProd = Product(
-        id: const Uuid().v4(),
-        shopId: shop.id,
-        name: fmcg.name,
-        nameHi: fmcg.nameHi,
-        category: fmcg.category,
-        unit: fmcg.unit,
-        price: fmcg.mrp,
-        mrp: fmcg.mrp,
-        purchasePrice: fmcg.defaultCostPrice,
-        barcode: fmcg.barcode,
-        icon: fmcg.icon,
-        stock: 50.0,
-      );
-
-      await productProvider.addProduct(newProd);
-      cart.incrementOrAdd(newProd);
-      SoundService.instance.playSuccess();
-      _searchCtrl.clear();
-      productProvider.setSearchQuery('');
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: const Color(0xFF2563EB),
-            duration: const Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-            content: Row(
-              children: [
-                Text(fmcg.icon, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text('⚡ "${fmcg.name}" कैटलॉग से जुड़कर बिल में आ गया!'),
-                ),
-              ],
-            ),
-          ),
-        );
-      }
-    }
-  }
-
   void _showQuickSellDialog(BuildContext context) {
     SoundService.instance.playButtonClick();
-    final nameCtrl = TextEditingController(text: 'खुला सामान');
+    final nameCtrl = TextEditingController(text: 'Loose Item');
     final priceCtrl = TextEditingController();
     final qtyCtrl = TextEditingController(text: '1');
     String selectedUnit = 'pc';
 
-    final presets = ['खुला सामान', 'दूध / दही', 'सब्जी / फल', 'नाश्ता', 'किराना', 'अन्य'];
+    final presets = ['Loose Item', 'Milk / Dairy', 'Vegetables', 'Fruits', 'Snacks', 'Other'];
 
     showDialog(
       context: context,
@@ -177,7 +89,7 @@ class _ProductGridState extends State<ProductGrid> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    '⚡ क्विक सेल / Quick Item',
+                    '⚡ Quick Item Sale',
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                 ),
@@ -188,7 +100,7 @@ class _ProductGridState extends State<ProductGrid> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Text('त्वरित नाम चुनें (Presets):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const Text('Select Preset:', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey)),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
@@ -211,7 +123,7 @@ class _ProductGridState extends State<ProductGrid> {
                   TextField(
                     controller: nameCtrl,
                     decoration: const InputDecoration(
-                      labelText: 'सामान का नाम *',
+                      labelText: 'Item Name *',
                       prefixIcon: Icon(Icons.shopping_bag_outlined),
                       isDense: true,
                     ),
@@ -226,7 +138,7 @@ class _ProductGridState extends State<ProductGrid> {
                           autofocus: true,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(
-                            labelText: 'दर / Price (₹) *',
+                            labelText: 'Price (₹) *',
                             prefixIcon: Icon(Icons.currency_rupee),
                             isDense: true,
                           ),
@@ -239,7 +151,7 @@ class _ProductGridState extends State<ProductGrid> {
                           controller: qtyCtrl,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           decoration: const InputDecoration(
-                            labelText: 'मात्रा *',
+                            labelText: 'Qty *',
                             isDense: true,
                           ),
                         ),
@@ -265,11 +177,11 @@ class _ProductGridState extends State<ProductGrid> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('रद्द करें (Cancel)'),
+                child: const Text('Cancel'),
               ),
               ElevatedButton.icon(
                 icon: const Icon(Icons.check, size: 16),
-                label: const Text('बिल में जोड़ें (Add)'),
+                label: const Text('Add to Bill'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF00875A),
                   foregroundColor: Colors.white,
@@ -286,7 +198,7 @@ class _ProductGridState extends State<ProductGrid> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         backgroundColor: Color(0xFFDC2626),
-                        content: Text('⚠️ कृपया सही मूल्य और मात्रा दर्ज करें!'),
+                        content: Text('⚠️ Please enter valid price and quantity'),
                       ),
                     );
                     return;
@@ -309,7 +221,7 @@ class _ProductGridState extends State<ProductGrid> {
                     SnackBar(
                       backgroundColor: const Color(0xFF00875A),
                       duration: const Duration(seconds: 2),
-                      content: Text('⚡ "$name" बिल में जोड़ दिया गया (₹${quickItem.total})'),
+                      content: Text('⚡ "$name" added to bill (₹${quickItem.total})'),
                     ),
                   );
                 },
@@ -357,10 +269,8 @@ class _ProductGridState extends State<ProductGrid> {
                       controller: _searchCtrl,
                       decoration: InputDecoration(
                         hintText: shopProvider.isKiranaMode
-                            ? 'बारकोड गन स्कैन या सामान खोजें...'
-                            : (shopProvider.isMixMode
-                                ? 'सब्जी या किराना बारकोड सर्च...'
-                                : 'सर्च करें: नाम (Aloo, आलू, Potato) या बारकोड...'),
+                            ? 'Scan barcode or search items...'
+                            : 'Search produce (e.g. Potato, Onion, Tomato)...',
                         hintStyle: TextStyle(
                           fontSize: isMobile ? 11.5 : 13,
                           color: isDark ? Colors.white60 : Colors.grey.shade500,
@@ -385,13 +295,9 @@ class _ProductGridState extends State<ProductGrid> {
                       onChanged: (val) {
                         SoundService.instance.playTypeKey();
                         productProvider.setSearchQuery(val);
-                        // Fast barcode auto-detect (if 8 to 14 consecutive digits entered from scanner)
-                        if (RegExp(r'^\d{8,14}$').hasMatch(val.trim())) {
-                          _handleBarcodeScan(val.trim(), productProvider, cart, shopProvider);
-                        }
                       },
                       onSubmitted: (val) {
-                        _handleBarcodeScan(val, productProvider, cart, shopProvider);
+                        productProvider.setSearchQuery(val);
                       },
                     ),
                   ),
@@ -529,7 +435,7 @@ class _ProductGridState extends State<ProductGrid> {
                       const Icon(Icons.inventory_2_outlined, size: 54, color: Colors.grey),
                       const SizedBox(height: 10),
                       Text(
-                        'कोई सामान नहीं मिला\n(No products found for "${productProvider.searchQuery}")',
+                        'No products found for "${productProvider.searchQuery}"',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.grey, fontSize: 13),
                       ),
@@ -611,16 +517,47 @@ class _ProductGridState extends State<ProductGrid> {
                 product.unit == 'bottle' ||
                 product.unit == 'pack';
 
+            final scale = context.read<WeighingScaleProvider>();
+
             if ((shop.isKiranaMode && isPackaged) || (shop.isMixMode && isPackaged)) {
               // ⚡ 1-Tap Fast Add for Kirana Packaged Goods (Billiz / Vyapar fast flow)
               cart.incrementOrAdd(product);
+            } else if (scale.isConnected && scale.autoAddOnStable && scale.liveWeight > 0) {
+              // ⚡ Zero-Touch Mandi Mode: Produce on scale -> 1 tap instant add!
+              final itemWeight = scale.liveWeight;
+              cart.addLine(CartItem(
+                productId: product.id,
+                name: product.name,
+                unit: product.unit,
+                price: product.price,
+                qty: itemWeight,
+                imageUrl: product.imageUrl,
+                icon: product.icon,
+              ));
+              SoundService.instance.playProductAdd();
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    '⚡ Added ${product.name} (${itemWeight.toStringAsFixed(3)} kg)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  duration: const Duration(milliseconds: 900),
+                  backgroundColor: const Color(0xFF00875A),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
             } else {
-              // ⚖️ Detailed weight/qty dialog for produce
+              // ⚖️ Detailed weight/qty dialog for produce (auto-filled with scale weight if available)
+              final double defaultQty = (scale.isConnected && scale.autoFillDialog && scale.liveWeight > 0)
+                  ? scale.liveWeight
+                  : (inCartQty > 0 ? inCartQty : 1.0);
+
               showDialog(
                 context: context,
                 builder: (_) => QtyRateDialog(
                   product: product,
-                  initialQty: inCartQty > 0 ? inCartQty : 1.0,
+                  initialQty: defaultQty,
                   onConfirm: (cartItem) => cart.addLine(cartItem),
                 ),
               );
@@ -628,11 +565,15 @@ class _ProductGridState extends State<ProductGrid> {
           },
           onLongPress: () {
             SoundService.instance.playButtonClick();
+            final scale = context.read<WeighingScaleProvider>();
+            final double defaultQty = (scale.isConnected && scale.autoFillDialog && scale.liveWeight > 0)
+                ? scale.liveWeight
+                : (inCartQty > 0 ? inCartQty : 1.0);
             showDialog(
               context: context,
               builder: (_) => QtyRateDialog(
                 product: product,
-                initialQty: inCartQty > 0 ? inCartQty : 1.0,
+                initialQty: defaultQty,
                 onConfirm: (cartItem) => cart.addLine(cartItem),
               ),
             );
