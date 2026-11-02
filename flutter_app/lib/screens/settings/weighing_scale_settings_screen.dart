@@ -770,10 +770,10 @@ class _WeighingScaleSettingsScreenState
                           name.isNotEmpty ? name : 'Unknown Bluetooth Scale',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
-                        subtitle: Text(address ?? 'No Address', style: const TextStyle(fontSize: 12)),
+                        subtitle: Text(address, style: const TextStyle(fontSize: 12)),
                         onTap: () async {
                           Navigator.pop(ctx);
-                          if (address != null && address.isNotEmpty) {
+                          if (address.isNotEmpty) {
                             final ok = await scale.connectToScale(address, name: name);
                             if (ok) {
                               SoundService.instance.playSuccess();

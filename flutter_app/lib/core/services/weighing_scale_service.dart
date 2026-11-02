@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bluetooth_classic/bluetooth_classic.dart';
 import 'package:bluetooth_classic/models/device.dart';
+import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'scale_data_parser.dart';
 
 class WeighingScaleService {
@@ -112,17 +113,45 @@ class WeighingScaleService {
   }
 
   Future<List<Device>> getPairedDevices() async {
-    if (!isHardwareSupported || _bluetoothClassic == null) {
+    if (!isHardwareSupported) {
       return [];
     }
+
+    final List<Device> result = [];
+
+    // 1. Primary & Rock-Solid: PrintBluetoothThermal bonded devices query
     try {
-      await _bluetoothClassic!.initPermissions();
-      final list = await _bluetoothClassic!.getPairedDevices();
-      return list;
+      final List<BluetoothInfo> thermalList = await PrintBluetoothThermal.pairedBluetooths;
+      if (thermalList.isNotEmpty) {
+        for (final info in thermalList) {
+          final devName = (info.name.isNotEmpty) ? info.name : 'Bluetooth Device';
+          final devMac = info.macAdress;
+          if (devMac.isNotEmpty) {
+            result.add(Device(name: devName, address: devMac));
+          }
+        }
+        if (result.isNotEmpty) {
+          debugPrint("Found ${result.length} paired Bluetooth devices via PrintBluetoothThermal");
+          return result;
+        }
+      }
     } catch (e) {
-      debugPrint("Error fetching paired Bluetooth devices: $e");
-      return [];
+      debugPrint("PrintBluetoothThermal paired query err: $e");
     }
+
+    // 2. Secondary fallback: BluetoothClassic getPairedDevices
+    if (_bluetoothClassic != null) {
+      try {
+        final list = await _bluetoothClassic!.getPairedDevices();
+        if (list.isNotEmpty) {
+          return list;
+        }
+      } catch (e) {
+        debugPrint("BluetoothClassic getPairedDevices fallback err: $e");
+      }
+    }
+
+    return result;
   }
 
   Future<bool> connect(String macAddress, {String? name}) async {
@@ -137,7 +166,11 @@ class WeighingScaleService {
 
     try {
       await disconnect();
-      await _bluetoothClassic!.initPermissions();
+      // Ensure bluetooth permissions are granted smoothly without throwing crash
+      try {
+        await PrintBluetoothThermal.isPermissionBluetoothGranted;
+      } catch (_) {}
+
       final bool success = await _bluetoothClassic!.connect(macAddress, sppUuid);
 
       if (success) {
