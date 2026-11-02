@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/sound_service.dart';
+import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/shop_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../auth/login_screen.dart';
 import '../main_shell.dart';
@@ -101,11 +103,35 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final isSetupDone = prefs.getBool(userKey) ?? false;
     final hasCategory = prefs.getString('selected_store_type') != null;
 
-    // Only skip directly to MainShell if a real authenticated user exists AND setup is complete
-    final targetWidget = (auth.isAuthenticated && !auth.isGuestMode && isSetupDone && hasCategory)
-        ? const MainShell()
-        : const LoginScreen();
+    bool readyForMainShell = auth.isAuthenticated && !auth.isGuestMode && isSetupDone && hasCategory;
+    if (!readyForMainShell && auth.isAuthenticated && !auth.isGuestMode && auth.user != null) {
+      try {
+        final shopProv = context.read<ShopProvider>();
+        final shop = await shopProv.loadForUser(auth.user!.id, email: auth.user!.email);
+        final prods = await SupabaseService.instance.getProducts(shop.id);
+        final isExisting = prods.isNotEmpty ||
+            (shop.id != 'demo-shop-101' &&
+                shop.name.isNotEmpty &&
+                shop.name != 'मेरी दुकान (My Store)' &&
+                shop.name != 'Fresh Veggie Store' &&
+                !shop.name.startsWith('मेरी दुकान (')) ||
+            (shop.phone != null && shop.phone!.isNotEmpty);
 
+        if (isExisting) {
+          await prefs.setBool(userKey, true);
+          if (prefs.getString('selected_store_type') == null) {
+            await prefs.setString('selected_store_type', shop.storeType);
+          }
+          readyForMainShell = true;
+        }
+      } catch (e) {
+        debugPrint("Splash load existing user error: $e");
+      }
+    }
+
+    final targetWidget = readyForMainShell ? const MainShell() : const LoginScreen();
+
+    if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 600),
@@ -330,7 +356,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             right: 0,
             child: Center(
               child: Text(
-                'v1.3.2 • Made for Retail Stores',
+                'v1.3.3 • Made for Retail Stores',
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   color: Colors.white30,

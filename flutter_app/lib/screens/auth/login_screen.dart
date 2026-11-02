@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/services/update_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
@@ -17,22 +19,116 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
+  StreamSubscription<AuthState>? _authSubscription;
+  bool _isGoogleLoading = false;
+  bool _isNavigating = false;
+
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       UpdateService.showUpdateDialogIfNeeded(context);
     });
+
+    // Listen to OAuth callbacks (e.g., when returning from Google login via deep link)
+    final client = SupabaseService.instance.client;
+    if (client != null) {
+      _authSubscription = client.auth.onAuthStateChange.listen((data) async {
+        final session = data.session;
+        if (data.event == AuthChangeEvent.signedIn && session?.user != null) {
+          if (mounted && !_isNavigating) {
+            _isNavigating = true;
+            await _navigateAfterAuth(context);
+          }
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _authSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // If user returned from external browser without signing in, release the loading state
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted && !_isNavigating) {
+          final auth = context.read<AuthProvider>();
+          if (auth.user == null) {
+            setState(() => _isGoogleLoading = false);
+          }
+        }
+      });
+    }
   }
 
   Future<void> _navigateAfterAuth(BuildContext context) async {
     if (!context.mounted) return;
-    // Always navigate to Setup Details screen right after login so user can configure shop & mode
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const BusinessSetupScreen()),
-    );
+    final auth = context.read<AuthProvider>();
+    final shopProvider = context.read<ShopProvider>();
+    final productProvider = context.read<ProductProvider>();
+    final customerProvider = context.read<CustomerProvider>();
+    final prefs = await SharedPreferences.getInstance();
+
+    final user = auth.user;
+    if (user != null) {
+      try {
+        final syncedShop = await shopProvider.loadForUser(user.id, email: user.email);
+        if (context.mounted) {
+          await productProvider.loadProducts(syncedShop.id);
+          await customerProvider.loadCustomers(syncedShop.id);
+        }
+      } catch (e) {
+        debugPrint("Error syncing shop in _navigateAfterAuth: $e");
+      }
+    }
+
+    final currentShop = shopProvider.shop;
+    final userKey = user != null ? 'setup_done_${user.id}' : 'setup_done_guest';
+    final isSetupDoneLocal = prefs.getBool(userKey) ?? false;
+    final prods = productProvider.products;
+
+    // Check if user already has an existing shop setup:
+    // 1. Local preference flag was already completed.
+    // 2. OR shop already has products loaded from cloud.
+    // 3. OR shop has a non-default custom name or phone number.
+    final bool isExistingShop = isSetupDoneLocal ||
+        prods.isNotEmpty ||
+        (currentShop.id != 'demo-shop-101' &&
+            currentShop.name.trim().isNotEmpty &&
+            currentShop.name != 'मेरी दुकान (My Store)' &&
+            currentShop.name != 'Fresh Veggie Store' &&
+            !currentShop.name.startsWith('मेरी दुकान (')) ||
+        (currentShop.phone != null && currentShop.phone!.trim().isNotEmpty);
+
+    if (isExistingShop) {
+      // Permanently remember setup is done so user goes directly to POS
+      await prefs.setBool(userKey, true);
+      if (prefs.getString('selected_store_type') == null) {
+        await prefs.setString('selected_store_type', currentShop.storeType);
+      }
+      if (context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const MainShell()),
+        );
+      }
+    } else {
+      // Brand new user: guide them through store & mode configuration
+      if (context.mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const BusinessSetupScreen()),
+        );
+      }
+    }
   }
 
   void _showEmailLoginDialog(BuildContext context) {
@@ -368,34 +464,32 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.symmetric(vertical: 16),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           ),
-          onPressed: auth.isLoading
+          onPressed: (auth.isLoading || _isGoogleLoading || _isNavigating)
               ? null
               : () async {
+                  setState(() => _isGoogleLoading = true);
                   final success = await auth.signInWithGoogle();
                   if (success && context.mounted) {
                     if (auth.user != null) {
-                      try {
-                        final shopProvider = context.read<ShopProvider>();
-                        final syncedShop = await shopProvider.loadForUser(auth.user!.id, email: auth.user!.email);
-                        if (context.mounted) {
-                          await context.read<ProductProvider>().loadProducts(syncedShop.id);
-                          await context.read<CustomerProvider>().loadCustomers(syncedShop.id);
-                        }
-                      } catch (_) {}
-                    }
-                    if (context.mounted) {
+                      _isNavigating = true;
                       await _navigateAfterAuth(context);
                     }
-                  } else if (auth.lastError != null && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: Colors.red,
-                        content: Text(auth.lastError!),
-                      ),
-                    );
+                    // Note: On mobile platforms, signInWithGoogle opens the external browser.
+                    // auth.user is null until the browser completes and redirects back via deep link.
+                    // _authSubscription in initState will receive AuthChangeEvent.signedIn and call _navigateAfterAuth.
+                  } else {
+                    if (mounted) setState(() => _isGoogleLoading = false);
+                    if (auth.lastError != null && context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: Colors.red,
+                          content: Text(auth.lastError!),
+                        ),
+                      );
+                    }
                   }
                 },
-          child: auth.isLoading
+          child: (auth.isLoading || _isGoogleLoading || _isNavigating)
               ? const SizedBox(
                   height: 20,
                   width: 20,
@@ -491,7 +585,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 6),
         const Text(
-          'V 1.3.2',
+          'V 1.3.3',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
         ),

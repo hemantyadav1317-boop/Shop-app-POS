@@ -975,6 +975,44 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                         style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
                       ),
                     ),
+
+                    // Direct jump to POS if store already exists
+                    Builder(
+                      builder: (ctx) {
+                        final shop = ctx.watch<ShopProvider>().shop;
+                        final hasExisting = shop.id != 'demo-shop-101' &&
+                            shop.name.isNotEmpty &&
+                            shop.name != 'Fresh Veggie Store';
+                        if (!hasExisting) return const SizedBox.shrink();
+
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: TextButton.icon(
+                            onPressed: _isLoading
+                                ? null
+                                : () async {
+                                    final prefs = await SharedPreferences.getInstance();
+                                    final auth = ctx.read<AuthProvider>();
+                                    final userKey = auth.user != null ? 'setup_done_${auth.user!.id}' : 'setup_done_guest';
+                                    await prefs.setBool(userKey, true);
+                                    if (prefs.getString('selected_store_type') == null) {
+                                      await prefs.setString('selected_store_type', shop.storeType);
+                                    }
+                                    if (ctx.mounted) {
+                                      Navigator.of(ctx).pushReplacement(
+                                        MaterialPageRoute(builder: (_) => const MainShell()),
+                                      );
+                                    }
+                                  },
+                            icon: const Icon(Icons.storefront, size: 18),
+                            label: Text(
+                              'Go to ${shop.name} →',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
