@@ -39,6 +39,9 @@ jobs:
         working-directory: ./flutter_app
         run: flutter test
 
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses || true
+
       - name: Build Android Release APK
         working-directory: ./flutter_app
         run: flutter build apk --release
