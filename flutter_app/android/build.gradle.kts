@@ -16,13 +16,21 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 subprojects {
-    project.evaluationDependsOn(":app")
+    if (project.name != "app") {
+        afterEvaluate {
+            val android = project.extensions.findByName("android")
+            if (android is com.android.build.gradle.BaseExtension) {
+                val cur = android.compileSdkVersion?.replace("android-", "")?.toIntOrNull() ?: 0
+                if (cur in 1..33) {
+                    android.compileSdkVersion(35)
+                }
+            }
+        }
+    }
 }
 
 subprojects {
-    tasks.matching { it.name.contains("AarMetadata") }.configureEach {
-        enabled = false
-    }
+    project.evaluationDependsOn(":app")
 }
 
 tasks.register<Delete>("clean") {
