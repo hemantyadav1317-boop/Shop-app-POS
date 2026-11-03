@@ -371,6 +371,117 @@ class _SettingsScreenState extends State<SettingsScreen> {
   );
   }
 
+  void _showStaffPairingQrDialog(BuildContext context, Shop shop) {
+    final qrData = 'shoppos://pair?phone=${Uri.encodeComponent(shop.phone ?? '')}&pin=${shop.displayShareCode}&shopId=${shop.id}&name=${Uri.encodeComponent(shop.name)}';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary, size: 24),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'स्टाफ पेयरिंग QR कोड',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  Text(
+                    'Staff Instant Pairing QR',
+                    style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: QrImageView(
+                data: qrData,
+                version: QrVersions.auto,
+                size: 200,
+                backgroundColor: Colors.white,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: AppColors.primaryDark,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: Color(0xFF0F172A),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.primarySurface.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Text(
+                    shop.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primaryDark),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'शॉप मोबाइल: ${shop.phone ?? "सेट नहीं"}  •  पिन: ${shop.displayShareCode}',
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'स्टाफ अपने फोन के लॉगिन स्क्रीन पर "स्टाफ लॉगिन" में जाकर यह कोड स्कैन या दर्ज कर सकता है।',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('ठीक है (Done)'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStoreModeCard(BuildContext context, ShopProvider shopProvider) {
     final currentType = shopProvider.storeType;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1003,118 +1114,215 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.people_alt, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'दुकान शेयरिंग / Family & Staff Access',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.people_alt_rounded, color: AppColors.primary, size: 20),
+                        ),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'दुकान शेयरिंग / Family & Staff Access',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                              Text(
+                                '5-Layer सुरक्षित मल्टी-डिवाइस एक्सेस',
+                                style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     const Text(
-                      'अपने भाई, पार्टनर या स्टाफ को दुकान का एक्सेस देने के लिए यह 6 अंकों का कोड साझा करें:',
-                      style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
+                      'अपने भाई, पार्टनर या स्टाफ को दुकान का एक्सेस देने के लिए यह विवरण दें:',
+                      style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary, height: 1.3),
                     ),
                     const SizedBox(height: 12),
 
-                    // 6-Digit Shop Code Display Box
+                    // Modern Details Container: Phone + PIN
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: AppColors.primary.withValues(alpha: 0.35), width: 1.5),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.06),
+                            color: AppColors.primary.withValues(alpha: 0.05),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
                         ],
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          const Icon(Icons.pin_outlined, color: AppColors.primary, size: 24),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'दुकान कोड (6-Digit Shop Code):',
-                                  style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary, fontWeight: FontWeight.bold),
-                                ),
-                                const SizedBox(height: 2),
-                                SelectableText(
-                                  currentShop.displayShareCode.split('').join(' '),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 22,
-                                    letterSpacing: 3,
-                                    color: AppColors.primaryDark,
+                          // Row 1: Shop Phone
+                          Row(
+                            children: [
+                              const Icon(Icons.phone_android_rounded, size: 18, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'दुकान मोबाइल: ',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.lightTextSecondary),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  currentShop.phone != null && currentShop.phone!.isNotEmpty
+                                      ? currentShop.phone!
+                                      : 'सेट नहीं (नीचे प्रोफ़ाइल में दर्ज करें)',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: currentShop.phone != null ? AppColors.primaryDark : Colors.orange,
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                              if (currentShop.phone != null)
+                                InkWell(
+                                  onTap: () {
+                                    Clipboard.setData(ClipboardData(text: currentShop.phone!));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('मोबाइल नंबर कॉपी हुआ!')),
+                                    );
+                                  },
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(Icons.copy, size: 16, color: AppColors.primary),
+                                  ),
+                                ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.copy, size: 20, color: AppColors.primary),
-                            tooltip: 'कोड कॉपी करें',
-                            onPressed: () {
-                              Clipboard.setData(ClipboardData(text: currentShop.displayShareCode));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('दुकान कोड "' + currentShop.displayShareCode + '" कॉपी हो गया!')),
-                              );
-                            },
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Divider(height: 1),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.share, size: 20, color: Colors.green),
-                            tooltip: 'WhatsApp पर शेयर करें',
-                            onPressed: () async {
-                              final text = 'नमस्ते, यह हमारी दुकान "' + currentShop.name + '" का 6-अंकों का स्टाफ लॉगिन कोड है:\n\n🔑 दुकान कोड: ' + currentShop.displayShareCode + '\n\nShopPOS ऐप डाउनलोड करके "Staff Login" में यह कोड डालें और तुरंत दुकान चलाएं!';
-                              final uri = Uri.parse('whatsapp://send?text=' + Uri.encodeComponent(text));
-                              if (await canLaunchUrl(uri)) {
-                                await launchUrl(uri);
-                              } else {
-                                Clipboard.setData(ClipboardData(text: text));
-                                if (context.mounted) {
+
+                          // Row 2: 6-Digit Staff PIN (Guaranteed No Text Wrapping)
+                          Row(
+                            children: [
+                              const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.primary),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'स्टाफ पिन: ',
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.lightTextSecondary),
+                              ),
+                              Expanded(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                                    ),
+                                    child: Text(
+                                      currentShop.displayShareCode.split('').join(' '),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 20,
+                                        letterSpacing: 3,
+                                        color: AppColors.primaryDark,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.copy, size: 18, color: AppColors.primary),
+                                tooltip: 'पिन कॉपी करें',
+                                onPressed: () {
+                                  Clipboard.setData(ClipboardData(text: currentShop.displayShareCode));
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('शेयरिंग मैसेज कॉपी हो गया!')),
+                                    SnackBar(content: Text('स्टाफ पिन "${currentShop.displayShareCode}" कॉपी हो गया!')),
                                   );
-                                }
-                              }
-                            },
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.share, size: 18, color: Colors.green),
+                                tooltip: 'WhatsApp पर शेयर करें',
+                                onPressed: () async {
+                                  final phone = currentShop.phone ?? '';
+                                  final pin = currentShop.displayShareCode;
+                                  final text = '🏪 *${currentShop.name}*\n'
+                                      '👥 *स्टाफ लॉगिन एक्सेस (Staff Access)*\n\n'
+                                      '📞 दुकान मोबाइल: *$phone*\n'
+                                      '🔑 6-अंकीय स्टाफ पिन: *$pin*\n\n'
+                                      '📲 ShopPOS ऐप खोलें -> "Staff Login" पर क्लिक करें और मोबाइल व पिन दर्ज करके सीधे दुकान चलाएं!';
+                                  final uri = Uri.parse('whatsapp://send?text=${Uri.encodeComponent(text)}');
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri);
+                                  } else {
+                                    Clipboard.setData(ClipboardData(text: text));
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('शेयरिंग विवरण कॉपी हो गया!')),
+                                      );
+                                    }
+                                  }
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 12),
 
-                    // Generate New 6-digit Code Button
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: const Text('🔄 नया 6-डिजिट कोड बनाएं (Generate New Code)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                      ),
-                      onPressed: () async {
-                        final newCode = await shopProvider.generateNewShareCode();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
+                    // Action Buttons Row: Show QR Code & Generate New PIN
+                    Row(
+                      children: [
+                        // Button 1: Show QR Code
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.qr_code_2_rounded, size: 17),
+                            label: const Text('📷 QR कोड दिखाएं', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
-                              content: Text('नया 6-अंकों का कोड जनरेट हुआ: ' + newCode),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              elevation: 1,
                             ),
-                          );
-                        }
-                      },
+                            onPressed: () => _showStaffPairingQrDialog(context, currentShop),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+
+                        // Button 2: Generate New PIN (Clean single icon)
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.refresh_rounded, size: 16),
+                          label: const Text('नया पिन', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () async {
+                            final newCode = await shopProvider.generateNewShareCode();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: AppColors.primary,
+                                  content: Text('नया 6-अंकीय स्टाफ पिन सेट हुआ: $newCode'),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),

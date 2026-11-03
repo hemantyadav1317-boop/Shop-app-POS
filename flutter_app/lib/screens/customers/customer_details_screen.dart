@@ -385,24 +385,30 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                                 width: 1.5,
                               ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.money_rounded,
-                                  size: 16,
-                                  color: selectedMode == 'cash' ? Colors.white : Colors.grey.shade700,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.money_rounded,
+                                      size: 16,
+                                      color: selectedMode == 'cash' ? Colors.white : Colors.grey.shade700,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'नकद (Cash)',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12.5,
+                                        color: selectedMode == 'cash' ? Colors.white : Colors.grey.shade800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'नकद (Cash)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12.5,
-                                    color: selectedMode == 'cash' ? Colors.white : Colors.grey.shade800,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -429,24 +435,30 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                                 width: 1.5,
                               ),
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.qr_code_rounded,
-                                  size: 16,
-                                  color: selectedMode == 'upi' ? Colors.white : Colors.grey.shade700,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.qr_code_rounded,
+                                      size: 16,
+                                      color: selectedMode == 'upi' ? Colors.white : Colors.grey.shade700,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      'ऑनलाइन (UPI)',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12.5,
+                                        color: selectedMode == 'upi' ? Colors.white : Colors.grey.shade800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'ऑनलाइन (UPI)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12.5,
-                                    color: selectedMode == 'upi' ? Colors.white : Colors.grey.shade800,
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                         ),

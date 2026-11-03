@@ -210,6 +210,24 @@ class ShopProvider extends ChangeNotifier {
     return joined;
   }
 
+  Future<Shop> joinShopAsStaff({
+    required String phone,
+    required String pin,
+    String? qrPayload,
+  }) async {
+    final joined = await SupabaseService.instance.verifyAndJoinStaff(
+      phone: phone,
+      pin: pin,
+      qrPayload: qrPayload,
+    );
+    _shop = joined;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    final key = _shopStorageKey(_currentUserId);
+    await prefs.setString(key, jsonEncode(joined.toJson()));
+    return joined;
+  }
+
   Future<String> generateNewShareCode() async {
     final code = await SupabaseService.instance.generateShopShareCode(_shop.id);
     _shop = _shop.copyWith(shareCode: code);

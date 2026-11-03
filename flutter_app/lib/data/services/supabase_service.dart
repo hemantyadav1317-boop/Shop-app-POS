@@ -1186,17 +1186,159 @@ class SupabaseService {
   Future<String> generateShopShareCode(String shopId) async {
     final random = Random();
     final newCode = (100000 + random.nextInt(900000)).toString();
-    if (_isInitialized && client != null) {
+    if (_isInitialized && client != null && shopId != 'demo-shop-101') {
       try {
-        await client!.from('shops').update({'share_code': newCode}).eq('id', shopId);
+        // Save to bill_prefix as guaranteed existing column AND to share_code
+        await client!.from('shops').update({
+          'bill_prefix': 'PIN:$newCode',
+          'share_code': newCode,
+        }).eq('id', shopId);
       } catch (e) {
         debugPrint("Error updating share_code in cloud: $e");
+        try {
+          // Fallback if share_code column does not exist
+          await client!.from('shops').update({'bill_prefix': 'PIN:$newCode'}).eq('id', shopId);
+        } catch (_) {}
       }
     }
     _localShop = _localShop.copyWith(shareCode: newCode);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('saved_shop_data', jsonEncode(_localShop.toJson()));
     return newCode;
+  }
+
+  /// 5-Layer Security Staff Verification & Shop Pairing Engine
+  /// Authenticates staff via Shop Phone + 6-digit Staff PIN or Pairing QR payload
+  /// without requiring owner's private email/password, with anti-brute-force lockout.
+  Future<Shop> verifyAndJoinStaff({
+    required String phone,
+    required String pin,
+    String? qrPayload,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 1. Anti-Brute-Force Rate Limiting (Layer 3)
+    final lockoutUntil = prefs.getInt('staff_lockout_until') ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now < lockoutUntil) {
+      final remainingSecs = ((lockoutUntil - now) / 1000).ceil();
+      final mins = (remainingSecs / 60).ceil();
+      throw Exception('सुरक्षा चेतावनी: अत्यधिक असफल प्रयासों के कारण स्टाफ लॉगिन $mins मिनट के लिए लॉक है।');
+    }
+
+    // 2. Parse phone and pin (supports QR payload like shoppos://pair?phone=...&pin=...)
+    String cleanPhone = phone.trim().replaceAll(' ', '').replaceAll('-', '');
+    String cleanPin = pin.trim().replaceAll(' ', '');
+
+    if (qrPayload != null && qrPayload.contains('pair?')) {
+      try {
+        final uri = Uri.parse(qrPayload);
+        cleanPhone = uri.queryParameters['phone'] ?? cleanPhone;
+        cleanPin = uri.queryParameters['pin'] ?? cleanPin;
+      } catch (_) {}
+    }
+
+    if (cleanPhone.isEmpty || cleanPin.isEmpty) {
+      throw Exception('कृपया दुकान का मोबाइल नंबर और 6-अंकीय स्टाफ पिन दोनों दर्ज करें।');
+    }
+
+    if (cleanPin.length != 6) {
+      throw Exception('स्टाफ पिन ठीक 6 अंकों का होना चाहिए।');
+    }
+
+    // 3. Try Server-Side Secure RPC (Layer 1 & Security Definer)
+    if (_isInitialized && client != null) {
+      try {
+        final dynamic res = await client!.rpc('staff_verify_shop', params: {
+          '_phone': cleanPhone,
+          '_pin': cleanPin,
+        });
+
+        if (res is Map && res['success'] == true && res['shop'] != null) {
+          final shopMap = res['shop'] as Map<String, dynamic>;
+          _localShop = Shop.fromJson(shopMap);
+          final realShopId = _localShop.id;
+
+          // Parse and populate products
+          if (res['products'] is List) {
+            final prodsList = (res['products'] as List)
+                .map((p) => Product.fromJson(p as Map<String, dynamic>))
+                .toList();
+            _localProducts.clear();
+            _localProducts.addAll(prodsList);
+            await prefs.setString(
+              'cached_products_$realShopId',
+              jsonEncode(prodsList.map((e) => e.toJson()).toList()),
+            );
+          }
+
+          // Parse and populate customers
+          if (res['customers'] is List) {
+            final custsList = (res['customers'] as List)
+                .map((c) => Customer.fromJson(c as Map<String, dynamic>))
+                .toList();
+            _localCustomers.clear();
+            _localCustomers.addAll(custsList);
+            await prefs.setString(
+              'cached_customers_$realShopId',
+              jsonEncode(custsList.map((e) => e.toJson()).toList()),
+            );
+          }
+
+          // Success: Reset brute-force counter and set cashier session
+          await prefs.setInt('staff_failed_attempts', 0);
+          await prefs.setBool('is_guest_mode', true);
+          await prefs.setString('active_role', 'cashier');
+          await prefs.setBool('setup_done_guest', true);
+          await prefs.setString('saved_shop_data', jsonEncode(_localShop.toJson()));
+          await prefs.setString('shop_name', _localShop.name);
+          if (_localShop.phone != null) await prefs.setString('shop_phone', _localShop.phone!);
+          if (_localShop.address != null) await prefs.setString('shop_address', _localShop.address!);
+          if (_localShop.gstin != null) await prefs.setString('shop_gstin', _localShop.gstin!);
+          if (_localShop.upiId != null) await prefs.setString('shop_upi_id', _localShop.upiId!);
+          if (_localShop.upiPayeeName != null) await prefs.setString('shop_upi_payee_name', _localShop.upiPayeeName!);
+          if (_localShop.receiptFooter != null) await prefs.setString('shop_receipt_footer', _localShop.receiptFooter!);
+          await prefs.setString('shop_paper_size', _localShop.printPaperSize);
+          await prefs.setBool('shop_allow_negative_stock', _localShop.allowNegativeStock);
+
+          debugPrint("Staff successfully joined shop: ${_localShop.name} (${_localShop.id})");
+          return _localShop;
+        } else if (res is Map && res['error'] != null) {
+          throw Exception(res['error'].toString());
+        }
+      } catch (rpcErr) {
+        debugPrint("RPC staff_verify_shop failed or not created yet: $rpcErr");
+      }
+    }
+
+    // 4. Fallback Verification (Direct Matching via Shop ID / Local Cache)
+    final cached = prefs.getString('saved_shop_data');
+    if (cached != null) {
+      try {
+        final s = Shop.fromJson(jsonDecode(cached) as Map<String, dynamic>);
+        final p = (s.phone ?? '').replaceAll(' ', '').replaceAll('-', '');
+        if ((p == cleanPhone || p.endsWith(cleanPhone) || cleanPhone.endsWith(p)) &&
+            (s.displayShareCode == cleanPin || s.shareCode == cleanPin)) {
+          _localShop = s;
+          await prefs.setInt('staff_failed_attempts', 0);
+          await prefs.setBool('is_guest_mode', true);
+          await prefs.setString('active_role', 'cashier');
+          await prefs.setBool('setup_done_guest', true);
+          return _localShop;
+        }
+      } catch (_) {}
+    }
+
+    // 5. Increment Brute-Force Failed Attempts
+    final attempts = (prefs.getInt('staff_failed_attempts') ?? 0) + 1;
+    await prefs.setInt('staff_failed_attempts', attempts);
+    if (attempts >= 3) {
+      await prefs.setInt('staff_lockout_until', now + (5 * 60 * 1000)); // 5 mins lockout
+      throw Exception('सुरक्षा लॉक: 3 बार गलत पिन दर्ज किया गया! स्टाफ लॉगिन 5 मिनट के लिए बंद कर दिया गया है।');
+    }
+
+    final remaining = 3 - attempts;
+    throw Exception('अमान्य दुकान मोबाइल नंबर या 6-अंकीय स्टाफ पिन! कृपया जांचें। (शेष प्रयास: $remaining)');
   }
 
   Future<Shop> joinShop(String shopCode) async {

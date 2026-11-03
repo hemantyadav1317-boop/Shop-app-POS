@@ -8,6 +8,7 @@ import '../../data/models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
+import 'category_products_screen.dart';
 import '../../core/utils/pos_sound_formatter.dart';
 import '../../core/services/sound_service.dart';
 import 'widgets/bulk_import_dialog.dart';
@@ -20,6 +21,17 @@ import '../../core/services/fmcg_catalog_service.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
+
+  static void showAddEditProductDialogStatic(
+    BuildContext context, {
+    Product? existing,
+    String? preselectedCategory,
+  }) {
+    final state = context.findAncestorStateOfType<_InventoryScreenState>();
+    if (state != null) {
+      state._showAddEditProductDialog(context, existing, preselectedCategory);
+    }
+  }
 
   @override
   State<InventoryScreen> createState() => _InventoryScreenState();
@@ -227,7 +239,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  void _showAddEditProductDialog(BuildContext context, [Product? existing]) {
+  void _showAddEditProductDialog(BuildContext context, [Product? existing, String? preselectedCategory]) {
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final barcodeCtrl = TextEditingController(text: existing?.barcode ?? '');
     final mrpCtrl = TextEditingController(text: existing?.mrp != null ? existing!.mrp.toString() : '');
@@ -244,13 +256,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     final productProvider = context.read<ProductProvider>();
     List<String> availableCats = List.from(productProvider.allCategories);
-    String selectedCategory = existing != null ? existing.category.toUpperCase() : (availableCats.isNotEmpty ? availableCats.first : 'GENERAL');
+    String selectedCategory = existing != null
+        ? existing.category.toUpperCase()
+        : (preselectedCategory != null && preselectedCategory.trim().isNotEmpty
+            ? preselectedCategory.trim().toUpperCase()
+            : (availableCats.isNotEmpty ? availableCats.first : 'GENERAL'));
     if (!availableCats.contains(selectedCategory)) {
       availableCats.insert(0, selectedCategory);
     }
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
           final isDark = Theme.of(ctx).brightness == Brightness.dark;
@@ -291,592 +308,649 @@ class _InventoryScreenState extends State<InventoryScreen> {
           final double marginVal = (saleVal > 0 && costVal > 0) ? (saleVal - costVal) : 0.0;
           final double marginPct = (saleVal > 0 && costVal > 0) ? ((marginVal / saleVal) * 100) : 0.0;
 
-          return AlertDialog(
+          Widget buildPhotoPill({
+            required String label,
+            required IconData icon,
+            required VoidCallback onTap,
+            bool isDestructive = false,
+          }) {
+            return InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: isDestructive
+                      ? Colors.red.withValues(alpha: 0.1)
+                      : const Color(0xFF00875A).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isDestructive
+                        ? Colors.red.withValues(alpha: 0.3)
+                        : const Color(0xFF00875A).withValues(alpha: 0.25),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 13, color: isDestructive ? Colors.red : const Color(0xFF00875A)),
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDestructive ? Colors.red : const Color(0xFF00875A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: Text(
-              existing == null ? 'नया सामान जोड़ें / Add Product' : 'सामान एडिट करें / Edit Product',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            content: SingleChildScrollView(
+            backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+            clipBehavior: Clip.antiAlias,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 500, maxHeight: 680),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Product Photo & Icon Card
+                  // 1. Header with Accent & Close Button
                   Container(
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
                     decoration: BoxDecoration(
-                      color: AppColors.primarySurface.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.2)),
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                      border: Border(bottom: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
                     ),
                     child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        ProductImageView(
-                          imageUrl: imageUrl,
-                          fallbackIcon: icon,
-                          size: 64,
-                          borderRadius: 12,
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00875A).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            existing == null ? Icons.add_box_rounded : Icons.edit_note_rounded,
+                            color: const Color(0xFF00875A),
+                            size: 22,
+                          ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                imageUrl != null && imageUrl!.isNotEmpty
-                                    ? 'फोटो जोड़ी गई है'
-                                    : 'कोई फोटो नहीं (इमोजी सेट है)',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                existing == null ? 'नया सामान जोड़ें (Add Product)' : 'सामान एडिट करें (Edit Product)',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
-                              const SizedBox(height: 2),
-                              const Text(
-                                'फोटो लगाने के लिए विकल्प:',
-                                style: TextStyle(fontSize: 10, color: AppColors.lightTextSecondary),
-                              ),
-                              const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 6,
-                                runSpacing: 4,
-                                children: [
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.camera_alt, size: 13),
-                                    label: const Text('कैमरा', style: TextStyle(fontSize: 11)),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    onPressed: () async {
-                                      try {
-                                        final img = await picker.pickImage(
-                                          source: ImageSource.camera,
-                                          maxWidth: 600,
-                                          maxHeight: 600,
-                                          imageQuality: 80,
-                                        );
-                                        if (img != null) {
-                                          final bytes = await img.readAsBytes();
-                                          final shop = context.read<ShopProvider>().shop;
-                                          final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
-                                            shopId: shop.id,
-                                            folder: 'products',
-                                            fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
-                                            bytes: bytes,
-                                          );
-                                          setDialogState(() => imageUrl = uploadedUrl);
-                                        }
-                                      } catch (e) {
-                                        debugPrint("Camera error: $e");
-                                      }
-                                    },
-                                  ),
-                                  ElevatedButton.icon(
-                                    icon: const Icon(Icons.photo_library, size: 13),
-                                    label: const Text('गैलरी', style: TextStyle(fontSize: 11)),
-                                    style: ElevatedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    onPressed: () async {
-                                      try {
-                                        final img = await picker.pickImage(
-                                          source: ImageSource.gallery,
-                                          maxWidth: 600,
-                                          maxHeight: 600,
-                                          imageQuality: 80,
-                                        );
-                                        if (img != null) {
-                                          final bytes = await img.readAsBytes();
-                                          final shop = context.read<ShopProvider>().shop;
-                                          final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
-                                            shopId: shop.id,
-                                            folder: 'products',
-                                            fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
-                                            bytes: bytes,
-                                          );
-                                          setDialogState(() => imageUrl = uploadedUrl);
-                                        }
-                                      } catch (e) {
-                                        debugPrint("Gallery error: $e");
-                                      }
-                                    },
-                                  ),
-                                  OutlinedButton.icon(
-                                    icon: const Icon(Icons.link, size: 13),
-                                    label: const Text('URL', style: TextStyle(fontSize: 11)),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    onPressed: () {
-                                      final urlCtrl = TextEditingController(text: imageUrl?.startsWith('http') == true ? imageUrl : '');
-                                      showDialog(
-                                        context: ctx,
-                                        builder: (urlCtx) => AlertDialog(
-                                          title: const Text('इमेज URL लिंक दर्ज करें', style: TextStyle(fontSize: 14)),
-                                          content: TextField(
-                                            controller: urlCtrl,
-                                            decoration: const InputDecoration(
-                                              hintText: 'https://example.com/item.jpg',
-                                              prefixIcon: Icon(Icons.link),
-                                            ),
-                                          ),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(urlCtx), child: const Text('Cancel')),
-                                            ElevatedButton(
-                                              onPressed: () {
-                                                final val = urlCtrl.text.trim();
-                                                if (val.isNotEmpty) {
-                                                  setDialogState(() => imageUrl = val);
-                                                }
-                                                Navigator.pop(urlCtx);
-                                              },
-                                              child: const Text('Set URL'),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  OutlinedButton.icon(
-                                    icon: const Icon(Icons.emoji_emotions, size: 13),
-                                    label: const Text('इमोजी', style: TextStyle(fontSize: 11)),
-                                    style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    onPressed: () {
-                                      showDialog(
-                                        context: ctx,
-                                        builder: (emojiDialogCtx) => SimpleDialog(
-                                          title: const Text('इमोजी चुनें / Select Emoji'),
-                                          children: ['🍎', '🍌', '🥭', '🍇', '🥔', '🧅', '🍅', '🥬', '🌶️', '🥛', '🧀', '📦', '🍞', '🍚', '🍫', '🧴', '🧼', '☕', '🥤', '🍪', '🍜', '🧂', '🧈', '🍿']
-                                              .map((em) => SimpleDialogOption(
-                                                    onPressed: () {
-                                                      setDialogState(() => icon = em);
-                                                      Navigator.pop(emojiDialogCtx);
-                                                    },
-                                                    child: Text(em, style: const TextStyle(fontSize: 24)),
-                                                  ))
-                                              .toList(),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  if (imageUrl != null && imageUrl!.isNotEmpty)
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.delete_outline, size: 13, color: AppColors.error),
-                                      label: const Text('हटाएं', style: TextStyle(fontSize: 11, color: AppColors.error)),
-                                      onPressed: () => setDialogState(() => imageUrl = null),
-                                    ),
-                                ],
+                              Text(
+                                existing == null ? 'इन्वेंट्री में नया आइटम जोड़ें' : 'सामान का नाम, रेट व स्टॉक बदलें',
+                                style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
                               ),
                             ],
                           ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          onPressed: () => Navigator.pop(ctx),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
 
-                  // 🏷️ Barcode Field (with Gun Auto-lookup)
-                  TextField(
-                    controller: barcodeCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'बारकोड (Barcode EAN-13 / UPC)',
-                      hintText: 'उदा. 8901058852448 या गन से स्कैन करें',
-                      prefixIcon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF2563EB)),
-                      suffixIcon: barcodeCtrl.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                barcodeCtrl.clear();
-                                updateFmcgSuggestions('');
-                              },
-                            )
-                          : null,
-                    ),
-                    onChanged: (val) {
-                      final item = FmcgCatalogService.instance.findByBarcode(val);
-                      if (item != null) {
-                        applyFmcgItem(item);
-                      } else {
-                        updateFmcgSuggestions(val);
-                      }
-                    },
-                    onSubmitted: (val) {
-                      final item = FmcgCatalogService.instance.findByBarcode(val);
-                      if (item != null) {
-                        applyFmcgItem(item);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-
-                  // 📦 Product Name Field with Auto-Suggest
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'सामान का नाम *',
-                      hintText: 'उदा. Maggi 70g, Tata Salt, Parle-G, आलू',
-                      prefixIcon: Icon(Icons.shopping_bag_outlined),
-                    ),
-                    onChanged: (val) {
-                      updateFmcgSuggestions(val);
-                    },
-                  ),
-
-                  // ⚡ FMCG Preloaded Suggestions Box
-                  if (fmcgSuggestions.isNotEmpty && existing == null) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF0FDF4),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
-                      ),
+                  // 2. Scrollable Body
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Row(
-                            children: const [
-                              Icon(Icons.bolt_rounded, size: 16, color: Color(0xFF00875A)),
-                              SizedBox(width: 4),
-                              Text(
-                                'किराना कैटलॉग से त्वरित ऑटो-फिल (1-Tap Fill):',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF00875A),
-                                ),
-                              ),
-                            ],
+                          // --- SECTION 1: Product Name & Barcode ---
+                          TextField(
+                            controller: nameCtrl,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            decoration: InputDecoration(
+                              labelText: 'सामान का नाम (Product Name) *',
+                              hintText: 'उदा. Maggi 70g, Fresh Paneer, Tata Salt, आलू',
+                              prefixIcon: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF00875A)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            ),
+                            onChanged: (val) => updateFmcgSuggestions(val),
                           ),
-                          const SizedBox(height: 6),
-                          ...fmcgSuggestions.map((item) {
-                            return InkWell(
-                              onTap: () => applyFmcgItem(item),
-                              borderRadius: BorderRadius.circular(8),
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 5),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Text(item.icon, style: const TextStyle(fontSize: 18)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            item.name,
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          Text(
-                                            '${item.brand} • ${item.packSize} • Barcode: ${item.barcode}',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              color: isDark ? Colors.white60 : Colors.grey.shade600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          '₹${item.mrp.toStringAsFixed(0)}',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 13,
-                                            color: Color(0xFF00875A),
-                                          ),
-                                        ),
-                                        Text(
-                                          'MRP (2026)',
-                                          style: TextStyle(fontSize: 8.5, color: Colors.grey.shade500),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
-                      ),
-                    ),
-                  ],
+                          const SizedBox(height: 10),
 
-                  const SizedBox(height: 10),
-
-                  // Category Dropdown with "+ Add New"
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          value: selectedCategory,
-                          decoration: const InputDecoration(
-                            labelText: 'कैटेगरी *',
-                            prefixIcon: Icon(Icons.category_outlined),
+                          TextField(
+                            controller: barcodeCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'बारकोड (Barcode / EAN)',
+                              hintText: 'बारकोड गन से स्कैन करें या नंबर लिखें',
+                              prefixIcon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF2563EB)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                              suffixIcon: barcodeCtrl.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () {
+                                        barcodeCtrl.clear();
+                                        updateFmcgSuggestions('');
+                                      },
+                                    )
+                                  : null,
+                            ),
+                            onChanged: (val) {
+                              final item = FmcgCatalogService.instance.findByBarcode(val);
+                              if (item != null) {
+                                applyFmcgItem(item);
+                              } else {
+                                updateFmcgSuggestions(val);
+                              }
+                            },
                           ),
-                          isExpanded: true,
-                          items: [
-                            ...availableCats.map((cat) => DropdownMenuItem(
-                                  value: cat,
-                                  child: Text(cat, overflow: TextOverflow.ellipsis),
-                                )),
-                            const DropdownMenuItem(
-                              value: '__ADD_NEW__',
-                              child: Row(
+
+                          // FMCG Auto-Suggest Drops
+                          if (fmcgSuggestions.isNotEmpty && existing == null) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(Icons.add_circle_outline, size: 16, color: AppColors.primary),
-                                  SizedBox(width: 6),
-                                  Text('+ नई कैटेगरी बनाएं', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.bolt_rounded, size: 15, color: Color(0xFF00875A)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'किराना कैटलॉग से ऑटो-फिल (1-Tap):',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF00875A)),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  ...fmcgSuggestions.map((item) => InkWell(
+                                        onTap: () => applyFmcgItem(item),
+                                        borderRadius: BorderRadius.circular(6),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                          child: Row(
+                                            children: [
+                                              Text(item.icon, style: const TextStyle(fontSize: 16)),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  '${item.name} (${item.brand})',
+                                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              Text(
+                                                '₹${item.mrp.toStringAsFixed(0)}',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF00875A)),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )),
                                 ],
                               ),
                             ),
                           ],
-                          onChanged: (val) {
-                            if (val == '__ADD_NEW__') {
-                              _showAddCategoryDialog(context, (newCat) {
-                                setDialogState(() {
-                                  if (!availableCats.contains(newCat)) {
-                                    availableCats.add(newCat);
-                                  }
-                                  selectedCategory = newCat;
-                                });
-                              });
-                            } else if (val != null) {
-                              setDialogState(() => selectedCategory = val);
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      DropdownButton<String>(
-                        value: unit,
-                        items: ['kg', 'pc', 'pkt', 'litre', 'bottle', 'g']
-                            .map((u) => DropdownMenuItem(value: u, child: Text(u.toUpperCase())))
-                            .toList(),
-                        onChanged: (val) {
-                          if (val != null) setDialogState(() => unit = val);
-                        },
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
 
-                  // 💰 Price Inputs: Responsive Layout (Zero Clipping on Mobile & Tablet)
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isWide = constraints.maxWidth > 380;
-                      if (isWide) {
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: mrpCtrl,
-                                inputFormatters: [PosNumberSoundFormatter()],
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(labelText: 'MRP (₹)', prefixText: '₹ '),
-                                onChanged: (_) => setDialogState(() {}),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: priceCtrl,
-                                inputFormatters: [PosNumberSoundFormatter()],
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(labelText: 'बिक्री दर (Sale) *', prefixText: '₹ '),
-                                onChanged: (_) => setDialogState(() {}),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: TextField(
-                                controller: purchasePriceCtrl,
-                                inputFormatters: [PosNumberSoundFormatter()],
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(labelText: 'खरीद (Cost)', prefixText: '₹ '),
-                                onChanged: (_) => setDialogState(() {}),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
+                          const SizedBox(height: 12),
 
-                      // Mobile (maxWidth <= 380): 2 roomy rows
-                      return Column(
-                        children: [
+                          // --- SECTION 2: Category & Unit (Matching Rows) ---
                           Row(
                             children: [
                               Expanded(
-                                child: TextField(
-                                  controller: mrpCtrl,
-                                  inputFormatters: [PosNumberSoundFormatter()],
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  decoration: const InputDecoration(labelText: 'MRP (₹)', prefixText: '₹ '),
-                                  onChanged: (_) => setDialogState(() {}),
+                                flex: 3,
+                                child: DropdownButtonFormField<String>(
+                                  value: selectedCategory,
+                                  decoration: InputDecoration(
+                                    labelText: 'कैटेगरी *',
+                                    prefixIcon: const Icon(Icons.category_outlined, color: Color(0xFF00875A)),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                                  ),
+                                  isExpanded: true,
+                                  items: [
+                                    ...availableCats.map((cat) => DropdownMenuItem(
+                                          value: cat,
+                                          child: Text(cat, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                        )),
+                                    const DropdownMenuItem(
+                                      value: '__ADD_NEW__',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.add_circle_outline, size: 16, color: AppColors.primary),
+                                          SizedBox(width: 6),
+                                          Text('+ नई बनाएं', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  onChanged: (val) {
+                                    if (val == '__ADD_NEW__') {
+                                      _showAddCategoryDialog(context, (newCat) {
+                                        setDialogState(() {
+                                          if (!availableCats.contains(newCat)) {
+                                            availableCats.add(newCat);
+                                          }
+                                          selectedCategory = newCat;
+                                        });
+                                      });
+                                    } else if (val != null) {
+                                      setDialogState(() => selectedCategory = val);
+                                    }
+                                  },
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 10),
                               Expanded(
-                                child: TextField(
-                                  controller: priceCtrl,
-                                  inputFormatters: [PosNumberSoundFormatter()],
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  decoration: const InputDecoration(labelText: 'बिक्री दर (Sale) *', prefixText: '₹ '),
-                                  onChanged: (_) => setDialogState(() {}),
+                                flex: 2,
+                                child: DropdownButtonFormField<String>(
+                                  value: unit,
+                                  decoration: InputDecoration(
+                                    labelText: 'इकाई (Unit) *',
+                                    prefixIcon: const Icon(Icons.scale_rounded, color: Color(0xFF00875A)),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+                                  ),
+                                  items: ['kg', 'pc', 'pkt', 'litre', 'bottle', 'g']
+                                      .map((u) => DropdownMenuItem(
+                                            value: u,
+                                            child: Text(u.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          ))
+                                      .toList(),
+                                  onChanged: (val) {
+                                    if (val != null) setDialogState(() => unit = val);
+                                  },
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: purchasePriceCtrl,
-                            inputFormatters: [PosNumberSoundFormatter()],
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'खरीद दर (Cost Price)', prefixText: '₹ '),
-                            onChanged: (_) => setDialogState(() {}),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
 
-                  // 📊 Real-time Margin & Profit Pill
-                  if (saleVal > 0 && costVal > 0) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: marginVal >= 0
-                            ? const Color(0xFF00875A).withValues(alpha: 0.12)
-                            : Colors.red.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+                          const SizedBox(height: 12),
+
+                          // --- SECTION 3: Pricing & Live Profit Margin ---
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'कीमत व दर (Pricing & Rates)',
+                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.lightTextSecondary),
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: mrpCtrl,
+                                        inputFormatters: [PosNumberSoundFormatter()],
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: 'MRP (₹)',
+                                          prefixText: '₹ ',
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                        ),
+                                        onChanged: (_) => setDialogState(() {}),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: priceCtrl,
+                                        inputFormatters: [PosNumberSoundFormatter()],
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: 'बिक्री दर *',
+                                          prefixText: '₹ ',
+                                          labelStyle: const TextStyle(color: Color(0xFF00875A), fontWeight: FontWeight.bold),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(10),
+                                            borderSide: const BorderSide(color: Color(0xFF00875A)),
+                                          ),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                        ),
+                                        onChanged: (_) => setDialogState(() {}),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: TextField(
+                                        controller: purchasePriceCtrl,
+                                        inputFormatters: [PosNumberSoundFormatter()],
+                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                        decoration: InputDecoration(
+                                          labelText: 'खरीद दर',
+                                          prefixText: '₹ ',
+                                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                        ),
+                                        onChanged: (_) => setDialogState(() {}),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                if (saleVal > 0 && costVal > 0) ...[
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: marginVal >= 0
+                                          ? const Color(0xFF00875A).withValues(alpha: 0.12)
+                                          : Colors.red.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              marginVal >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                                              size: 16,
+                                              color: marginVal >= 0 ? const Color(0xFF00875A) : Colors.red,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              marginVal >= 0 ? 'मुनाफा (Margin):' : 'नुकसान (Loss):',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: marginVal >= 0 ? const Color(0xFF00875A) : Colors.red,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        Text(
+                                          '₹${marginVal.toStringAsFixed(1)} / $unit (${marginPct.toStringAsFixed(1)}%)',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w900,
+                                            color: marginVal >= 0 ? const Color(0xFF00875A) : Colors.red,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // --- SECTION 4: Stock & Alerts ---
                           Row(
                             children: [
-                              Icon(
-                                marginVal >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                                size: 16,
-                                color: marginVal >= 0 ? const Color(0xFF00875A) : Colors.red,
+                              Expanded(
+                                child: TextField(
+                                  controller: stockCtrl,
+                                  inputFormatters: [PosNumberSoundFormatter()],
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: InputDecoration(
+                                    labelText: 'वर्तमान स्टॉक ($unit)',
+                                    prefixIcon: const Icon(Icons.inventory_2_outlined, color: Color(0xFF00875A)),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                  ),
+                                ),
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                marginVal >= 0 ? 'मुनाफा (Margin):' : 'नुकसान (Loss):',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: marginVal >= 0 ? const Color(0xFF00875A) : Colors.red,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: TextField(
+                                  controller: lowStockCtrl,
+                                  inputFormatters: [PosNumberSoundFormatter()],
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: InputDecoration(
+                                    labelText: 'अलर्ट सीमा ($unit)',
+                                    prefixIcon: const Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                                  ),
                                 ),
                               ),
                             ],
                           ),
-                          Text(
-                            '₹${marginVal.toStringAsFixed(1)} / $unit (${marginPct.toStringAsFixed(1)}%)',
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w900,
-                              color: marginVal >= 0 ? const Color(0xFF00875A) : Colors.red,
+
+                          const SizedBox(height: 12),
+
+                          // --- SECTION 5: Photo & Icon Visuals ---
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                            ),
+                            child: Row(
+                              children: [
+                                ProductImageView(
+                                  imageUrl: imageUrl,
+                                  fallbackIcon: icon,
+                                  size: 52,
+                                  borderRadius: 10,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        imageUrl != null && imageUrl!.isNotEmpty
+                                            ? 'कस्टम फोटो लगी हुई है'
+                                            : 'आइकन: $icon (फोटो जोड़ें)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                                      ),
+                                      const SizedBox(height: 5),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          buildPhotoPill(
+                                            label: 'कैमरा',
+                                            icon: Icons.camera_alt,
+                                            onTap: () async {
+                                              try {
+                                                final img = await picker.pickImage(
+                                                  source: ImageSource.camera,
+                                                  maxWidth: 600,
+                                                  maxHeight: 600,
+                                                  imageQuality: 80,
+                                                );
+                                                if (img != null) {
+                                                  final bytes = await img.readAsBytes();
+                                                  final shop = context.read<ShopProvider>().shop;
+                                                  final url = await SupabaseService.instance.uploadImageBytes(
+                                                    shopId: shop.id,
+                                                    folder: 'products',
+                                                    fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                                    bytes: bytes,
+                                                  );
+                                                  setDialogState(() => imageUrl = url);
+                                                }
+                                              } catch (e) {
+                                                debugPrint("Camera error: $e");
+                                              }
+                                            },
+                                          ),
+                                          buildPhotoPill(
+                                            label: 'गैलरी',
+                                            icon: Icons.photo_library,
+                                            onTap: () async {
+                                              try {
+                                                final img = await picker.pickImage(
+                                                  source: ImageSource.gallery,
+                                                  maxWidth: 600,
+                                                  maxHeight: 600,
+                                                  imageQuality: 80,
+                                                );
+                                                if (img != null) {
+                                                  final bytes = await img.readAsBytes();
+                                                  final shop = context.read<ShopProvider>().shop;
+                                                  final url = await SupabaseService.instance.uploadImageBytes(
+                                                    shopId: shop.id,
+                                                    folder: 'products',
+                                                    fileName: '${DateTime.now().millisecondsSinceEpoch}.jpg',
+                                                    bytes: bytes,
+                                                  );
+                                                  setDialogState(() => imageUrl = url);
+                                                }
+                                              } catch (e) {
+                                                debugPrint("Gallery error: $e");
+                                              }
+                                            },
+                                          ),
+                                          buildPhotoPill(
+                                            label: 'इमोजी',
+                                            icon: Icons.emoji_emotions,
+                                            onTap: () {
+                                              showDialog(
+                                                context: ctx,
+                                                builder: (emojiDialogCtx) => SimpleDialog(
+                                                  title: const Text('इमोजी चुनें / Select Emoji'),
+                                                  children: ['🍎', '🍌', '🥭', '🍇', '🥔', '🧅', '🍅', '🥬', '🌶️', '🥛', '🧀', '📦', '🍞', '🍚', '🍫', '🧴', '🧼', '☕', '🥤', '🍪', '🍜', '🧂', '🧈', '🍿']
+                                                      .map((em) => SimpleDialogOption(
+                                                            onPressed: () {
+                                                              setDialogState(() => icon = em);
+                                                              Navigator.pop(emojiDialogCtx);
+                                                            },
+                                                            child: Text(em, style: const TextStyle(fontSize: 24)),
+                                                          ))
+                                                      .toList(),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          if (imageUrl != null && imageUrl!.isNotEmpty)
+                                            buildPhotoPill(
+                                              label: 'हटाएं',
+                                              icon: Icons.delete_outline,
+                                              isDestructive: true,
+                                              onTap: () => setDialogState(() => imageUrl = null),
+                                            ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
+                  ),
 
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: stockCtrl,
-                          inputFormatters: [PosNumberSoundFormatter()],
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(labelText: 'स्टॉक ($unit)'),
+                  // 3. Bottom Sticky Action Bar
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                      border: Border(top: BorderSide(color: Colors.grey.withValues(alpha: 0.2))),
+                    ),
+                    child: Row(
+                      children: [
+                        if (existing != null) ...[
+                          OutlinedButton.icon(
+                            icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                            label: const Text('हटाएं', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.red.withValues(alpha: 0.4)),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _confirmDeleteProduct(context, existing);
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Spacer(),
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('रद्द करें', style: TextStyle(color: Colors.grey, fontSize: 13)),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: lowStockCtrl,
-                          inputFormatters: [PosNumberSoundFormatter()],
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(labelText: 'अलर्ट ($unit)'),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.check_circle_outline, size: 18),
+                          label: const Text('सुरक्षित करें (Save)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00875A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 2,
+                          ),
+                          onPressed: () async {
+                            final name = nameCtrl.text.trim();
+                            final price = double.tryParse(priceCtrl.text) ?? 0.0;
+                            if (name.isEmpty || price <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('कृपया सामान का नाम और बिक्री दर सही दर्ज करें!')),
+                              );
+                              return;
+                            }
+
+                            final shop = context.read<ShopProvider>().shop;
+                            final existingId = existing?.id;
+                            final hasValidUuid = existingId != null &&
+                                RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+                                    .hasMatch(existingId);
+                            final prod = Product(
+                              id: hasValidUuid ? existingId : const Uuid().v4(),
+                              shopId: shop.id,
+                              name: name,
+                              category: selectedCategory.trim().toUpperCase(),
+                              unit: unit,
+                              price: price,
+                              mrp: double.tryParse(mrpCtrl.text),
+                              barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
+                              purchasePrice: double.tryParse(purchasePriceCtrl.text),
+                              stock: double.tryParse(stockCtrl.text) ?? 0.0,
+                              lowStockAt: double.tryParse(lowStockCtrl.text) ?? 5.0,
+                              imageUrl: imageUrl,
+                              icon: icon,
+                            );
+
+                            final provider = context.read<ProductProvider>();
+                            if (existing == null) {
+                              await provider.addProduct(prod);
+                            } else {
+                              await provider.updateProduct(prod);
+                            }
+                            SoundService.instance.playSuccess();
+                            if (context.mounted) Navigator.pop(ctx);
+                          },
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-            actions: [
-              if (existing != null)
-                TextButton.icon(
-                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 16),
-                  label: const Text('हटाएं', style: TextStyle(color: AppColors.error)),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _confirmDeleteProduct(context, existing);
-                  },
-                ),
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              ElevatedButton(
-                onPressed: () async {
-                  final name = nameCtrl.text.trim();
-                  final price = double.tryParse(priceCtrl.text) ?? 0.0;
-                  if (name.isEmpty || price <= 0) return;
-
-                  final shop = context.read<ShopProvider>().shop;
-                  final existingId = existing?.id;
-                  final hasValidUuid = existingId != null &&
-                      RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
-                          .hasMatch(existingId);
-                  final prod = Product(
-                    id: hasValidUuid ? existingId : const Uuid().v4(),
-                    shopId: shop.id,
-                    name: name,
-                    category: selectedCategory.trim().toUpperCase(),
-                    unit: unit,
-                    price: price,
-                    mrp: double.tryParse(mrpCtrl.text),
-                    barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
-                    purchasePrice: double.tryParse(purchasePriceCtrl.text),
-                    stock: double.tryParse(stockCtrl.text) ?? 0.0,
-                    lowStockAt: double.tryParse(lowStockCtrl.text) ?? 5.0,
-                    imageUrl: imageUrl,
-                    icon: icon,
-                  );
-
-                  final provider = context.read<ProductProvider>();
-                  if (existing == null) {
-                    await provider.addProduct(prod);
-                  } else {
-                    await provider.updateProduct(prod);
-                  }
-                  SoundService.instance.playSuccess();
-                  if (context.mounted) Navigator.pop(ctx);
-                },
-                child: const Text('Save Product'),
-              ),
-            ],
           );
         },
       ),
@@ -1742,7 +1816,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             final catImg = productProvider.getCategoryImage(cat);
 
                             return Card(
+                              elevation: 1.5,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               child: ListTile(
+                                onTap: () {
+                                  SoundService.instance.playButtonClick();
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => CategoryProductsScreen(category: cat),
+                                    ),
+                                  );
+                                },
                                 leading: ProductImageView(
                                   imageUrl: catImg,
                                   fallbackIcon: cat.isNotEmpty ? cat.substring(0, 1) : '📁',

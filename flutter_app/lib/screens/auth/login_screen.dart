@@ -243,86 +243,319 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _showJoinShopDialog(BuildContext context) {
-    final codeCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final pinCtrl = TextEditingController();
+    final pasteCtrl = TextEditingController();
+    bool isLoading = false;
+    String? errorMsg;
+    int activeTab = 0; // 0 = Phone + PIN, 1 = Quick Paste
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.storefront_rounded, color: Color(0xFF00875A)),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'दुकान से जुड़ें (Staff Login)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-          ],
-        ),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 380),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+      barrierDismissible: !isLoading,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          title: Row(
             children: [
-              const Text(
-                'दुकानदार द्वारा दिया गया 6-अंकों का दुकान कोड (6-Digit Shop Code) दर्ज करें:',
-                style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00875A).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.badge_outlined, color: Color(0xFF00875A), size: 22),
               ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: codeCtrl,
-                autofocus: true,
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.5),
-                decoration: InputDecoration(
-                  labelText: 'दुकान कोड (6-Digit Code) *',
-                  hintText: 'उदा. 749201',
-                  prefixIcon: const Icon(Icons.pin_outlined, color: Color(0xFF00875A)),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
-                  ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'स्टाफ लॉगिन (Staff Login)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Text(
+                      '5-Layer सुरक्षित दुकान एक्सेस',
+                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('रद्द करें (Cancel)')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00875A),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          content: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Tab Switcher
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setDialogState(() {
+                              activeTab = 0;
+                              errorMsg = null;
+                            }),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              decoration: BoxDecoration(
+                                color: activeTab == 0 ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: activeTab == 0
+                                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '📱 मोबाइल व पिन',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: activeTab == 0 ? FontWeight.bold : FontWeight.normal,
+                                    color: activeTab == 0 ? const Color(0xFF00875A) : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () => setDialogState(() {
+                              activeTab = 1;
+                              errorMsg = null;
+                            }),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 7),
+                              decoration: BoxDecoration(
+                                color: activeTab == 1 ? Colors.white : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                boxShadow: activeTab == 1
+                                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))]
+                                    : null,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  '📋 लिंक/कोड पेस्ट',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: activeTab == 1 ? FontWeight.bold : FontWeight.normal,
+                                    color: activeTab == 1 ? const Color(0xFF00875A) : Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  if (errorMsg != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              errorMsg!,
+                              style: const TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  if (activeTab == 0) ...[
+                    // Shop Mobile Number
+                    TextField(
+                      controller: phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: 'दुकानदार का मोबाइल नंबर *',
+                        hintText: 'उदा. 9529419047',
+                        prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF00875A)),
+                        prefixText: '+91 ',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // 6-digit Staff PIN
+                    TextField(
+                      controller: pinCtrl,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 3),
+                      decoration: InputDecoration(
+                        counterText: '',
+                        labelText: '6-अंकीय स्टाफ पिन (Staff PIN) *',
+                        hintText: 'उदा. 666091',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF00875A)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    // Paste Payload / WhatsApp Link
+                    TextField(
+                      controller: pasteCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'WhatsApp शेयर मैसेज या कोड पेस्ट करें',
+                        hintText: 'दुकानदार द्वारा भेजा गया WhatsApp मैसेज या कोड यहाँ पेस्ट करें...',
+                        prefixIcon: const Icon(Icons.paste_rounded, color: Color(0xFF00875A)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
+                        ),
+                      ),
+                    ),
+                  ],
+
+                  const SizedBox(height: 18),
+
+                  // Submit Button
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF00875A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                    ),
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            String phone = phoneCtrl.text.trim();
+                            String pin = pinCtrl.text.trim();
+                            String? qr;
+
+                            if (activeTab == 1) {
+                              final pasted = pasteCtrl.text.trim();
+                              if (pasted.isEmpty) {
+                                setDialogState(() => errorMsg = 'कृपया शेयर किया गया मैसेज या कोड पेस्ट करें।');
+                                return;
+                              }
+                              qr = pasted;
+                              // Auto-extract phone and pin if possible
+                              final phoneMatch = RegExp(r'(?:91)?([6-9]\d{9})').firstMatch(pasted);
+                              if (phoneMatch != null) phone = phoneMatch.group(1)!;
+                              final pinMatch = RegExp(r'\b(\d{6})\b').firstMatch(pasted);
+                              if (pinMatch != null) pin = pinMatch.group(1)!;
+                            }
+
+                            if (phone.isEmpty && pin.isEmpty && qr == null) {
+                              setDialogState(() => errorMsg = 'कृपया मोबाइल नंबर और पिन दर्ज करें।');
+                              return;
+                            }
+
+                            setDialogState(() {
+                              isLoading = true;
+                              errorMsg = null;
+                            });
+
+                            try {
+                              final auth = context.read<AuthProvider>();
+                              await auth.continueOffline();
+
+                              final shopProv = context.read<ShopProvider>();
+                              final joined = await shopProv.joinShopAsStaff(
+                                phone: phone,
+                                pin: pin,
+                                qrPayload: qr,
+                              );
+
+                              if (context.mounted) {
+                                await context.read<ProductProvider>().loadProducts(joined.id);
+                                if (context.mounted) {
+                                  await context.read<CustomerProvider>().loadCustomers(joined.id);
+                                  await SupabaseService.instance.getSales(joined.id);
+
+                                  final prefs = await SharedPreferences.getInstance();
+                                  await prefs.setBool('setup_done_guest', true);
+                                  await prefs.setString('selected_store_type', joined.storeType);
+
+                                  Navigator.pop(ctx);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      backgroundColor: const Color(0xFF00875A),
+                                      content: Text('दुकान "${joined.name}" से कैशियर के रूप में सफलतापूर्वक जुड़ गए!'),
+                                    ),
+                                  );
+
+                                  // Direct jump to POS Shell (NEVER BusinessSetupScreen)
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => const MainShell()),
+                                  );
+                                }
+                              }
+                            } catch (e) {
+                              setDialogState(() {
+                                isLoading = false;
+                                errorMsg = e.toString().replaceFirst('Exception: ', '');
+                              });
+                            }
+                          },
+                    child: isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.login_rounded, size: 18),
+                              SizedBox(width: 8),
+                              Text(
+                                'दुकान खोलें (Login as Staff)',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              ),
+                            ],
+                          ),
+                  ),
+
+                  const SizedBox(height: 6),
+                  TextButton(
+                    onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                    child: const Text('रद्द करें (Cancel)', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                  ),
+                ],
+              ),
             ),
-            onPressed: () async {
-              final code = codeCtrl.text.trim();
-              if (code.isEmpty) return;
-
-              final auth = context.read<AuthProvider>();
-              await auth.continueOffline();
-
-              if (context.mounted) {
-                final shopProv = context.read<ShopProvider>();
-                final joined = await shopProv.joinShop(code);
-                if (context.mounted) {
-                  await context.read<ProductProvider>().loadProducts(joined.id);
-                  if (context.mounted) {
-                    await context.read<CustomerProvider>().loadCustomers(joined.id);
-                    await SupabaseService.instance.getSales(joined.id);
-                    Navigator.pop(ctx);
-                    await _navigateAfterAuth(context);
-                  }
-                }
-              }
-            },
-            child: const Text('दुकान खोलें (Join Shop)', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
-        ],
+        ),
       ),
     );
   }
