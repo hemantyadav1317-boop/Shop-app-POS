@@ -585,6 +585,26 @@ class SupabaseService {
     _saveCachedCustomers(_localShop.id, _localCustomers);
   }
 
+  Future<void> updateCustomer(Customer updated) async {
+    final index = _localCustomers.indexWhere((c) => c.id == updated.id);
+    if (index != -1) {
+      _localCustomers[index] = updated;
+    }
+    if (_isInitialized && client != null) {
+      try {
+        await client!.from('customers').update({
+          'name': updated.name,
+          'phone': updated.phone,
+          'address': updated.address,
+          'balance': updated.balance,
+        }).eq('id', updated.id);
+      } catch (e) {
+        debugPrint("Error updating customer: $e");
+      }
+    }
+    _saveCachedCustomers(_localShop.id, _localCustomers);
+  }
+
   Future<void> deleteCustomer(String customerId) async {
     _localCustomers.removeWhere((c) => c.id == customerId);
     if (_isInitialized && client != null) {

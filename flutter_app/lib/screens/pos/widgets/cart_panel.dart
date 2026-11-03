@@ -378,9 +378,13 @@ class _CartPanelState extends State<CartPanel> {
                       onDismissed: (_) {
                         SoundService.instance.playDelete();
                         cart.removeLine(item.productId, item.name);
+                        ScaffoldMessenger.of(context).clearSnackBars();
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            duration: const Duration(seconds: 2),
+                            behavior: SnackBarBehavior.floating,
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            duration: const Duration(milliseconds: 1400),
                             content: Text('\'${item.name}\' removed from bill'),
                             action: SnackBarAction(
                               label: 'Undo',
@@ -451,20 +455,24 @@ class _CartPanelState extends State<CartPanel> {
                                   },
                                 ),
                                 Container(
-                                  constraints: const BoxConstraints(minWidth: 44),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  constraints: const BoxConstraints(minWidth: 46),
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                                   alignment: Alignment.center,
                                   decoration: BoxDecoration(
-                                    color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
+                                    border: Border.all(
+                                      color: isDark ? const Color(0xFF10B981) : const Color(0xFF00875A).withValues(alpha: 0.3),
+                                      width: isDark ? 1.5 : 1.0,
+                                    ),
                                   ),
                                   child: Text(
                                     item.qty % 1 == 0 ? '${item.qty.toInt()} ${item.unit}' : '${item.qty.toStringAsFixed(2)} ${item.unit}',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontWeight: FontWeight.w900,
-                                      fontSize: 12,
-                                      color: Color(0xFF00875A),
+                                      fontSize: 12.5,
+                                      color: isDark ? const Color(0xFF34D399) : const Color(0xFF00875A),
+                                      letterSpacing: 0.2,
                                     ),
                                   ),
                                 ),
@@ -532,6 +540,21 @@ class _CartPanelState extends State<CartPanel> {
                 children: [
                   const Text('Subtotal:', style: TextStyle(fontSize: 13, color: AppColors.lightTextSecondary)),
                   Text(CurrencyFormatter.format(cart.subtotal), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Total Items:', style: TextStyle(fontSize: 13, color: AppColors.lightTextSecondary)),
+                  Text(
+                    '${cart.lines.length} ${cart.lines.length == 1 ? "Item" : "Items"} (${cart.totalQty % 1 == 0 ? cart.totalQty.toInt() : cart.totalQty.toStringAsFixed(2)} qty)',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 6),

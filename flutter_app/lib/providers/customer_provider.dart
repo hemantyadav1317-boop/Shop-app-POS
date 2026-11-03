@@ -54,6 +54,27 @@ class CustomerProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> addCredit(String customerId, double creditAmount) async {
+    final idx = _customers.indexWhere((c) => c.id == customerId);
+    if (idx != -1) {
+      final current = _customers[idx];
+      final newBalance = current.balance + creditAmount;
+      final updated = current.copyWith(balance: newBalance);
+      _customers[idx] = updated;
+      notifyListeners();
+      await SupabaseService.instance.updateCustomerBalance(customerId, updated.balance);
+    }
+  }
+
+  Future<void> updateCustomer(Customer updated) async {
+    final idx = _customers.indexWhere((c) => c.id == updated.id);
+    if (idx != -1) {
+      _customers[idx] = updated;
+      notifyListeners();
+      await SupabaseService.instance.updateCustomer(updated);
+    }
+  }
+
   Future<void> deleteCustomer(String customerId) async {
     _customers.removeWhere((c) => c.id == customerId);
     notifyListeners();

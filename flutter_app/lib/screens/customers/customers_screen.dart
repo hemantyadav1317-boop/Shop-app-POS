@@ -1,3 +1,4 @@
+import 'customer_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -424,7 +425,12 @@ class CustomersScreen extends StatelessWidget {
                                 padding: EdgeInsets.zero,
                                 onSelected: (val) {
                                   if (val == 'ledger') {
-                                    _showCustomerLedger(context, customer);
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => CustomerDetailsScreen(customer: customer),
+                                      ),
+                                    );
                                   } else if (val == 'delete') {
                                     _confirmDeleteCustomer(context, customer);
                                   }
@@ -454,7 +460,14 @@ class CustomersScreen extends StatelessWidget {
                               ),
                             ],
                           ),
-                          onTap: () => _showCustomerLedger(context, customer),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CustomerDetailsScreen(customer: customer),
+                              ),
+                            );
+                          },
                         ),
                       );
                     },
