@@ -209,6 +209,68 @@ class CustomersScreen extends StatelessWidget {
   }
 
   void _confirmDeleteCustomer(BuildContext context, Customer customer) {
+    if (customer.balance > 0) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline_rounded, color: AppColors.error, size: 26),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('खाता नहीं हटाया जा सकता', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ग्राहक "${customer.name}" के खाते में ${CurrencyFormatter.format(customer.balance)} का बकाया (उधार) शेष है।',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: Colors.amber.shade900, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'खाता हटाने से पहले कृपया पूरा बकाया शून्य (₹0) करें। उधार शेष रहते खाता डिलीट नहीं किया जा सकता।',
+                        style: TextStyle(fontSize: 12.5, color: Colors.black87, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('समझ गया (OK)', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -224,38 +286,9 @@ class CustomersScreen extends StatelessWidget {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'क्या आप "${customer.name}" को खाता सूची से डिलीट करना चाहते हैं?',
-              style: const TextStyle(fontSize: 14),
-            ),
-            if (customer.balance > 0) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, color: AppColors.error, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'सावधान! इस ग्राहक पर ${CurrencyFormatter.format(customer.balance)} का उधार बकाया है। डिलीट करने पर यह खाता हट जाएगा।',
-                        style: const TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
+        content: Text(
+          'क्या आप "${customer.name}" को खाता सूची से डिलीट करना चाहते हैं?',
+          style: const TextStyle(fontSize: 14),
         ),
         actions: [
           TextButton(

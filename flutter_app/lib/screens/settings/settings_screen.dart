@@ -261,12 +261,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      isScrollControlled: true,
+      builder: (ctx) {
+        final bottomInset = MediaQuery.of(ctx).viewPadding.bottom + MediaQuery.of(ctx).viewInsets.bottom;
+        return Container(
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          padding: EdgeInsets.fromLTRB(20, 16, 20, 24 + bottomInset),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -358,8 +361,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -498,7 +501,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                spacing: 8,
+                                runSpacing: 4,
                                 children: [
                                   Text(
                                     m['title'] as String,
@@ -508,12 +514,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       color: isSelected ? color : null,
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                     decoration: BoxDecoration(
                                       color: color.withValues(alpha: 0.15),
                                       borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: color.withValues(alpha: 0.3), width: 0.8),
                                     ),
                                     child: Text(
                                       m['tag'] as String,
@@ -522,7 +528,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 3),
+                              const SizedBox(height: 4),
                               Text(
                                 m['subtitle'] as String,
                                 style: TextStyle(
@@ -533,6 +539,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             ],
                           ),
                         ),
+                        const SizedBox(width: 10),
                         Icon(
                           isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
                           color: isSelected ? color : Colors.grey.shade400,

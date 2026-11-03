@@ -343,19 +343,19 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
 
-        // 2. FIXED / STICKY Text-Only Category Bar (Pinned while scrolling products)
+        // 2. FIXED / STICKY Text-Only Category Bar (Pinned while scrolling products - Large Touch-Friendly Tabs)
         SliverPersistentHeader(
           pinned: true,
           delegate: _StickyCategoryHeaderDelegate(
-            height: isMobile ? 42.0 : 46.0,
+            height: isMobile ? 54.0 : 58.0,
             backgroundColor: isDark ? const Color(0xFF0F172A) : Theme.of(context).scaffoldBackgroundColor,
             child: SizedBox(
-              height: isMobile ? 42.0 : 46.0,
+              height: isMobile ? 54.0 : 58.0,
               child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 12, vertical: isMobile ? 6 : 7),
                 scrollDirection: Axis.horizontal,
                 itemCount: productProvider.categories.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 6),
+                separatorBuilder: (_, _) => SizedBox(width: isMobile ? 8 : 10),
                 itemBuilder: (context, i) {
                   final cat = productProvider.categories[i];
                   final isSelected = productProvider.selectedCategory == cat;
@@ -366,29 +366,29 @@ class _ProductGridState extends State<ProductGrid> {
                       SoundService.instance.playButtonClick();
                       productProvider.selectCategory(cat);
                     },
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(14),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 18, vertical: isMobile ? 7 : 8.5),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isSelected
                             ? const Color(0xFF00875A)
                             : (isDark ? const Color(0xFF1E293B) : Colors.white),
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(14),
                         border: Border.all(
                           color: isSelected
                               ? const Color(0xFF00875A)
-                              : (isDark ? Colors.white12 : Colors.grey.shade300),
-                          width: isSelected ? 1.5 : 1.0,
+                              : (isDark ? Colors.white24 : Colors.grey.shade300),
+                          width: isSelected ? 2.0 : 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: isSelected
-                                ? const Color(0xFF00875A).withValues(alpha: 0.25)
-                                : Colors.black.withValues(alpha: 0.02),
-                            blurRadius: isSelected ? 4 : 2,
-                            offset: const Offset(0, 1),
+                                ? const Color(0xFF00875A).withValues(alpha: 0.35)
+                                : Colors.black.withValues(alpha: 0.03),
+                            blurRadius: isSelected ? 6 : 2,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
@@ -398,18 +398,30 @@ class _ProductGridState extends State<ProductGrid> {
                           Text(
                             cat,
                             style: TextStyle(
-                              fontSize: isMobile ? 12 : 13,
-                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                              fontSize: isMobile ? 13.5 : 15.0,
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
                               color: isSelected ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E293B)),
+                              letterSpacing: 0.3,
                             ),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '($count)',
-                            style: TextStyle(
-                              fontSize: isMobile ? 10 : 11,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                              color: isSelected ? Colors.white70 : Colors.grey.shade500,
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? Colors.white.withValues(alpha: 0.25)
+                                  : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '$count',
+                              style: TextStyle(
+                                fontSize: isMobile ? 11.0 : 12.0,
+                                fontWeight: FontWeight.w800,
+                                color: isSelected
+                                    ? Colors.white
+                                    : (isDark ? Colors.white70 : Colors.grey.shade800),
+                              ),
                             ),
                           ),
                         ],
