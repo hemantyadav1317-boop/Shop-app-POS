@@ -180,7 +180,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // 1. Period Selector Tabs (Today, Week, Month)
+                    // 1. Period Selector Tabs (Modern Segmented Pill Bar)
                     Container(
                       padding: const EdgeInsets.all(4),
                       decoration: BoxDecoration(
@@ -189,62 +189,84 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                       ),
                       child: Row(
                         children: [
-                          _buildPeriodButton('आज (Today)', AnalyticsPeriod.today),
-                          _buildPeriodButton('इस हफ्ते (7 Days)', AnalyticsPeriod.week),
-                          _buildPeriodButton('इस महीने (30 Days)', AnalyticsPeriod.month),
+                          _buildPeriodButton('आज (Today)', AnalyticsPeriod.today, isDark),
+                          _buildPeriodButton('इस हफ्ते (7 Days)', AnalyticsPeriod.week, isDark),
+                          _buildPeriodButton('इस महीने (30 Days)', AnalyticsPeriod.month, isDark),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
 
-                    // 2. High-Level KPI Summary Cards
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildKpiCard(
-                            title: 'कुल बिक्री (Revenue)',
-                            value: CurrencyFormatter.format(totalRevenue),
-                            icon: Icons.currency_rupee_rounded,
-                            color: const Color(0xFF2563EB),
-                            isDark: isDark,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildKpiCard(
-                            title: 'कुल मुनाफा (Profit)',
-                            value: CurrencyFormatter.format(totalProfit),
-                            subtitle: '${overallMargin.toStringAsFixed(1)}% मार्जिन',
-                            icon: Icons.trending_up_rounded,
-                            color: const Color(0xFF00875A),
-                            isDark: isDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildKpiCard(
-                            title: 'कुल बिल (Invoices)',
-                            value: '${currentSales.length}',
-                            icon: Icons.receipt_long_outlined,
-                            color: const Color(0xFF7C3AED),
-                            isDark: isDark,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildKpiCard(
-                            title: 'आइटम्स बिके (Qty)',
-                            value: '${totalUnitsSold.toStringAsFixed(1)} Units',
-                            icon: Icons.inventory_2_outlined,
-                            color: const Color(0xFFEA580C),
-                            isDark: isDark,
-                          ),
-                        ),
-                      ],
+                    // 2. High-Level KPI Summary Cards (Responsive for Mobile & Tablet)
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final isTablet = constraints.maxWidth > 600;
+
+                        final card1 = _buildKpiCard(
+                          title: 'कुल बिक्री (Revenue)',
+                          value: CurrencyFormatter.format(totalRevenue),
+                          icon: Icons.currency_rupee_rounded,
+                          color: const Color(0xFF2563EB),
+                          isDark: isDark,
+                        );
+                        final card2 = _buildKpiCard(
+                          title: 'कुल मुनाफा (Profit)',
+                          value: CurrencyFormatter.format(totalProfit),
+                          subtitle: '${overallMargin.toStringAsFixed(1)}% मार्जिन',
+                          icon: Icons.trending_up_rounded,
+                          color: const Color(0xFF00875A),
+                          isDark: isDark,
+                        );
+                        final card3 = _buildKpiCard(
+                          title: 'कुल बिल (Invoices)',
+                          value: '${currentSales.length}',
+                          icon: Icons.receipt_long_outlined,
+                          color: const Color(0xFF7C3AED),
+                          isDark: isDark,
+                        );
+                        final card4 = _buildKpiCard(
+                          title: 'आइटम्स बिके (Qty)',
+                          value: '${totalUnitsSold.toStringAsFixed(1)} Units',
+                          icon: Icons.inventory_2_outlined,
+                          color: const Color(0xFFEA580C),
+                          isDark: isDark,
+                        );
+
+                        if (isTablet) {
+                          return Row(
+                            children: [
+                              Expanded(child: card1),
+                              const SizedBox(width: 12),
+                              Expanded(child: card2),
+                              const SizedBox(width: 12),
+                              Expanded(child: card3),
+                              const SizedBox(width: 12),
+                              Expanded(child: card4),
+                            ],
+                          );
+                        }
+
+                        // Mobile: 2x2 grid with dedicated spacing
+                        return Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(child: card1),
+                                const SizedBox(width: 10),
+                                Expanded(child: card2),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(child: card3),
+                                const SizedBox(width: 10),
+                                Expanded(child: card4),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 20),
 
@@ -405,7 +427,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     );
   }
 
-  Widget _buildPeriodButton(String title, AnalyticsPeriod period) {
+  Widget _buildPeriodButton(String title, AnalyticsPeriod period, bool isDark) {
     final isSelected = _selectedPeriod == period;
     return Expanded(
       child: GestureDetector(
@@ -413,11 +435,30 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           SoundService.instance.playButtonClick();
           setState(() => _selectedPeriod = period);
         },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 9),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          margin: const EdgeInsets.symmetric(horizontal: 2),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF00875A) : Colors.transparent,
+            color: isSelected
+                ? const Color(0xFF00875A)
+                : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.white),
             borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF00875A)
+                  : (isDark ? Colors.white12 : Colors.grey.shade300),
+              width: isSelected ? 1.5 : 1.0,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: const Color(0xFF00875A).withValues(alpha: 0.25),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : null,
           ),
           alignment: Alignment.center,
           child: Text(
@@ -425,8 +466,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             style: TextStyle(
               fontSize: 11.5,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-              color: isSelected ? Colors.white : Colors.grey.shade700,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark ? Colors.white70 : const Color(0xFF334155)),
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ),
@@ -442,15 +487,18 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     required bool isDark,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? Colors.white12 : Colors.grey.shade200),
+        border: Border.all(
+          color: color.withValues(alpha: isDark ? 0.35 : 0.25),
+          width: 1.2,
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 4,
+            color: color.withValues(alpha: 0.06),
+            blurRadius: 6,
             offset: const Offset(0, 2),
           ),
         ],
@@ -459,24 +507,40 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary, fontWeight: FontWeight.w600)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 4),
               Container(
-                padding: const EdgeInsets.all(5),
+                padding: const EdgeInsets.all(4.5),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.12),
+                  color: color.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 16),
+                child: Icon(icon, color: color, size: 15),
               ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(value, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+          ),
           if (subtitle != null) ...[
             const SizedBox(height: 2),
-            Text(subtitle, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: color)),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: color),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ],
         ],
       ),

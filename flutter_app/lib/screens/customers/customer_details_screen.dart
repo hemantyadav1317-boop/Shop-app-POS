@@ -440,7 +440,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   }
 
   // ==========================================
-  // 1. PROFILE HEADER CARD
+  // 1. PROFILE HEADER CARD (Fully Responsive)
   // ==========================================
   Widget _buildProfileHeaderCard(bool isDark) {
     final phone = _currentCustomer.phone;
@@ -449,113 +449,167 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+        padding: const EdgeInsets.all(14),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: _currentCustomer.balance > 0
-                  ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-                  : const Color(0xFF00875A).withValues(alpha: 0.15),
-              child: Text(
-                _currentCustomer.name.isNotEmpty
-                    ? _currentCustomer.name.substring(0, 1).toUpperCase()
-                    : 'C',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: _currentCustomer.balance > 0 ? const Color(0xFFEF4444) : const Color(0xFF00875A),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  radius: 26,
+                  backgroundColor: _currentCustomer.balance > 0
+                      ? const Color(0xFFEF4444).withValues(alpha: 0.15)
+                      : const Color(0xFF00875A).withValues(alpha: 0.15),
+                  child: Text(
+                    _currentCustomer.name.isNotEmpty
+                        ? _currentCustomer.name.substring(0, 1).toUpperCase()
+                        : 'C',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: _currentCustomer.balance > 0 ? const Color(0xFFEF4444) : const Color(0xFF00875A),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          _currentCustomer.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                      Text(
+                        _currentCustomer.name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      if (phone != null && phone.isNotEmpty)
+                        Row(
+                          children: [
+                            const Icon(Icons.phone, size: 13, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text(
+                              phone,
+                              style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w500),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      InkWell(
-                        onTap: _showEditCustomerDialog,
-                        child: const Text('Edit', style: TextStyle(color: Color(0xFF2563EB), fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                      const Text(' · ', style: TextStyle(color: Colors.grey)),
-                      InkWell(
-                        onTap: _confirmDeleteCustomer,
-                        child: const Text('Delete', style: TextStyle(color: Color(0xFFEF4444), fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
+                      if (_currentCustomer.address != null && _currentCustomer.address!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_outlined, size: 13, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _currentCustomer.address!,
+                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  if (phone != null && phone.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        const Icon(Icons.phone, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(phone, style: const TextStyle(fontSize: 13, color: Colors.grey)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                  ],
-                  if (_currentCustomer.address != null && _currentCustomer.address!.isNotEmpty) ...[
-                    Row(
-                      children: [
-                        const Icon(Icons.location_on_outlined, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _currentCustomer.address!,
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
+                ),
+              ],
             ),
-            if (phone != null && phone.isNotEmpty) ...[
-              // Quick Call & WhatsApp Buttons
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    onPressed: () => _makeCall(phone),
-                    icon: Container(
-                      padding: const EdgeInsets.all(7),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 10),
+            // Responsive Action Chips (Call, WhatsApp, Edit, Delete)
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (phone != null && phone.isNotEmpty) ...[
+                  InkWell(
+                    onTap: () => _makeCall(phone),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
+                        color: const Color(0xFF2563EB).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.25)),
                       ),
-                      child: const Icon(Icons.call, color: Color(0xFF2563EB), size: 18),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.call_rounded, size: 14, color: Color(0xFF2563EB)),
+                          SizedBox(width: 5),
+                          Text('कॉल (Call)', style: TextStyle(color: Color(0xFF2563EB), fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
-                    tooltip: 'Call Customer',
                   ),
-                  IconButton(
-                    onPressed: () => _openWhatsApp(phone),
-                    icon: Container(
-                      padding: const EdgeInsets.all(7),
+                  InkWell(
+                    onTap: () => _openWhatsApp(phone),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E).withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
+                        color: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.25)),
                       ),
-                      child: const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF16A34A), size: 18),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.chat_bubble_outline_rounded, size: 14, color: Color(0xFF16A34A)),
+                          SizedBox(width: 5),
+                          Text('व्हाट्सएप (WhatsApp)', style: TextStyle(color: Color(0xFF16A34A), fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
-                    tooltip: 'WhatsApp Reminder',
                   ),
                 ],
-              ),
-            ],
+                InkWell(
+                  onTap: _showEditCustomerDialog,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white10 : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: isDark ? Colors.white24 : Colors.grey.shade300),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.edit_outlined, size: 14, color: Colors.blueGrey),
+                        SizedBox(width: 5),
+                        Text('एडिट (Edit)', style: TextStyle(color: Colors.blueGrey, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+                InkWell(
+                  onTap: _confirmDeleteCustomer,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.25)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.delete_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                        SizedBox(width: 5),
+                        Text('हटाएं (Delete)', style: TextStyle(color: Color(0xFFEF4444), fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -563,7 +617,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   }
 
   // ==========================================
-  // 2. TOP METRIC KPI CARDS
+  // 2. TOP METRIC KPI CARDS (Responsive with FittedBox)
   // ==========================================
   Widget _buildTopMetricKpis(bool isDark) {
     return Row(
@@ -571,11 +625,18 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
         // Total Balance (Udhar)
         Expanded(
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF2F2),
+              color: isDark ? const Color(0xFF3F1B1B) : const Color(0xFFFEF2F2),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFFFCA5A5)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.red.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,52 +644,69 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(5),
                       decoration: const BoxDecoration(
                         color: Color(0xFFEF4444),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 14),
+                      child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 13),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     const Expanded(
                       child: Text(
-                        'Total Balance Amount',
-                        style: TextStyle(color: Color(0xFF991B1B), fontSize: 11.5, fontWeight: FontWeight.bold),
+                        'बकाया (Due)',
+                        style: TextStyle(color: Color(0xFF991B1B), fontSize: 12, fontWeight: FontWeight.bold),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Rs ${_currentCustomer.balance.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFFDC2626),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '₹ ${_currentCustomer.balance.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFDC2626),
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),
-                const Text(
-                  '(Unpaid Amount)',
-                  style: TextStyle(color: Color(0xFFB91C1C), fontSize: 10.5),
+                Text(
+                  _currentCustomer.balance > 0 ? 'उधार शेष (Unpaid)' : 'पूरा चुकता (Clear)',
+                  style: TextStyle(
+                    color: _currentCustomer.balance > 0 ? const Color(0xFFB91C1C) : const Color(0xFF16A34A),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),
           ),
         ),
 
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
 
         // Total Sale Amount (Lifetime)
         Expanded(
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color: isDark ? const Color(0xFF172554) : const Color(0xFFEFF6FF),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: const Color(0xFF93C5FD)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -636,36 +714,42 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(5),
                       decoration: const BoxDecoration(
                         color: Color(0xFF2563EB),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 14),
+                      child: const Icon(Icons.trending_up_rounded, color: Colors.white, size: 13),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     const Expanded(
                       child: Text(
-                        'Total Sale Amount',
-                        style: TextStyle(color: Color(0xFF1E40AF), fontSize: 11.5, fontWeight: FontWeight.bold),
+                        'कुल बिक्री (Sales)',
+                        style: TextStyle(color: Color(0xFF1E40AF), fontSize: 12, fontWeight: FontWeight.bold),
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  'Rs ${_totalSaleAmount.toStringAsFixed(2)}',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF1D4ED8),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '₹ ${_totalSaleAmount.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF1D4ED8),
+                      letterSpacing: -0.5,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),
                 const Text(
-                  '(Total Sale of User)',
-                  style: TextStyle(color: Color(0xFF1E40AF), fontSize: 10.5),
+                  'लाइफटाइम (Lifetime)',
+                  style: TextStyle(color: Color(0xFF1E40AF), fontSize: 10.5, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -676,48 +760,76 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   }
 
   // ==========================================
-  // 3. ACTION BUTTONS ROW
+  // 3. ACTION BUTTONS ROW (Equal Height & Single Line)
   // ==========================================
   Widget _buildActionButtonsRow() {
     return Row(
       children: [
         // Add Credit (उधार दें)
         Expanded(
-          child: ElevatedButton.icon(
+          child: ElevatedButton(
             onPressed: _showAddCreditDialog,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
+              backgroundColor: const Color(0xFFDC2626),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 1,
             ),
-            icon: const Icon(Icons.add_circle_outline, size: 16),
-            label: const Text('Add Credit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.add_circle_outline, size: 15),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    '+ उधार दें',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
 
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
 
         // Receive Cash (जमा लें)
         Expanded(
-          child: ElevatedButton.icon(
+          child: ElevatedButton(
             onPressed: _showReceiveCashDialog,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF00875A),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 1,
             ),
-            icon: const Icon(Icons.arrow_downward_rounded, size: 16),
-            label: const Text('Receive Cash', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.arrow_downward_rounded, size: 15),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'जमा लें',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
 
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
 
         // Send Credit Reminder
         Expanded(
-          child: OutlinedButton.icon(
+          child: OutlinedButton(
             onPressed: () {
               if (_currentCustomer.phone != null && _currentCustomer.phone!.isNotEmpty) {
                 _openWhatsApp(_currentCustomer.phone!);
@@ -729,12 +841,25 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
             },
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFFD97706),
-              side: const BorderSide(color: Color(0xFFD97706)),
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              side: const BorderSide(color: Color(0xFFD97706), width: 1.2),
+              padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            icon: const Icon(Icons.notifications_active_outlined, size: 16),
-            label: const Text('Reminder', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.notifications_active_outlined, size: 15),
+                SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    'तगादा (Remind)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -742,7 +867,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   }
 
   // ==========================================
-  // 4. CUSTOMER INSIGHTS GRID
+  // 4. CUSTOMER INSIGHTS GRID (Responsive)
   // ==========================================
   Widget _buildInsightsGrid(bool isDark) {
     final dateFormat = DateFormat('dd-MM-yyyy');
@@ -752,24 +877,61 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(14),
-        child: Column(
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isTablet = constraints.maxWidth > 500;
+
+            if (isTablet) {
+              return Column(
+                children: [
+                  Row(
+                    children: [
+                      _buildMetricTile('कुल बिल (Invoices)', '${_customerSales.length} बिल', Icons.receipt_long_rounded),
+                      _buildMetricTile('बकाया उधार (Open Credit)', '₹ ${_currentCustomer.balance.toStringAsFixed(2)}', Icons.money_off_rounded),
+                      _buildMetricTile('ग्राहक कब से (Since)', dateFormat.format(_currentCustomer.createdAt), Icons.calendar_today_rounded),
+                    ],
+                  ),
+                  const Divider(height: 20),
+                  Row(
+                    children: [
+                      _buildMetricTile('औसत खरीद (Avg Bill)', '₹ ${_avgPurchase.toStringAsFixed(2)}', Icons.analytics_outlined),
+                      _buildMetricTile('30 दिन बिक्री (Last 30D)', '₹ ${_last30DaysSale.toStringAsFixed(2)}', Icons.date_range_rounded),
+                      _buildMetricTile('खाता स्थिति (Status)', _currentCustomer.balance > 0 ? 'बकाया (Due)' : 'चुकता (Clear)', Icons.verified_user_outlined),
+                    ],
+                  ),
+                ],
+              );
+            }
+
+            // Mobile: 2-column clean layout so labels NEVER truncate!
+            return Column(
               children: [
-                _buildMetricTile('Total Invoices Created', '${_customerSales.length}', Icons.receipt_long_rounded),
-                _buildMetricTile('Total Open Credit', 'Rs ${_currentCustomer.balance.toStringAsFixed(2)}', Icons.money_off_rounded),
-                _buildMetricTile('Customer Since', dateFormat.format(_currentCustomer.createdAt), Icons.calendar_today_rounded),
+                Row(
+                  children: [
+                    _buildMetricTile('कुल बिल (Invoices)', '${_customerSales.length} बिल', Icons.receipt_long_rounded),
+                    const SizedBox(width: 12),
+                    _buildMetricTile('बकाया (Due Balance)', '₹ ${_currentCustomer.balance.toStringAsFixed(2)}', Icons.money_off_rounded),
+                  ],
+                ),
+                const Divider(height: 16),
+                Row(
+                  children: [
+                    _buildMetricTile('औसत खरीद (Avg Bill)', '₹ ${_avgPurchase.toStringAsFixed(2)}', Icons.analytics_outlined),
+                    const SizedBox(width: 12),
+                    _buildMetricTile('30 दिन बिक्री (30D)', '₹ ${_last30DaysSale.toStringAsFixed(2)}', Icons.date_range_rounded),
+                  ],
+                ),
+                const Divider(height: 16),
+                Row(
+                  children: [
+                    _buildMetricTile('ग्राहक कब से (Since)', dateFormat.format(_currentCustomer.createdAt), Icons.calendar_today_rounded),
+                    const SizedBox(width: 12),
+                    _buildMetricTile('स्थिति (Status)', _currentCustomer.balance > 0 ? 'बकाया (Due)' : 'चुकता (Clear)', Icons.verified_user_outlined),
+                  ],
+                ),
               ],
-            ),
-            const Divider(height: 20),
-            Row(
-              children: [
-                _buildMetricTile('Average Purchase', 'Rs ${_avgPurchase.toStringAsFixed(2)}', Icons.analytics_outlined),
-                _buildMetricTile('Last 30 Days', 'Rs ${_last30DaysSale.toStringAsFixed(2)}', Icons.date_range_rounded),
-                _buildMetricTile('Status', _currentCustomer.balance > 0 ? 'Due Pending' : 'Clear', Icons.verified_user_outlined),
-              ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -783,21 +945,25 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
           Row(
             children: [
               Icon(icon, size: 14, color: Colors.grey),
-              const SizedBox(width: 4),
+              const SizedBox(width: 5),
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                  style: const TextStyle(fontSize: 11.5, color: Colors.grey, fontWeight: FontWeight.w600),
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
-            overflow: TextOverflow.ellipsis,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -805,7 +971,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   }
 
   // ==========================================
-  // 5. TABS SECTION (Bill History, Credit Transactions, Ledger)
+  // 5. TABS SECTION (Clean Bilingual TabBar)
   // ==========================================
   Widget _buildTabsSection(bool isDark) {
     return Container(
@@ -821,17 +987,18 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
         indicatorColor: const Color(0xFF00875A),
         indicatorWeight: 3,
         labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        unselectedLabelStyle: const TextStyle(fontSize: 12),
         tabs: [
           Tab(
-            text: 'Bill History (${_customerSales.length})',
+            text: 'बिल इतिहास (${_customerSales.length})',
             icon: const Icon(Icons.receipt_rounded, size: 18),
           ),
           const Tab(
-            text: 'Credit Activity',
+            text: 'उधार लेन-देन',
             icon: Icon(Icons.swap_horiz_rounded, size: 18),
           ),
           const Tab(
-            text: 'Passbook Ledger',
+            text: 'पासबुक खाता',
             icon: Icon(Icons.menu_book_rounded, size: 18),
           ),
         ],

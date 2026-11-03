@@ -292,6 +292,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
           final double marginPct = (saleVal > 0 && costVal > 0) ? ((marginVal / saleVal) * 100) : 0.0;
 
           return AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 20),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Text(
               existing == null ? 'नया सामान जोड़ें / Add Product' : 'सामान एडिट करें / Edit Product',
@@ -677,39 +678,83 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // 💰 Price Inputs: MRP, Selling Price, Cost Price
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: mrpCtrl,
-                          inputFormatters: [PosNumberSoundFormatter()],
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'MRP (₹)', prefixText: '₹ '),
-                          onChanged: (_) => setDialogState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: priceCtrl,
-                          inputFormatters: [PosNumberSoundFormatter()],
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'बिक्री दर (Sale) *', prefixText: '₹ '),
-                          onChanged: (_) => setDialogState(() {}),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: purchasePriceCtrl,
-                          inputFormatters: [PosNumberSoundFormatter()],
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'खरीद (Cost)', prefixText: '₹ '),
-                          onChanged: (_) => setDialogState(() {}),
-                        ),
-                      ),
-                    ],
+                  // 💰 Price Inputs: Responsive Layout (Zero Clipping on Mobile & Tablet)
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 380;
+                      if (isWide) {
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: mrpCtrl,
+                                inputFormatters: [PosNumberSoundFormatter()],
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(labelText: 'MRP (₹)', prefixText: '₹ '),
+                                onChanged: (_) => setDialogState(() {}),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: priceCtrl,
+                                inputFormatters: [PosNumberSoundFormatter()],
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(labelText: 'बिक्री दर (Sale) *', prefixText: '₹ '),
+                                onChanged: (_) => setDialogState(() {}),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: purchasePriceCtrl,
+                                inputFormatters: [PosNumberSoundFormatter()],
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                decoration: const InputDecoration(labelText: 'खरीद (Cost)', prefixText: '₹ '),
+                                onChanged: (_) => setDialogState(() {}),
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      // Mobile (maxWidth <= 380): 2 roomy rows
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: mrpCtrl,
+                                  inputFormatters: [PosNumberSoundFormatter()],
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(labelText: 'MRP (₹)', prefixText: '₹ '),
+                                  onChanged: (_) => setDialogState(() {}),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: priceCtrl,
+                                  inputFormatters: [PosNumberSoundFormatter()],
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(labelText: 'बिक्री दर (Sale) *', prefixText: '₹ '),
+                                  onChanged: (_) => setDialogState(() {}),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: purchasePriceCtrl,
+                            inputFormatters: [PosNumberSoundFormatter()],
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'खरीद दर (Cost Price)', prefixText: '₹ '),
+                            onChanged: (_) => setDialogState(() {}),
+                          ),
+                        ],
+                      );
+                    },
                   ),
 
                   // 📊 Real-time Margin & Profit Pill
