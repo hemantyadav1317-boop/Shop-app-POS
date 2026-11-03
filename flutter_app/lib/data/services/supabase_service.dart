@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/product.dart';
 import '../models/customer.dart';
+import '../models/customer_payment.dart';
 import '../models/sale.dart';
 import '../models/expense.dart';
 import '../models/shop.dart';
@@ -597,12 +598,127 @@ class SupabaseService {
           'phone': updated.phone,
           'address': updated.address,
           'balance': updated.balance,
+          'credit_limit': updated.creditLimit,
         }).eq('id', updated.id);
       } catch (e) {
         debugPrint("Error updating customer: $e");
       }
     }
     _saveCachedCustomers(_localShop.id, _localCustomers);
+  }
+
+  Future<void> updateCustomerCreditLimit(String customerId, double creditLimit) async {
+    final index = _localCustomers.indexWhere((c) => c.id == customerId);
+    if (index != -1) {
+      _localCustomers[index] = _localCustomers[index].copyWith(creditLimit: creditLimit);
+    }
+    if (_isInitialized && client != null) {
+      try {
+        await client!.from('customers').update({'credit_limit': creditLimit}).eq('id', customerId);
+      } catch (e) {
+        debugPrint("Error updating customer credit limit: $e");
+      }
+    }
+    _saveCachedCustomers(_localShop.id, _localCustomers);
+  }
+
+  Future<void> _saveCachedPayment(String shopId, CustomerPayment payment) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'cached_payments_${payment.customerId}';
+      final existingStr = prefs.getString(key);
+      List<dynamic> list = existingStr != null ? jsonDecode(existingStr) : [];
+      list.insert(0, payment.toJson());
+      await prefs.setString(key, jsonEncode(list));
+    } catch (_) {}
+  }
+
+  Future<List<CustomerPayment>> _getCachedPayments(String customerId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = 'cached_payments_$customerId';
+      final existingStr = prefs.getString(key);
+      if (existingStr != null) {
+        final list = (jsonDecode(existingStr) as List)
+            .map((e) => CustomerPayment.fromJson(e as Map<String, dynamic>))
+            .toList();
+        return list;
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<CustomerPayment> recordCustomerPayment({
+    required String shopId,
+    required String customerId,
+    required double amount,
+    String mode = 'cash',
+    String? note,
+  }) async {
+    final validShopId = await _ensureValidShopId(shopId);
+    final pId = const Uuid().v4();
+    final payment = CustomerPayment(
+      id: pId,
+      shopId: validShopId,
+      customerId: customerId,
+      amount: amount,
+      mode: mode,
+      note: note,
+      createdAt: DateTime.now(),
+    );
+
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
+      try {
+        final payload = {
+          'id': pId,
+          'shop_id': validShopId,
+          'customer_id': customerId,
+          'amount': amount,
+          'mode': mode,
+          if (note != null && note.isNotEmpty) 'note': note,
+          'created_at': payment.createdAt.toIso8601String(),
+        };
+        await client!.from('payments').insert(payload);
+        debugPrint("Payment recorded in Supabase cloud");
+      } catch (e) {
+        debugPrint("Error recording payment in cloud: $e");
+      }
+    }
+
+    final cIdx = _localCustomers.indexWhere((c) => c.id == customerId);
+    if (cIdx != -1) {
+      final current = _localCustomers[cIdx];
+      final newBal = (current.balance - amount) > 0 ? (current.balance - amount) : 0.0;
+      await updateCustomerBalance(customerId, newBal);
+    }
+
+    await _saveCachedPayment(validShopId, payment);
+    return payment;
+  }
+
+  Future<List<CustomerPayment>> getCustomerPayments(String customerId) async {
+    List<CustomerPayment> list = [];
+    if (_isInitialized && client != null) {
+      try {
+        final res = await client!
+            .from('payments')
+            .select()
+            .eq('customer_id', customerId)
+            .order('created_at', ascending: false);
+        list = (res as List).map((row) => CustomerPayment.fromJson(row)).toList();
+      } catch (e) {
+        debugPrint("Error fetching customer payments from cloud: $e");
+      }
+    }
+
+    final cached = await _getCachedPayments(customerId);
+    for (final cp in cached) {
+      if (!list.any((p) => p.id == cp.id)) {
+        list.add(cp);
+      }
+    }
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
   }
 
   Future<void> deleteCustomer(String customerId) async {

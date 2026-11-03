@@ -5,6 +5,7 @@ class Customer {
   final String? phone;
   final String? address;
   final double balance; // Positive balance means customer owes money (Udhar)
+  final double creditLimit; // 0.0 means no limit; >0 enforces max credit limit
   final DateTime createdAt;
 
   Customer({
@@ -14,6 +15,7 @@ class Customer {
     this.phone,
     this.address,
     this.balance = 0.0,
+    this.creditLimit = 0.0,
     required this.createdAt,
   });
 
@@ -25,6 +27,7 @@ class Customer {
       phone: json['phone'] as String?,
       address: json['address'] as String?,
       balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
+      creditLimit: (json['credit_limit'] as num?)?.toDouble() ?? 0.0,
       createdAt: json['created_at'] != null 
           ? DateTime.parse(json['created_at'] as String) 
           : DateTime.now(),
@@ -39,6 +42,7 @@ class Customer {
       'phone': phone,
       'address': address,
       'balance': balance,
+      'credit_limit': creditLimit,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -52,6 +56,7 @@ class Customer {
       if (phone != null && phone!.isNotEmpty) 'phone': phone,
       if (address != null && address!.isNotEmpty) 'address': address,
       'balance': balance,
+      'credit_limit': creditLimit,
       'created_at': createdAt.toIso8601String(),
     };
   }
@@ -63,6 +68,7 @@ class Customer {
     String? phone,
     String? address,
     double? balance,
+    double? creditLimit,
     DateTime? createdAt,
   }) {
     return Customer(
@@ -72,6 +78,7 @@ class Customer {
       phone: phone ?? this.phone,
       address: address ?? this.address,
       balance: balance ?? this.balance,
+      creditLimit: creditLimit ?? this.creditLimit,
       createdAt: createdAt ?? this.createdAt,
     );
   }

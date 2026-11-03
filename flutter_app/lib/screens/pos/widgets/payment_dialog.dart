@@ -150,6 +150,99 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final paidAmount = double.tryParse(_paidController.text) ?? 0.0;
     final dueAmount = (cart.total - paidAmount) > 0 ? (cart.total - paidAmount) : 0.0;
 
+    // 🛑 Check Customer Credit Limit
+    if ((_paymentMode == 'credit' || dueAmount > 0) && cart.customer != null) {
+      final cust = cart.customer!;
+      if (cust.creditLimit > 0 && (cust.balance + dueAmount) > cust.creditLimit) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (alertCtx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 28),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('क्रेडिट लिमिट अलर्ट!', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'ग्राहक: ${cust.name}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('तय क्रेडिट लिमिट:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('₹ ${cust.creditLimit.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('वर्तमान बकाया:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('₹ ${cust.balance.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFDC2626))),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('इस बिल का उधार:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('₹ ${dueAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                      const Divider(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('नया कुल बकाया:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text('₹ ${(cust.balance + dueAmount).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14, color: Color(0xFFDC2626))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'यह बिल ग्राहक की तय सीमा से ₹${((cust.balance + dueAmount) - cust.creditLimit).toStringAsFixed(2)} अधिक हो जाएगा। क्या आप फिर भी उधार देना चाहते हैं?',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF475569)),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(alertCtx, false),
+                child: const Text('रद्द करें (Cancel)'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFDC2626)),
+                onPressed: () => Navigator.pop(alertCtx, true),
+                child: const Text('हाँ, उधार दें', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
+        if (proceed != true) return;
+      }
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -486,29 +579,62 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   const SizedBox(height: 12),
                 ],
 
-                // 2. Khata Notice
+                // 2. Khata Notice with Credit Limit
                 if (_paymentMode == 'credit') ...[
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.shade300),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.info_outline, color: Colors.amber, size: 18),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            cart.customer != null
-                                ? 'ग्राहक: ${cart.customer!.name} के खाते में ${CurrencyFormatter.format(cart.total)} जुड़ेगा।'
-                                : 'कृपया पहले ग्राहक (Customer) सेलेक्ट करें।',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  Builder(
+                    builder: (context) {
+                      final hasCustomer = cart.customer != null;
+                      final isOverLimit = hasCustomer &&
+                          cart.customer!.creditLimit > 0 &&
+                          (cart.customer!.balance + cart.total) > cart.customer!.creditLimit;
+
+                      return Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isOverLimit ? const Color(0xFFFEF2F2) : Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isOverLimit ? const Color(0xFFFCA5A5) : Colors.amber.shade300,
                           ),
                         ),
-                      ],
-                    ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              isOverLimit ? Icons.warning_amber_rounded : Icons.info_outline,
+                              color: isOverLimit ? const Color(0xFFDC2626) : Colors.amber.shade800,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    hasCustomer
+                                        ? 'ग्राहक: ${cart.customer!.name} के खाते में ${CurrencyFormatter.format(cart.total)} जुड़ेगा।'
+                                        : 'कृपया पहले ग्राहक (Customer) सेलेक्ट करें।',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
+                                  if (hasCustomer && cart.customer!.creditLimit > 0) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      isOverLimit
+                                          ? '⚠️ क्रेडिट लिमिट पार! तय सीमा: ₹${cart.customer!.creditLimit.toStringAsFixed(0)}, नया कुल बकाया: ₹${(cart.customer!.balance + cart.total).toStringAsFixed(0)}'
+                                          : 'क्रेडिट लिमिट: ₹${cart.customer!.creditLimit.toStringAsFixed(0)} (शेष लिमिट: ₹${(cart.customer!.creditLimit - (cart.customer!.balance + cart.total)).toStringAsFixed(0)})',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isOverLimit ? const Color(0xFFDC2626) : const Color(0xFF00875A),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                 ],

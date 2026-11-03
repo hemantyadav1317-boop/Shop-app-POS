@@ -42,7 +42,7 @@ class CustomerProvider extends ChangeNotifier {
     return created;
   }
 
-  Future<void> recordPayment(String customerId, double amountPaid) async {
+  Future<void> recordPayment(String customerId, double amountPaid, {String shopId = '', String mode = 'cash', String? note}) async {
     final idx = _customers.indexWhere((c) => c.id == customerId);
     if (idx != -1) {
       final current = _customers[idx];
@@ -50,7 +50,24 @@ class CustomerProvider extends ChangeNotifier {
       final updated = current.copyWith(balance: newBalance > 0 ? newBalance : 0.0);
       _customers[idx] = updated;
       notifyListeners();
-      await SupabaseService.instance.updateCustomerBalance(customerId, updated.balance);
+      await SupabaseService.instance.recordCustomerPayment(
+        shopId: shopId.isNotEmpty ? shopId : current.shopId,
+        customerId: customerId,
+        amount: amountPaid,
+        mode: mode,
+        note: note,
+      );
+    }
+  }
+
+  Future<void> setCreditLimit(String customerId, double limit) async {
+    final idx = _customers.indexWhere((c) => c.id == customerId);
+    if (idx != -1) {
+      final current = _customers[idx];
+      final updated = current.copyWith(creditLimit: limit);
+      _customers[idx] = updated;
+      notifyListeners();
+      await SupabaseService.instance.updateCustomerCreditLimit(customerId, limit);
     }
   }
 

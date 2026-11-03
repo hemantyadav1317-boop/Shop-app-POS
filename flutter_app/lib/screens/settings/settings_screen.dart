@@ -972,11 +972,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     title: Row(
                       children: [
-                        const Text(
-                          '⚖️ इलेक्ट्रॉनिक कांटा (Weighing Scale)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        const Expanded(
+                          child: Text(
+                            '⚖️ इलेक्ट्रॉनिक कांटा',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
@@ -997,9 +1001,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     subtitle: Text(
                       scale.isConnected
-                          ? '${scale.scaleName ?? "Scale"} • Live: ${scale.liveWeight.toStringAsFixed(3)} ${scale.unit}'
-                          : 'Connect Bluetooth weighing scale for instant weight sync',
+                          ? 'Weighing Scale • ${scale.scaleName ?? "Scale"} • Live: ${scale.liveWeight.toStringAsFixed(3)} ${scale.unit}'
+                          : 'Weighing Scale • ब्लूटूथ कांटा कनेक्ट करें',
                       style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF2563EB)),
                     onTap: () {
