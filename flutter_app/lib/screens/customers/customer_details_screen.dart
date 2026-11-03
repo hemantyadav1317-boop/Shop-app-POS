@@ -956,12 +956,36 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                         icon: const Icon(Icons.receipt_rounded, size: 20, color: Color(0xFF00875A)),
                         tooltip: 'View Receipt',
                         onPressed: () {
+                          final shop = context.read<ShopProvider>().shop;
+                          final dateFormat = DateFormat('dd/MM/yyyy, hh:mm a');
                           showDialog(
                             context: context,
                             builder: (_) => Dialog(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                               child: ConstrainedBox(
                                 constraints: const BoxConstraints(maxWidth: 420),
-                                child: BillReceiptCard(sale: sale),
+                                child: SingleChildScrollView(
+                                  padding: const EdgeInsets.all(12),
+                                  child: BillReceiptCard(
+                                    shopName: shop.name,
+                                    shopAddress: shop.address,
+                                    shopPhone: shop.phone,
+                                    gstin: shop.gstin,
+                                    billNo: '${sale.billNo}',
+                                    dateString: dateFormat.format(sale.createdAt.toLocal()),
+                                    customerName: sale.customerName,
+                                    customerPhone: sale.customerPhone,
+                                    items: sale.items,
+                                    subtotal: sale.subtotal,
+                                    discount: sale.discount,
+                                    total: sale.total,
+                                    paid: sale.paid,
+                                    due: sale.due,
+                                    paymentMode: sale.paymentMode,
+                                    footerMessage: shop.receiptFooter,
+                                    upiId: shop.upiId,
+                                  ),
+                                ),
                               ),
                             ),
                           );

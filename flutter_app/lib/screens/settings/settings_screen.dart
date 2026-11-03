@@ -361,9 +361,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ],
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 
   Widget _buildStoreModeCard(BuildContext context, ShopProvider shopProvider) {

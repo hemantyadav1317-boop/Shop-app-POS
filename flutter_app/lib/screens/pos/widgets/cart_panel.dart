@@ -265,6 +265,7 @@ class _CartPanelState extends State<CartPanel> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
