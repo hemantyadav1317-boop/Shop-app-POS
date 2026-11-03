@@ -4,6 +4,7 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/services/bluetooth_printer_service.dart';
+import '../../core/services/bluetooth_device_classifier.dart';
 import '../../core/services/printer_settings_service.dart';
 import '../../data/models/cart_item.dart';
 import '../../providers/shop_provider.dart';
@@ -163,45 +164,92 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
             const SizedBox(height: 12),
             ...devices.map((d) {
               final isCurrent = _btPrinterMac == d.macAdress;
-              return ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                tileColor: isCurrent ? AppColors.primarySurface : null,
-                leading: Icon(
-                  Icons.print_rounded,
-                  color: isCurrent ? AppColors.primary : Colors.grey.shade700,
-                ),
-                title: Text(
-                  d.name.isNotEmpty ? d.name : 'Unknown Device',
-                  style: TextStyle(
-                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                    color: isCurrent ? AppColors.primary : null,
+              final info = BluetoothDeviceClassifier.classify(d.name, d.macAdress);
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                decoration: BoxDecoration(
+                  color: isCurrent
+                      ? AppColors.primarySurface
+                      : (info.isRecommendedForPrinter ? const Color(0xFFF0FDF4) : Colors.transparent),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isCurrent
+                        ? AppColors.primary
+                        : (info.isRecommendedForPrinter ? const Color(0xFF86EFAC) : Colors.grey.shade200),
+                    width: isCurrent ? 1.5 : 1.0,
                   ),
                 ),
-                subtitle: Text(d.macAdress, style: const TextStyle(fontSize: 11)),
-                trailing: isCurrent
-                    ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
-                    : const Icon(Icons.chevron_right, size: 18),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  setState(() => _isConnectingBt = true);
-                  final ok = await BluetoothPrinterService.connectPrinter(d.macAdress);
-                  if (ok) {
-                    await BluetoothPrinterService.saveSelectedPrinter(d.macAdress, d.name);
-                    SoundService.instance.playSuccess();
-                  } else {
-                    SoundService.instance.playError();
-                  }
-                  await _loadBtPrinterInfo();
-                  if (mounted) {
-                    setState(() => _isConnectingBt = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: ok ? AppColors.primary : AppColors.error,
-                        content: Text(ok ? 'प्रिंटर "${d.name}" सफलतापूर्वक कनेक्ट हुआ!' : 'कनेक्ट नहीं हो सका। कृपया प्रिंटर ऑन रखें।'),
+                child: ListTile(
+                  dense: true,
+                  leading: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: isCurrent ? AppColors.primary : info.backgroundColor,
+                    child: Icon(
+                      info.icon,
+                      size: 18,
+                      color: isCurrent ? Colors.white : info.primaryColor,
+                    ),
+                  ),
+                  title: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          d.name.isNotEmpty ? d.name : 'Unknown Device',
+                          style: TextStyle(
+                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.w600,
+                            color: isCurrent ? AppColors.primary : null,
+                            fontSize: 13.5,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    );
-                  }
-                },
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: info.backgroundColor,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: info.primaryColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          info.badgeText,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: info.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  subtitle: Text(d.macAdress, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  trailing: isCurrent
+                      ? const Icon(Icons.check_circle, color: AppColors.primary, size: 20)
+                      : const Icon(Icons.chevron_right, size: 18),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    setState(() => _isConnectingBt = true);
+                    final ok = await BluetoothPrinterService.connectPrinter(d.macAdress);
+                    if (ok) {
+                      await BluetoothPrinterService.saveSelectedPrinter(d.macAdress, d.name);
+                      SoundService.instance.playSuccess();
+                    } else {
+                      SoundService.instance.playError();
+                    }
+                    await _loadBtPrinterInfo();
+                    if (mounted) {
+                      setState(() => _isConnectingBt = false);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: ok ? AppColors.primary : AppColors.error,
+                          content: Text(ok ? 'प्रिंटर "${d.name}" सफलतापूर्वक कनेक्ट हुआ!' : 'कनेक्ट नहीं हो सका। कृपया प्रिंटर ऑन रखें।'),
+                        ),
+                      );
+                    }
+                  },
+                ),
               );
             }),
           ],

@@ -262,17 +262,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) {
         final bottomInset = MediaQuery.of(ctx).viewPadding.bottom + MediaQuery.of(ctx).viewInsets.bottom;
-        return Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          padding: EdgeInsets.fromLTRB(20, 16, 20, 24 + bottomInset),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+        return SafeArea(
+          bottom: true,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 28 + bottomInset),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
             Container(
               width: 40,
               height: 4,
@@ -362,7 +365,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
         ),
-      );
+      ),
+    );
     },
   );
   }
@@ -383,7 +387,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       {
         'id': 'kirana',
         'title': 'किराना व जनरल स्टोर (Kirana & Grocery)',
-        'subtitle': 'बारकोड गन स्कैन, 2026 MRP, पैकेट वैरिएंट, मुनाफा मार्जिन',
+        'subtitle': 'बारकोड गन स्कैन, 2026 MRP, पैकेट वैरिएंट',
         'icon': '🛒',
         'tag': 'बारकोड & MRP',
         'color': const Color(0xFF2563EB),
@@ -398,18 +402,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     ];
 
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
+    final currentMode = modes.firstWhere((m) => m['id'] == currentType, orElse: () => modes[0]);
+    final activeColor = currentMode['color'] as Color;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: currentType == 'kirana'
-              ? const Color(0xFF2563EB).withValues(alpha: 0.4)
-              : (currentType == 'mix'
-                  ? const Color(0xFF7C3AED).withValues(alpha: 0.4)
-                  : const Color(0xFF00875A).withValues(alpha: 0.4)),
+        border: Border.all(
+          color: activeColor.withValues(alpha: 0.35),
           width: 1.5,
         ),
+        boxShadow: [
+          // 3D Soft Elevation Box Shadow
+          BoxShadow(
+            color: activeColor.withValues(alpha: isDark ? 0.2 : 0.08),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+            spreadRadius: 1,
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
@@ -421,29 +439,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: (currentType == 'kirana'
-                            ? const Color(0xFF2563EB)
-                            : (currentType == 'mix' ? const Color(0xFF7C3AED) : const Color(0xFF00875A)))
-                        .withValues(alpha: 0.12),
+                    color: activeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    currentType == 'kirana' ? '🛒' : (currentType == 'mix' ? '🏪' : '🥕'),
-                    style: const TextStyle(fontSize: 20),
+                    currentMode['icon'] as String,
+                    style: const TextStyle(fontSize: 22),
                   ),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      const Text(
                         'दुकान का प्रकार (Store Business Mode)',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
+                      const SizedBox(height: 2),
                       Text(
-                        'अपनी दुकान के अनुसार बिलिंग इंटरफेस चुनें',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                        currentMode['subtitle'] as String,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -451,107 +469,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            ...modes.map((m) {
-              final isSelected = currentType == m['id'];
-              final color = m['color'] as Color;
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: InkWell(
-                  onTap: () async {
-                    SoundService.instance.playButtonClick();
-                    await shopProvider.setStoreType(m['id'] as String);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          backgroundColor: color,
-                          behavior: SnackBarBehavior.floating,
-                          duration: const Duration(seconds: 2),
-                          content: Row(
-                            children: [
-                              Text(m['icon'] as String, style: const TextStyle(fontSize: 18)),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text('मोड बदला गया: "${m['title']}" सक्रिय है!'),
+            // Dropdown Selector with 3D Pill Design
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: activeColor.withValues(alpha: 0.4), width: 1.2),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: currentType,
+                  isExpanded: true,
+                  icon: Icon(Icons.keyboard_arrow_down_rounded, color: activeColor, size: 24),
+                  items: modes.map((m) {
+                    final color = m['color'] as Color;
+                    return DropdownMenuItem<String>(
+                      value: m['id'] as String,
+                      child: Row(
+                        children: [
+                          Text(m['icon'] as String, style: const TextStyle(fontSize: 18)),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              m['title'] as String,
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: currentType == m['id'] ? color : null,
                               ),
-                            ],
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                        ),
-                      );
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              m['tag'] as String,
+                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) async {
+                    if (val != null && val != currentType) {
+                      SoundService.instance.playButtonClick();
+                      await shopProvider.setStoreType(val);
+                      if (context.mounted) {
+                        final sel = modes.firstWhere((m) => m['id'] == val);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: sel['color'] as Color,
+                            behavior: SnackBarBehavior.floating,
+                            duration: const Duration(seconds: 2),
+                            content: Row(
+                              children: [
+                                Text(sel['icon'] as String, style: const TextStyle(fontSize: 18)),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text('मोड बदला गया: "${sel['title'] as String}" सक्रिय है!')),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
                     }
                   },
-                  borderRadius: BorderRadius.circular(12),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? color.withValues(alpha: isDark ? 0.2 : 0.08)
-                          : (isDark ? Colors.white.withValues(alpha: 0.03) : Colors.grey.shade50),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected ? color : (isDark ? Colors.white12 : Colors.grey.shade300),
-                        width: isSelected ? 2 : 1,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(m['icon'] as String, style: const TextStyle(fontSize: 24)),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                crossAxisAlignment: WrapCrossAlignment.center,
-                                spacing: 8,
-                                runSpacing: 4,
-                                children: [
-                                  Text(
-                                    m['title'] as String,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13.5,
-                                      color: isSelected ? color : null,
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                                    decoration: BoxDecoration(
-                                      color: color.withValues(alpha: 0.15),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: color.withValues(alpha: 0.3), width: 0.8),
-                                    ),
-                                    child: Text(
-                                      m['tag'] as String,
-                                      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                m['subtitle'] as String,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: isDark ? Colors.white70 : Colors.grey.shade600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Icon(
-                          isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
-                          color: isSelected ? color : Colors.grey.shade400,
-                          size: 22,
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-              );
-            }),
+              ),
+            ),
           ],
         ),
       ),
@@ -690,150 +682,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         setState(() => _isSyncingCloud = false);
       }
     }
-  }
-
-  void _showJoinShopDialog(BuildContext context) {
-    final codeCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.store, color: AppColors.primary),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text('मौजूदा दुकान से जुड़ें / Join Shop', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'यदि आपके भाई या पिता ने पहले से दुकान बना रखी है, तो उनका दुकान कोड (Shop ID) यहाँ दर्ज करें:',
-              style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: codeCtrl,
-              decoration: const InputDecoration(
-                labelText: 'दुकान कोड (Shop ID) *',
-                hintText: 'उदा. demo-shop-101 या शॉप UUID',
-                prefixIcon: Icon(Icons.vpn_key_outlined),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final code = codeCtrl.text.trim();
-              if (code.isEmpty) return;
-
-              SoundService.instance.playButtonClick();
-              final shopProv = context.read<ShopProvider>();
-              final joined = await shopProv.joinShop(code);
-
-              if (context.mounted) {
-                // Reload data for this shop
-                final prodProv = context.read<ProductProvider>();
-                final custProv = context.read<CustomerProvider>();
-                await prodProv.loadProducts(joined.id);
-                await custProv.loadCustomers(joined.id);
-                await SupabaseService.instance.getSales(joined.id);
-
-                // Update text controllers in settings so new shop details show immediately
-                _nameCtrl.text = joined.name;
-                _phoneCtrl.text = joined.phone ?? '';
-                _addressCtrl.text = joined.address ?? '';
-                _gstinCtrl.text = joined.gstin ?? '';
-                _upiIdCtrl.text = joined.upiId ?? '';
-                _upiNameCtrl.text = joined.upiPayeeName ?? '';
-                _footerCtrl.text = joined.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏';
-                _qrImageUrl = joined.qrImageUrl;
-                _paperSize = joined.printPaperSize;
-                _allowNegativeStock = joined.allowNegativeStock;
-
-                if (ctx.mounted) {
-                  Navigator.pop(ctx);
-                }
-                if (context.mounted) {
-                  setState(() {});
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: AppColors.primary,
-                      content: Text('दुकान "${joined.name}" से सफलतापूर्वक जुड़ गए!'),
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('दुकान से जुड़ें (Join)'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddMemberDialog(BuildContext context, String shopId) {
-    final emailCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.person_add, color: AppColors.primary),
-            SizedBox(width: 8),
-            Expanded(
-              child: Text('सदस्य जोड़ें / Add Family or Staff', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'अपने भाई, पिता या स्टाफ का Google Email दर्ज करें ताकि उन्हें इस दुकान का पूर्ण एक्सेस मिल सके:',
-              style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'ईमेल पता (Gmail / Email) *',
-                hintText: 'brother@gmail.com',
-                prefixIcon: Icon(Icons.email_outlined),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () {
-              final email = emailCtrl.text.trim();
-              if (email.isEmpty) return;
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: AppColors.primary,
-                  content: Text('$email को दुकान एक्सेस के लिए जोड़ दिया गया है'),
-                ),
-              );
-            },
-            child: const Text('एक्सेस दें (Invite)'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -1148,24 +996,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             // Family & Staff Sharing Card (Bhai / Father Access)
             Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(color: AppColors.primary.withOpacity(0.3)),
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primarySurface.withOpacity(0.3),
-                      Theme.of(context).cardColor,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                padding: const EdgeInsets.all(14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1183,51 +1016,67 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const SizedBox(height: 6),
                     const Text(
-                      'अपने भाई, पिता या पार्टनर को दुकान का एक्सेस देने के लिए यह दुकान कोड साझा करें:',
+                      'अपने भाई, पार्टनर या स्टाफ को दुकान का एक्सेस देने के लिए यह 6 अंकों का कोड साझा करें:',
                       style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
 
-                    // Shop Code Box with Copy & Share
+                    // 6-Digit Shop Code Display Box
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
                         color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35), width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.06),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.qr_code_2, color: AppColors.primary, size: 20),
-                          const SizedBox(width: 8),
+                          const Icon(Icons.pin_outlined, color: AppColors.primary, size: 24),
+                          const SizedBox(width: 10),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('आपकी दुकान का कोड (Shop ID):', style: TextStyle(fontSize: 10, color: AppColors.lightTextSecondary)),
+                                const Text(
+                                  'दुकान कोड (6-Digit Shop Code):',
+                                  style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 2),
                                 SelectableText(
-                                  currentShop.id,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primaryDark),
+                                  currentShop.displayShareCode.split('').join(' '),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 22,
+                                    letterSpacing: 3,
+                                    color: AppColors.primaryDark,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           IconButton(
-                            icon: const Icon(Icons.copy, size: 18, color: AppColors.primary),
+                            icon: const Icon(Icons.copy, size: 20, color: AppColors.primary),
                             tooltip: 'कोड कॉपी करें',
                             onPressed: () {
-                              Clipboard.setData(ClipboardData(text: currentShop.id));
+                              Clipboard.setData(ClipboardData(text: currentShop.displayShareCode));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('दुकान कोड कॉपी हो गया!')),
+                                SnackBar(content: Text('दुकान कोड "' + currentShop.displayShareCode + '" कॉपी हो गया!')),
                               );
                             },
                           ),
                           IconButton(
-                            icon: const Icon(Icons.share, size: 18, color: Colors.green),
-                            tooltip: 'WhatsApp पर भेजें',
+                            icon: const Icon(Icons.share, size: 20, color: Colors.green),
+                            tooltip: 'WhatsApp पर शेयर करें',
                             onPressed: () async {
-                              final text = 'नमस्ते, यह हमारी दुकान "${currentShop.name}" का POS ऐप कोड है:\n${currentShop.id}\n\nऐप में लॉगिन करके इस कोड से दुकान कनेक्ट कर सकते हैं।';
-                              final uri = Uri.parse('whatsapp://send?text=${Uri.encodeComponent(text)}');
+                              final text = 'नमस्ते, यह हमारी दुकान "' + currentShop.name + '" का 6-अंकों का स्टाफ लॉगिन कोड है:\n\n🔑 दुकान कोड: ' + currentShop.displayShareCode + '\n\nShopPOS ऐप डाउनलोड करके "Staff Login" में यह कोड डालें और तुरंत दुकान चलाएं!';
+                              final uri = Uri.parse('whatsapp://send?text=' + Uri.encodeComponent(text));
                               if (await canLaunchUrl(uri)) {
                                 await launchUrl(uri);
                               } else {
@@ -1243,35 +1092,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
 
-                    // Action buttons
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            icon: const Icon(Icons.person_add_alt_1, size: 15),
-                            label: const Text('सदस्य जोड़ें (+ Member)', style: TextStyle(fontSize: 11)),
-                            style: OutlinedButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    // Generate New 6-digit Code Button
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text('🔄 नया 6-डिजिट कोड बनाएं (Generate New Code)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: () async {
+                        final newCode = await shopProvider.generateNewShareCode();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: AppColors.primary,
+                              content: Text('नया 6-अंकों का कोड जनरेट हुआ: ' + newCode),
                             ),
-                            onPressed: () => _showAddMemberDialog(context, currentShop.id),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.login, size: 15),
-                            label: const Text('दुकान से जुड़ें (Join)', style: TextStyle(fontSize: 11)),
-                            style: ElevatedButton.styleFrom(
-                              visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            ),
-                            onPressed: () => _showJoinShopDialog(context),
-                          ),
-                        ),
-                      ],
+                          );
+                        }
+                      },
                     ),
                   ],
                 ),

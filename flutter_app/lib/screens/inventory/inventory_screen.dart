@@ -628,7 +628,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         child: DropdownButtonFormField<String>(
                           value: selectedCategory,
                           decoration: const InputDecoration(
-                            labelText: 'कैटेगरी (Category) *',
+                            labelText: 'कैटेगरी *',
                             prefixIcon: Icon(Icons.category_outlined),
                           ),
                           isExpanded: true,
@@ -810,7 +810,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           controller: stockCtrl,
                           inputFormatters: [PosNumberSoundFormatter()],
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(labelText: 'वर्तमान स्टॉक ($unit)'),
+                          decoration: InputDecoration(labelText: 'स्टॉक ($unit)'),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -819,7 +819,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           controller: lowStockCtrl,
                           inputFormatters: [PosNumberSoundFormatter()],
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: InputDecoration(labelText: 'Low Alert ($unit)'),
+                          decoration: InputDecoration(labelText: 'अलर्ट ($unit)'),
                         ),
                       ),
                     ],

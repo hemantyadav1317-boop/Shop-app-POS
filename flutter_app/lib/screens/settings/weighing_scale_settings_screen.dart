@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:bluetooth_classic/models/device.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/services/scale_data_parser.dart';
+import '../../core/services/bluetooth_device_classifier.dart';
 import '../../providers/weighing_scale_provider.dart';
 
 class WeighingScaleSettingsScreen extends StatefulWidget {
@@ -908,124 +909,164 @@ class _WeighingScaleSettingsScreenState
                             cardBorder = Colors.grey.withValues(alpha: 0.2);
                           }
 
-                          return InkWell(
-                            onTap: () async {
-                              if (connectingAddress != null) return;
+                              final devInfo = BluetoothDeviceClassifier.classify(name, address);
 
-                              if (isConnected) {
-                                Navigator.pop(ctx);
-                                _showConnectionMessage(
-                                  context,
-                                  title: 'Already Connected',
-                                  message: 'Scale "$name" is already connected and active.',
-                                  isSuccess: true,
-                                );
-                                return;
-                              }
+                              return InkWell(
+                                onTap: () async {
+                                  if (connectingAddress != null) return;
 
-                              setModalState(() {
-                                connectingAddress = address;
-                                selectedAddress = address;
-                              });
-                              SoundService.instance.playButtonClick();
+                                  if (isConnected) {
+                                    Navigator.pop(ctx);
+                                    _showConnectionMessage(
+                                      context,
+                                      title: 'Already Connected',
+                                      message: 'Scale "$name" is already connected and active.',
+                                      isSuccess: true,
+                                    );
+                                    return;
+                                  }
 
-                              final ok = await scale.connectToScale(address, name: name);
-                              if (!context.mounted) return;
+                                  setModalState(() {
+                                    connectingAddress = address;
+                                    selectedAddress = address;
+                                  });
+                                  SoundService.instance.playButtonClick();
 
-                              setModalState(() {
-                                connectingAddress = null;
-                              });
+                                  final ok = await scale.connectToScale(address, name: name);
+                                  if (!context.mounted) return;
 
-                              if (ok) {
-                                SoundService.instance.playSuccess();
-                                // Wait 600ms so the user sees the green CONNECTED badge
-                                await Future.delayed(const Duration(milliseconds: 600));
-                                if (context.mounted) {
-                                  Navigator.pop(ctx);
-                                  _showConnectionMessage(
-                                    context,
-                                    title: 'Connected Successfully!',
-                                    message: 'Connected with $name. Live weight reading is active for billing.',
-                                    isSuccess: true,
-                                  );
-                                }
-                              } else {
-                                SoundService.instance.playError();
-                                _showConnectionMessage(
-                                  context,
-                                  title: 'Connection Failed',
-                                  message: 'Could not connect to $name. Please check if scale is powered ON.',
-                                  isSuccess: false,
-                                );
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(14),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              margin: const EdgeInsets.symmetric(vertical: 5),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: cardBg,
+                                  setModalState(() {
+                                    connectingAddress = null;
+                                  });
+
+                                  if (ok) {
+                                    SoundService.instance.playSuccess();
+                                    // Wait 600ms so the user sees the green CONNECTED badge
+                                    await Future.delayed(const Duration(milliseconds: 600));
+                                    if (context.mounted) {
+                                      Navigator.pop(ctx);
+                                      _showConnectionMessage(
+                                        context,
+                                        title: 'Connected Successfully!',
+                                        message: 'Connected with $name. Live weight reading is active for billing.',
+                                        isSuccess: true,
+                                      );
+                                    }
+                                  } else {
+                                    SoundService.instance.playError();
+                                    _showConnectionMessage(
+                                      context,
+                                      title: 'Connection Failed',
+                                      message: 'Could not connect to $name. Please check if scale is powered ON.',
+                                      isSuccess: false,
+                                    );
+                                  }
+                                },
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: cardBorder, width: isConnected || isConnectingThis ? 2.0 : 1.0),
-                                boxShadow: isConnected
-                                    ? [
-                                        BoxShadow(
-                                          color: const Color(0xFF10B981).withValues(alpha: 0.2),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Row(
-                                children: [
-                                  // Leading Status Icon / Spinner
-                                  if (isConnectingThis)
-                                    const SizedBox(
-                                      width: 26,
-                                      height: 26,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: Color(0xFF2563EB),
-                                      ),
-                                    )
-                                  else if (isConnected)
-                                    const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 26)
-                                  else
-                                    Icon(
-                                      Icons.scale_rounded,
-                                      color: isSelected ? const Color(0xFF00875A) : Colors.grey,
-                                      size: 26,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  margin: const EdgeInsets.symmetric(vertical: 5),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: isConnected
+                                        ? const Color(0xFF10B981).withValues(alpha: 0.1)
+                                        : (devInfo.isRecommendedForScale
+                                            ? const Color(0xFFEFF6FF)
+                                            : cardBg),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: isConnected
+                                          ? const Color(0xFF10B981)
+                                          : (devInfo.isRecommendedForScale ? const Color(0xFF60A5FA) : cardBorder),
+                                      width: isConnected || isConnectingThis || devInfo.isRecommendedForScale ? 2.0 : 1.0,
                                     ),
-                                  const SizedBox(width: 14),
-
-                                  // Device Name & MAC Address
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          name,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14.5,
-                                            color: isConnected
-                                                ? const Color(0xFF10B981)
-                                                : (isConnectingThis ? const Color(0xFF2563EB) : null),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          isConnectingThis ? 'Connecting via Bluetooth SPP...' : address,
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            color: isConnectingThis ? const Color(0xFF3B82F6) : Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                    boxShadow: isConnected
+                                        ? [
+                                            BoxShadow(
+                                              color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ]
+                                        : null,
                                   ),
+                                  child: Row(
+                                    children: [
+                                      // Leading Status Icon / Spinner
+                                      if (isConnectingThis)
+                                        const SizedBox(
+                                          width: 26,
+                                          height: 26,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                            color: Color(0xFF2563EB),
+                                          ),
+                                        )
+                                      else if (isConnected)
+                                        const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 26)
+                                      else
+                                        CircleAvatar(
+                                          radius: 15,
+                                          backgroundColor: devInfo.backgroundColor,
+                                          child: Icon(
+                                            devInfo.icon,
+                                            color: devInfo.primaryColor,
+                                            size: 17,
+                                          ),
+                                        ),
+                                      const SizedBox(width: 12),
+
+                                      // Device Name & MAC Address
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    name,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14,
+                                                      color: isConnected
+                                                          ? const Color(0xFF10B981)
+                                                          : (isConnectingThis ? const Color(0xFF2563EB) : null),
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: devInfo.backgroundColor,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                    border: Border.all(color: devInfo.primaryColor.withValues(alpha: 0.3)),
+                                                  ),
+                                                  child: Text(
+                                                    devInfo.badgeText,
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: devInfo.primaryColor,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              isConnectingThis ? 'Connecting via Bluetooth SPP...' : address,
+                                              style: TextStyle(
+                                                fontSize: 11.5,
+                                                color: isConnectingThis ? const Color(0xFF3B82F6) : Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
 
                                   // Trailing Status Pill
                                   if (isConnected)

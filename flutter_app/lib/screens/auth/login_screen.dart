@@ -251,11 +251,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.store, color: Color(0xFF0F2038)),
+            Icon(Icons.storefront_rounded, color: Color(0xFF00875A)),
             SizedBox(width: 8),
             Expanded(
               child: Text(
-                'Join Shop / Staff Login',
+                'दुकान से जुड़ें (Staff Login)',
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
@@ -268,28 +268,36 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Enter the Shop ID / Code shared by your store owner:',
-                style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                'दुकानदार द्वारा दिया गया 6-अंकों का दुकान कोड (6-Digit Shop Code) दर्ज करें:',
+                style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B), height: 1.4),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               TextField(
                 controller: codeCtrl,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Shop Code (Shop ID) *',
-                  hintText: 'e.g. demo-shop-101 or UUID',
-                  prefixIcon: Icon(Icons.vpn_key_outlined),
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 1.5),
+                decoration: InputDecoration(
+                  labelText: 'दुकान कोड (6-Digit Code) *',
+                  hintText: 'उदा. 749201',
+                  prefixIcon: const Icon(Icons.pin_outlined, color: Color(0xFF00875A)),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
+                  ),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('रद्द करें (Cancel)')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0F2038),
+              backgroundColor: const Color(0xFF00875A),
               foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             onPressed: () async {
               final code = codeCtrl.text.trim();
@@ -312,7 +320,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                 }
               }
             },
-            child: const Text('Join Shop'),
+            child: const Text('दुकान खोलें (Join Shop)', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

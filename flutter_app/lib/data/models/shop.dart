@@ -11,10 +11,21 @@ class Shop {
   final String? receiptFooter;
   final String? qrImageUrl; // Custom Standee QR Image URL or path
   final String storeType; // 'vegetable', 'kirana', 'mix', 'other'
+  final String? shareCode; // 6-digit unique shop sharing code (e.g. '749201')
 
   bool get isKiranaMode => storeType == 'kirana';
   bool get isVegetableMode => storeType == 'vegetable';
   bool get isOtherMode => storeType == 'other';
+
+  /// Guaranteed 6-digit share code (either persisted or deterministic from shop ID)
+  String get displayShareCode {
+    if (shareCode != null && shareCode!.trim().length == 6) {
+      return shareCode!.trim();
+    }
+    // Fallback: 6-digit numeric hash from shop ID
+    final codeNum = (id.hashCode.abs() % 900000) + 100000;
+    return codeNum.toString();
+  }
 
   Shop({
     required this.id,
@@ -29,6 +40,7 @@ class Shop {
     this.receiptFooter = 'धन्यवाद! फिर पधारें 🙏',
     this.qrImageUrl,
     this.storeType = 'vegetable',
+    this.shareCode,
   });
 
   factory Shop.fromJson(Map<String, dynamic> json) {
@@ -45,6 +57,7 @@ class Shop {
       receiptFooter: json['receipt_footer'] as String? ?? 'धन्यवाद! फिर पधारें 🙏',
       qrImageUrl: json['qr_image_url'] as String?,
       storeType: json['store_type'] as String? ?? 'vegetable',
+      shareCode: (json['share_code'] ?? json['shareCode']) as String?,
     );
   }
 
@@ -63,6 +76,7 @@ class Shop {
       'receipt_footer': receiptFooter,
       if (qrImageUrl != null) 'qr_image_url': qrImageUrl,
       'store_type': storeType,
+      if (shareCode != null) 'share_code': shareCode,
     };
   }
 
@@ -79,6 +93,7 @@ class Shop {
     String? receiptFooter,
     String? qrImageUrl,
     String? storeType,
+    String? shareCode,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -93,6 +108,7 @@ class Shop {
       receiptFooter: receiptFooter ?? this.receiptFooter,
       qrImageUrl: qrImageUrl ?? this.qrImageUrl,
       storeType: storeType ?? this.storeType,
+      shareCode: shareCode ?? this.shareCode,
     );
   }
 }

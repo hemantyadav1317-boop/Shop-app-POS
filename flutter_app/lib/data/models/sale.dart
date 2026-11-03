@@ -41,7 +41,7 @@ class Sale {
     List<CartItem> parsedItems = [];
     final rawItems = json['items'] ?? json['sale_items'];
     if (rawItems is List) {
-      parsedItems = (rawItems as List)
+      parsedItems = rawItems
           .map((item) => CartItem.fromJson(Map<String, dynamic>.from(item as Map)))
           .toList();
     }

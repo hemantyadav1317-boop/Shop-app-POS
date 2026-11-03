@@ -175,8 +175,26 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   Future<void> _openWhatsApp(String phone, {String? customText}) async {
     String clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
     if (clean.length == 10) clean = '91$clean';
+
+    final shop = context.read<ShopProvider>().shop;
+    final dueAmt = _currentCustomer.balance.toStringAsFixed(2);
+    final shopName = shop.name;
+    final upiId = (shop.upiId != null && shop.upiId!.trim().isNotEmpty) ? shop.upiId!.trim() : null;
+    final upiPayee = (shop.upiPayeeName != null && shop.upiPayeeName!.trim().isNotEmpty)
+        ? shop.upiPayeeName!.trim()
+        : shopName;
+
+    // Direct Clickable UPI Payment Link & QR Image Link
+    String upiPaymentBlock = '';
+    if (upiId != null) {
+      final upiUri = 'upi://pay?pa=$upiId&pn=${Uri.encodeComponent(upiPayee)}&am=$dueAmt&cu=INR&tn=${Uri.encodeComponent("Khata Payment $shopName")}';
+      final qrLink = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${Uri.encodeComponent(upiUri)}';
+      upiPaymentBlock = '\n\n💳 ऑनलाइन भुगतान हेतु UPI ID:\n👉 $upiId\n\n⚡ Google Pay / PhonePe से 1-क्लिक भुगतान हेतु लिंक दबाएं:\n👉 $upiUri\n\n📷 UPI QR कोड से स्कैन करने के लिए:\n👉 $qrLink';
+    }
+
     final msg = customText ??
-        'नमस्ते ${_currentCustomer.name} जी, आपकी दुकान का खाता विवरण: कुल बकाया राशि ₹${_currentCustomer.balance.toStringAsFixed(2)} है। धन्यवाद!';
+        '🏪 *$shopName*\n${shop.phone != null && shop.phone!.isNotEmpty ? "📞 " + shop.phone! + "\n" : ""}${shop.address != null && shop.address!.isNotEmpty ? "📍 " + shop.address! + "\n" : ""}----------------------------------\nनमस्ते *${_currentCustomer.name}* जी,\nआपकी दुकान का खाता विवरण:\n💰 *कुल बकाया (Due Balance): ₹$dueAmt*$upiPaymentBlock\n\nधन्यवाद! आपका दिन शुभ हो 🙏';
+
     final uri = Uri.parse('https://wa.me/$clean?text=${Uri.encodeComponent(msg)}');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -343,39 +361,94 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                     ),
                   ),
                   const SizedBox(height: 10),
+                  // Clean Payment Mode Selector (Zero Overflow)
                   Row(
                     children: [
                       Expanded(
-                        child: ChoiceChip(
-                          label: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.money_rounded, size: 14),
-                              SizedBox(width: 4),
-                              Text('नकद (Cash)'),
-                            ],
+                        child: InkWell(
+                          onTap: () => setDialogState(() => selectedMode = 'cash'),
+                          borderRadius: BorderRadius.circular(10),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: selectedMode == 'cash'
+                                  ? const Color(0xFF00875A)
+                                  : (Theme.of(context).brightness == Brightness.dark
+                                      ? const Color(0xFF1E293B)
+                                      : Colors.grey.shade100),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: selectedMode == 'cash'
+                                    ? const Color(0xFF00875A)
+                                    : Colors.grey.shade300,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.money_rounded,
+                                  size: 16,
+                                  color: selectedMode == 'cash' ? Colors.white : Colors.grey.shade700,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'नकद (Cash)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12.5,
+                                    color: selectedMode == 'cash' ? Colors.white : Colors.grey.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          selected: selectedMode == 'cash',
-                          onSelected: (val) {
-                            if (val) setDialogState(() => selectedMode = 'cash');
-                          },
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
-                        child: ChoiceChip(
-                          label: const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.qr_code_rounded, size: 14),
-                              SizedBox(width: 4),
-                              Text('ऑनलाइन (UPI)'),
-                            ],
+                        child: InkWell(
+                          onTap: () => setDialogState(() => selectedMode = 'upi'),
+                          borderRadius: BorderRadius.circular(10),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 150),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            decoration: BoxDecoration(
+                              color: selectedMode == 'upi'
+                                  ? const Color(0xFF2563EB)
+                                  : (Theme.of(context).brightness == Brightness.dark
+                                      ? const Color(0xFF1E293B)
+                                      : Colors.grey.shade100),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: selectedMode == 'upi'
+                                    ? const Color(0xFF2563EB)
+                                    : Colors.grey.shade300,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.qr_code_rounded,
+                                  size: 16,
+                                  color: selectedMode == 'upi' ? Colors.white : Colors.grey.shade700,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'ऑनलाइन (UPI)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12.5,
+                                    color: selectedMode == 'upi' ? Colors.white : Colors.grey.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          selected: selectedMode == 'upi',
-                          onSelected: (val) {
-                            if (val) setDialogState(() => selectedMode = 'upi');
-                          },
                         ),
                       ),
                     ],
@@ -1221,12 +1294,15 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
       ),
       child: TabBar(
         controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
         labelColor: const Color(0xFF00875A),
         unselectedLabelColor: Colors.grey,
         indicatorColor: const Color(0xFF00875A),
         indicatorWeight: 3,
-        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-        unselectedLabelStyle: const TextStyle(fontSize: 12),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 16),
+        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+        unselectedLabelStyle: const TextStyle(fontSize: 12.5),
         tabs: [
           Tab(
             text: 'बिल इतिहास (${_customerSales.length})',

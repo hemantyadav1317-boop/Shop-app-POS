@@ -209,4 +209,14 @@ class ShopProvider extends ChangeNotifier {
 
     return joined;
   }
+
+  Future<String> generateNewShareCode() async {
+    final code = await SupabaseService.instance.generateShopShareCode(_shop.id);
+    _shop = _shop.copyWith(shareCode: code);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    final key = _shopStorageKey(_currentUserId);
+    await prefs.setString(key, jsonEncode(_shop.toJson()));
+    return code;
+  }
 }

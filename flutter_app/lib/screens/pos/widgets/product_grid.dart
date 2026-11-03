@@ -347,15 +347,15 @@ class _ProductGridState extends State<ProductGrid> {
         SliverPersistentHeader(
           pinned: true,
           delegate: _StickyCategoryHeaderDelegate(
-            height: isMobile ? 54.0 : 58.0,
+            height: isMobile ? 58.0 : 68.0,
             backgroundColor: isDark ? const Color(0xFF0F172A) : Theme.of(context).scaffoldBackgroundColor,
             child: SizedBox(
-              height: isMobile ? 54.0 : 58.0,
+              height: isMobile ? 58.0 : 68.0,
               child: ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 12, vertical: isMobile ? 6 : 7),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: isMobile ? 6 : 8),
                 scrollDirection: Axis.horizontal,
                 itemCount: productProvider.categories.length,
-                separatorBuilder: (_, _) => SizedBox(width: isMobile ? 8 : 10),
+                separatorBuilder: (_, _) => SizedBox(width: isMobile ? 8 : 12),
                 itemBuilder: (context, i) {
                   final cat = productProvider.categories[i];
                   final isSelected = productProvider.selectedCategory == cat;
@@ -366,29 +366,29 @@ class _ProductGridState extends State<ProductGrid> {
                       SoundService.instance.playButtonClick();
                       productProvider.selectCategory(cat);
                     },
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 14 : 18, vertical: isMobile ? 7 : 8.5),
+                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 18 : 26, vertical: isMobile ? 9 : 13),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isSelected
                             ? const Color(0xFF00875A)
                             : (isDark ? const Color(0xFF1E293B) : Colors.white),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: isSelected
                               ? const Color(0xFF00875A)
                               : (isDark ? Colors.white24 : Colors.grey.shade300),
-                          width: isSelected ? 2.0 : 1.2,
+                          width: isSelected ? 2.4 : 1.2,
                         ),
                         boxShadow: [
                           BoxShadow(
                             color: isSelected
-                                ? const Color(0xFF00875A).withValues(alpha: 0.35)
-                                : Colors.black.withValues(alpha: 0.03),
-                            blurRadius: isSelected ? 6 : 2,
-                            offset: const Offset(0, 2),
+                                ? const Color(0xFF00875A).withValues(alpha: 0.38)
+                                : Colors.black.withValues(alpha: 0.04),
+                            blurRadius: isSelected ? 8 : 2,
+                            offset: const Offset(0, 3),
                           ),
                         ],
                       ),
@@ -398,26 +398,26 @@ class _ProductGridState extends State<ProductGrid> {
                           Text(
                             cat,
                             style: TextStyle(
-                              fontSize: isMobile ? 13.5 : 15.0,
+                              fontSize: isMobile ? 14.5 : 17.5,
                               fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
                               color: isSelected ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E293B)),
                               letterSpacing: 0.3,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 10, vertical: isMobile ? 2.5 : 4),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? Colors.white.withValues(alpha: 0.25)
                                   : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
                               '$count',
                               style: TextStyle(
-                                fontSize: isMobile ? 11.0 : 12.0,
-                                fontWeight: FontWeight.w800,
+                                fontSize: isMobile ? 11.5 : 14.0,
+                                fontWeight: FontWeight.w900,
                                 color: isSelected
                                     ? Colors.white
                                     : (isDark ? Colors.white70 : Colors.grey.shade800),

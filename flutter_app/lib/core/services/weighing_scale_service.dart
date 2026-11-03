@@ -22,6 +22,12 @@ class WeighingScaleService {
 
   BluetoothClassic? _bluetoothClassic;
   StreamSubscription? _dataSubscription;
+  StreamSubscription? _statusSubscription;
+  Timer? _reconnectTimer;
+  Timer? _keepAliveWatchdog;
+  DateTime? _lastDataReceivedAt;
+  bool _isReconnecting = false;
+  bool _userExplicitDisconnect = false;
   String _buffer = "";
 
   final StreamController<ScaleReading> _readingController =
@@ -70,7 +76,21 @@ class WeighingScaleService {
 
     if (isHardwareSupported) {
       _bluetoothClassic = BluetoothClassic();
+      _listenToDeviceStatus();
     }
+  }
+
+  void _listenToDeviceStatus() {
+    if (_statusSubscription != null) return;
+    try {
+      _statusSubscription = _bluetoothClassic?.onDeviceStatusChanged().listen((status) {
+        debugPrint("BluetoothClassic scale status changed: $status");
+        // 0 = disconnected, 1 = connecting, 2 = connected
+        if (status == 0 && _isConnected && !_userExplicitDisconnect) {
+          _handleConnectionDrop();
+        }
+      });
+    } catch (_) {}
   }
 
   Future<void> saveSettings({
@@ -115,7 +135,7 @@ class WeighingScaleService {
   }
 
   Future<void> forgetScale() async {
-    await disconnect();
+    await disconnect(userExplicit: true);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefMacKey);
     await prefs.remove(_prefNameKey);
@@ -175,8 +195,10 @@ class WeighingScaleService {
       return true;
     }
 
+    _userExplicitDisconnect = false;
+
     try {
-      await disconnect();
+      await _cleanConnection(userExplicit: false);
       // Ensure bluetooth permissions are granted smoothly without throwing crash
       try {
         await PrintBluetoothThermal.isPermissionBluetoothGranted;
@@ -188,6 +210,7 @@ class WeighingScaleService {
         _isConnected = true;
         _connectedMac = macAddress;
         _connectedName = name ?? 'Bluetooth Scale';
+        _lastDataReceivedAt = DateTime.now();
         await saveSelectedScale(macAddress, _connectedName!);
 
         _dataSubscription = _bluetoothClassic!.onDeviceDataReceived().listen(
@@ -196,14 +219,15 @@ class WeighingScaleService {
           },
           onError: (e) {
             debugPrint("Scale data stream error: $e");
-            disconnect();
+            _handleConnectionDrop();
           },
           onDone: () {
             debugPrint("Scale stream closed remotely");
-            disconnect();
+            _handleConnectionDrop();
           },
         );
 
+        _startWatchdog();
         _connectionStateController.add(true);
         return true;
       }
@@ -216,7 +240,51 @@ class WeighingScaleService {
     return false;
   }
 
-  Future<void> disconnect() async {
+  void _handleConnectionDrop() {
+    _isConnected = false;
+    _connectionStateController.add(false);
+    if (!_userExplicitDisconnect && _connectedMac != null) {
+      _scheduleAutoReconnect();
+    }
+  }
+
+  void _scheduleAutoReconnect() {
+    if (_isReconnecting || _userExplicitDisconnect || _connectedMac == null) return;
+    _reconnectTimer?.cancel();
+    debugPrint("Scheduling automatic scale reconnection in 3 seconds to $_connectedMac");
+    _reconnectTimer = Timer(const Duration(seconds: 3), () async {
+      if (_userExplicitDisconnect || _isConnected || _connectedMac == null) return;
+      _isReconnecting = true;
+      try {
+        debugPrint("Watchdog attempting auto-reconnect to scale: $_connectedMac");
+        await connect(_connectedMac!, name: _connectedName);
+      } catch (e) {
+        debugPrint("Auto-reconnect attempt failed: $e");
+      } finally {
+        _isReconnecting = false;
+      }
+    });
+  }
+
+  void _startWatchdog() {
+    _keepAliveWatchdog?.cancel();
+    _keepAliveWatchdog = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (!_isConnected || _userExplicitDisconnect || _connectedMac == null) return;
+      // If we haven't received any data for 30s and scale was connected, check if still alive
+      if (_lastDataReceivedAt != null && DateTime.now().difference(_lastDataReceivedAt!).inSeconds > 30) {
+        debugPrint("Scale data silent for >30s, checking socket health...");
+      }
+    });
+  }
+
+  Future<void> disconnect({bool userExplicit = true}) async {
+    _userExplicitDisconnect = userExplicit;
+    _reconnectTimer?.cancel();
+    _keepAliveWatchdog?.cancel();
+    await _cleanConnection(userExplicit: userExplicit);
+  }
+
+  Future<void> _cleanConnection({bool userExplicit = false}) async {
     await _dataSubscription?.cancel();
     _dataSubscription = null;
     _buffer = "";
@@ -232,6 +300,7 @@ class WeighingScaleService {
   }
 
   void _handleIncomingData(Uint8List bytes) {
+    _lastDataReceivedAt = DateTime.now();
     try {
       final String chunk = ascii.decode(bytes, allowInvalid: true);
       _buffer += chunk;

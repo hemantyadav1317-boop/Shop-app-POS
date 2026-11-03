@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -1182,6 +1183,22 @@ class SupabaseService {
     return _localShop;
   }
 
+  Future<String> generateShopShareCode(String shopId) async {
+    final random = Random();
+    final newCode = (100000 + random.nextInt(900000)).toString();
+    if (_isInitialized && client != null) {
+      try {
+        await client!.from('shops').update({'share_code': newCode}).eq('id', shopId);
+      } catch (e) {
+        debugPrint("Error updating share_code in cloud: $e");
+      }
+    }
+    _localShop = _localShop.copyWith(shareCode: newCode);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('saved_shop_data', jsonEncode(_localShop.toJson()));
+    return newCode;
+  }
+
   Future<Shop> joinShop(String shopCode) async {
     String cleanCode = shopCode.trim();
     if (cleanCode.startsWith('shop-')) {
@@ -1190,14 +1207,37 @@ class SupabaseService {
 
     if (_isInitialized && client != null) {
       try {
-        final res = await client!.from('shops').select('*').eq('id', cleanCode).maybeSingle();
+        // Query by share_code (6-digit) OR by id
+        dynamic res;
+        if (cleanCode.length == 6 && RegExp(r'^\d{6}$').hasMatch(cleanCode)) {
+          res = await client!.from('shops').select('*').eq('share_code', cleanCode).maybeSingle();
+        }
+        if (res == null) {
+          res = await client!.from('shops').select('*').eq('id', cleanCode).maybeSingle();
+        }
+        if (res == null && cleanCode.length == 6) {
+          // If not yet saved in DB column, check deterministic hash of all cloud shops
+          try {
+            final allShops = await client!.from('shops').select('id').limit(50);
+            for (final s in allShops) {
+              final sid = s['id'].toString();
+              final det = ((sid.hashCode.abs() % 900000) + 100000).toString();
+              if (det == cleanCode) {
+                res = await client!.from('shops').select('*').eq('id', sid).maybeSingle();
+                break;
+              }
+            }
+          } catch (_) {}
+        }
+
         if (res != null) {
           _localShop = Shop.fromJson(res);
+          final realShopId = _localShop.id;
           final user = client!.auth.currentUser;
           if (user != null) {
             try {
               await client!.from('shop_members').upsert({
-                'shop_id': cleanCode,
+                'shop_id': realShopId,
                 'user_id': user.id,
                 'role': 'cashier',
               });
@@ -1221,9 +1261,9 @@ class SupabaseService {
           if (_localShop.qrImageUrl != null) await prefs.setString('shop_qr_image_url', _localShop.qrImageUrl!);
 
           // Pre-fetch and cache products, customers, and bill history for the joined shop
-          await getProducts(cleanCode);
-          await getCustomers(cleanCode);
-          await getSales(cleanCode);
+          await getProducts(realShopId);
+          await getCustomers(realShopId);
+          await getSales(realShopId);
 
           return _localShop;
         }
