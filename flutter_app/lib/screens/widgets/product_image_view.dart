@@ -97,15 +97,22 @@ class ProductImageView extends StatelessWidget {
       imageContent = _buildFallback();
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: Container(
         width: w,
         height: h,
         decoration: BoxDecoration(
-          color: AppColors.lightMuted,
+          color: isDark ? const Color(0xFF1E293B) : AppColors.lightMuted,
           borderRadius: BorderRadius.circular(borderRadius),
-          border: borderRadius > 0 ? Border.all(color: AppColors.lightBorder, width: 0.5) : null,
+          border: borderRadius > 0
+              ? Border.all(
+                  color: isDark ? const Color(0xFF334155) : AppColors.lightBorder,
+                  width: 0.5,
+                )
+              : null,
         ),
         child: imageContent,
       ),

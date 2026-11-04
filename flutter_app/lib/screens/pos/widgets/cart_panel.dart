@@ -267,6 +267,15 @@ class _CartPanelState extends State<CartPanel> {
     final cart = context.watch<CartProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    // Auto-clear discount input if cart is empty and discount is reset
+    if (cart.discount == 0 && cart.lines.isEmpty && _discountController.text.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && cart.discount == 0 && cart.lines.isEmpty) {
+          _discountController.clear();
+        }
+      });
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -385,7 +394,7 @@ class _CartPanelState extends State<CartPanel> {
                             behavior: SnackBarBehavior.floating,
                             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            duration: const Duration(milliseconds: 1400),
+                            duration: const Duration(milliseconds: 900),
                             content: Text('\'${item.name}\' removed from bill'),
                             action: SnackBarAction(
                               label: 'Undo',
@@ -607,6 +616,7 @@ class _CartPanelState extends State<CartPanel> {
                         : () {
                             SoundService.instance.playDelete();
                             cart.clear();
+                            _discountController.clear();
                           },
                   ),
                   OutlinedButton.icon(
@@ -617,6 +627,7 @@ class _CartPanelState extends State<CartPanel> {
                         : () {
                             SoundService.instance.playButtonClick();
                             cart.saveCurrentCart();
+                            _discountController.clear();
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Bill saved and held')),
                             );
@@ -642,6 +653,7 @@ class _CartPanelState extends State<CartPanel> {
                                 context: context,
                                 builder: (_) => PaymentDialog(
                                   onSaleCompleted: () {
+                                    _discountController.clear();
                                     widget.onCompleted?.call();
                                   },
                                 ),

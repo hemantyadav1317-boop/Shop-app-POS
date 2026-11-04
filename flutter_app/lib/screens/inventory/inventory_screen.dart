@@ -23,15 +23,40 @@ import '../../core/services/fmcg_catalog_service.dart';
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
 
+  static String getCategoryEmoji(String category) {
+    final cat = category.trim().toLowerCase();
+    if (cat.contains('सब्ज') || cat.contains('veg') || cat.contains('sabji')) return '🥦';
+    if (cat.contains('फल') || cat.contains('fruit')) return '🍎';
+    if (cat.contains('किराना') || cat.contains('kirana') || cat.contains('groc')) return '🥫';
+    if (cat.contains('स्नैक्स') || cat.contains('snack') || cat.contains('namkeen') || cat.contains('चिप्स')) return '🍟';
+    if (cat.contains('डेयरी') || cat.contains('dairy') || cat.contains('milk') || cat.contains('दूध')) return '🥛';
+    if (cat.contains('पर्सनल') || cat.contains('care') || cat.contains('साबुन') || cat.contains('soap')) return '🧴';
+    if (cat.contains('बेकरी') || cat.contains('bake') || cat.contains('bread') || cat.contains('ब्रेड')) return '🍞';
+    if (cat.contains('मसाले') || cat.contains('spice') || cat.contains('mirch') || cat.contains('मिर्च')) return '🌶️';
+    if (cat.contains('पेय') || cat.contains('drink') || cat.contains('cold') || cat.contains('juice') || cat.contains('शरबत')) return '🥤';
+    if (cat.contains('अनाज') || cat.contains('दाल') || cat.contains('grain') || cat.contains('pulse') || cat.contains('चावल')) return '🌾';
+    if (cat.contains('तेल') || cat.contains('oil') || cat.contains('ghee') || cat.contains('घी')) return '🛢️';
+    if (cat.contains('मीठा') || cat.contains('sweet') || cat.contains('mithai')) return '🍬';
+    if (cat.contains('पूजा') || cat.contains('pooja') || cat.contains('puja')) return '🪔';
+    if (cat.contains('सफाई') || cat.contains('clean') || cat.contains('detergent')) return '🧹';
+    if (cat.contains('स्टेशनरी') || cat.contains('stationery') || cat.contains('pen')) return '✏️';
+    return '📦';
+  }
+
+  static void showAddEditProductDialog(
+    BuildContext context, {
+    Product? existing,
+    String? preselectedCategory,
+  }) {
+    _InventoryScreenState._showAddEditProductDialogDirect(context, existing, preselectedCategory);
+  }
+
   static void showAddEditProductDialogStatic(
     BuildContext context, {
     Product? existing,
     String? preselectedCategory,
   }) {
-    final state = context.findAncestorStateOfType<_InventoryScreenState>();
-    if (state != null) {
-      state._showAddEditProductDialog(context, existing, preselectedCategory);
-    }
+    _InventoryScreenState._showAddEditProductDialogDirect(context, existing, preselectedCategory);
   }
 
   @override
@@ -41,7 +66,7 @@ class InventoryScreen extends StatefulWidget {
 class _InventoryScreenState extends State<InventoryScreen> {
   bool _onlyLowStock = false;
 
-  void _showAddCategoryDialog(BuildContext context, [Function(String)? onCreated, String? existingCat]) {
+  static void _showAddCategoryDialog(BuildContext context, [Function(String)? onCreated, String? existingCat]) {
     final auth = context.read<AuthProvider>();
     if (auth.isStaffSession) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -222,7 +247,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  void _confirmDeleteProduct(BuildContext context, Product product) {
+  static void _confirmDeleteProduct(BuildContext context, Product product) {
     final auth = context.read<AuthProvider>();
     if (auth.isStaffSession) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -270,8 +295,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  void _showAddEditProductDialog(BuildContext context, [Product? existing, String? preselectedCategory]) {
+  static void _showAddEditProductDialogDirect(BuildContext context, [Product? existing, String? preselectedCategory]) {
     final auth = context.read<AuthProvider>();
+    final isKirana = context.read<ShopProvider>().shop.isKiranaMode;
     if (existing == null && auth.isStaffSession) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -468,6 +494,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                           const SizedBox(height: 10),
 
+                          if (isKirana) ...[
                           TextField(
                             controller: barcodeCtrl,
                             decoration: InputDecoration(
@@ -549,7 +576,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             ),
                           ],
 
-                          const SizedBox(height: 12),
+                            const SizedBox(height: 12),
+                          ],
 
                           // --- SECTION 2: Category & Unit (Matching Rows) ---
                           Row(
@@ -968,7 +996,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               unit: unit,
                               price: price,
                               mrp: double.tryParse(mrpCtrl.text),
-                              barcode: barcodeCtrl.text.trim().isEmpty ? null : barcodeCtrl.text.trim(),
+                              barcode: (isKirana && barcodeCtrl.text.trim().isNotEmpty) ? barcodeCtrl.text.trim() : null,
                               purchasePrice: double.tryParse(purchasePriceCtrl.text),
                               stock: double.tryParse(stockCtrl.text) ?? 0.0,
                               lowStockAt: double.tryParse(lowStockCtrl.text) ?? 5.0,
@@ -1439,7 +1467,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
               IconButton(
                 icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 28),
                 tooltip: 'Add Product',
-                onPressed: () => _showAddEditProductDialog(context),
+                onPressed: () => _showAddEditProductDialogDirect(context),
               ),
             const SizedBox(width: 8),
           ],
@@ -1555,7 +1583,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
-                                onTap: () => _showAddEditProductDialog(context, product),
+                                onTap: () => _showAddEditProductDialogDirect(context, product),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                   child: Column(
@@ -1659,7 +1687,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                             constraints: const BoxConstraints(),
                                             onSelected: (val) {
                                               if (val == 'edit') {
-                                                _showAddEditProductDialog(context, product);
+                                                _showAddEditProductDialogDirect(context, product);
                                               } else if (val == 'delete') {
                                                 _confirmDeleteProduct(context, product);
                                               }
@@ -1877,7 +1905,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 },
                                 leading: ProductImageView(
                                   imageUrl: catImg,
-                                  fallbackIcon: cat.isNotEmpty ? cat.substring(0, 1) : '📁',
+                                  fallbackIcon: InventoryScreen.getCategoryEmoji(cat),
                                   size: 42,
                                   borderRadius: 8,
                                 ),

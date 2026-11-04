@@ -8,6 +8,7 @@ import '../../core/services/bluetooth_device_classifier.dart';
 import '../../core/services/printer_settings_service.dart';
 import '../../data/models/cart_item.dart';
 import '../../providers/shop_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../pos/widgets/bill_receipt_card.dart';
 
 class PrinterSettingsScreen extends StatefulWidget {
@@ -318,6 +319,16 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
   }
 
   Future<void> _saveAllSettings() async {
+    final isStaff = context.read<AuthProvider>().isStaffSession;
+    if (isStaff) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक प्रिंटर सेटिंग्स बदल सकते हैं।'),
+        ),
+      );
+      return;
+    }
     SoundService.instance.playSuccess();
 
     // 1. Save Printer Display & Font Settings
@@ -409,6 +420,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isStaff = context.watch<AuthProvider>().isStaffSession;
 
     // Sample items for live receipt preview
     final sampleItems = [
@@ -421,9 +433,10 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
       appBar: AppBar(
         title: const Text('प्रिंटर सेटिंग्स / Printer Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
         actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ElevatedButton.icon(
+          if (!context.watch<AuthProvider>().isStaffSession)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ElevatedButton.icon(
               icon: const Icon(Icons.save_rounded, size: 16),
               label: const Text('सेव करें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               style: ElevatedButton.styleFrom(
@@ -443,6 +456,29 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (isStaff)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.3) : const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFF59E0B)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.lock_rounded, color: Color(0xFFD97706), size: 22),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'सुरक्षा नियम: केवल दुकान मालिक रसीद फॉर्मेट और दुकान की जानकारी बदल सकते हैं। स्टाफ केवल ब्लूटूथ प्रिंटर कनेक्ट व टेस्ट कर सकते हैं।',
+                        style: TextStyle(fontSize: 12, color: Color(0xFFB45309), fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // 1. Bluetooth Connection Card
             Card(
               elevation: 2,
@@ -585,7 +621,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                       children: [
                         Expanded(
                           child: InkWell(
-                            onTap: () => setState(() => _paperSize = '58mm'),
+                            onTap: isStaff ? null : () => setState(() => _paperSize = '58mm'),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -623,7 +659,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: InkWell(
-                            onTap: () => setState(() => _paperSize = '80mm'),
+                            onTap: isStaff ? null : () => setState(() => _paperSize = '80mm'),
                             borderRadius: BorderRadius.circular(8),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 10),
@@ -746,16 +782,16 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                     ),
                     const SizedBox(height: 8),
 
-                    _buildToggleTile('दुकान का नाम (Shop Name)', _showShopName, (v) => setState(() => _showShopName = v)),
-                    _buildToggleTile('दुकान का पता (Address)', _showAddress, (v) => setState(() => _showAddress = v)),
-                    _buildToggleTile('मोबाइल / फ़ोन नंबर (Phone)', _showPhone, (v) => setState(() => _showPhone = v)),
-                    _buildToggleTile('ईमेल आईडी (Email ID)', _showEmail, (v) => setState(() => _showEmail = v)),
-                    _buildToggleTile('GSTIN नंबर', _showGstin, (v) => setState(() => _showGstin = v)),
-                    _buildToggleTile('बिल नंबर व दिनांक (Invoice & Date)', _showInvoiceNo, (v) => setState(() => _showInvoiceNo = v)),
-                    _buildToggleTile('ग्राहक का विवरण (Customer Name/Phone)', _showCustomer, (v) => setState(() => _showCustomer = v)),
-                    _buildToggleTile('शुभ विचार (AI Daily Thought / Quote)', _showQuote, (v) => setState(() => _showQuote = v)),
-                    _buildToggleTile('फ़ुटर संदेश (Visit Again Message)', _showFooter, (v) => setState(() => _showFooter = v)),
-                    _buildToggleTile('UPI पेमेंट QR कोड (Scan & Pay)', _showQr, (v) => setState(() => _showQr = v)),
+                    _buildToggleTile('दुकान का नाम (Shop Name)', _showShopName, (v) => setState(() => _showShopName  = v), isStaff),
+                    _buildToggleTile('दुकान का पता (Address)', _showAddress, (v) => setState(() => _showAddress  = v), isStaff),
+                    _buildToggleTile('मोबाइल / फ़ोन नंबर (Phone)', _showPhone, (v) => setState(() => _showPhone  = v), isStaff),
+                    _buildToggleTile('ईमेल आईडी (Email ID)', _showEmail, (v) => setState(() => _showEmail  = v), isStaff),
+                    _buildToggleTile('GSTIN नंबर', _showGstin, (v) => setState(() => _showGstin  = v), isStaff),
+                    _buildToggleTile('बिल नंबर व दिनांक (Invoice & Date)', _showInvoiceNo, (v) => setState(() => _showInvoiceNo  = v), isStaff),
+                    _buildToggleTile('ग्राहक का विवरण (Customer Name/Phone)', _showCustomer, (v) => setState(() => _showCustomer  = v), isStaff),
+                    _buildToggleTile('शुभ विचार (AI Daily Thought / Quote)', _showQuote, (v) => setState(() => _showQuote  = v), isStaff),
+                    _buildToggleTile('फ़ुटर संदेश (Visit Again Message)', _showFooter, (v) => setState(() => _showFooter  = v), isStaff),
+                    _buildToggleTile('UPI पेमेंट QR कोड (Scan & Pay)', _showQr, (v) => setState(() => _showQr  = v), isStaff),
                   ],
                 ),
               ),
@@ -782,6 +818,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _nameCtrl,
+                      readOnly: isStaff,
                       decoration: const InputDecoration(
                         labelText: 'दुकान का नाम *',
                         prefixIcon: Icon(Icons.store),
@@ -792,6 +829,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: _addressCtrl,
+                      readOnly: isStaff,
                       decoration: const InputDecoration(
                         labelText: 'दुकान का पता',
                         prefixIcon: Icon(Icons.location_on_outlined),
@@ -802,6 +840,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: _phoneCtrl,
+                      readOnly: isStaff,
                       decoration: const InputDecoration(
                         labelText: 'मोबाइल नंबर',
                         prefixIcon: Icon(Icons.phone_outlined),
@@ -813,6 +852,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: _gstinCtrl,
+                      readOnly: isStaff,
                       decoration: const InputDecoration(
                         labelText: 'GSTIN (वैकल्पिक)',
                         prefixIcon: Icon(Icons.receipt_long_outlined),
@@ -823,6 +863,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: _footerCtrl,
+                      readOnly: isStaff,
                       decoration: const InputDecoration(
                         labelText: 'बिल का फ़ुटर संदेश',
                         prefixIcon: Icon(Icons.message_outlined),
@@ -913,7 +954,8 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
             const SizedBox(height: 20),
 
             // Big Save Button
-            ElevatedButton.icon(
+            if (!isStaff)
+              ElevatedButton.icon(
               icon: const Icon(Icons.check_circle_outline, size: 20),
               label: const Text('सभी सेटिंग्स सेव करें (Save All Details)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               style: ElevatedButton.styleFrom(
@@ -937,11 +979,12 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
     required double scaleVal,
     bool isRecommended = false,
   }) {
+    final isStaff = context.read<AuthProvider>().isStaffSession;
     final isSelected = (_fontScale - scaleVal).abs() < 0.01;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return InkWell(
-      onTap: () => setState(() => _fontScale = scaleVal),
+      onTap: isStaff ? null : () => setState(() => _fontScale = scaleVal),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
@@ -978,14 +1021,14 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
     );
   }
 
-  Widget _buildToggleTile(String title, bool value, ValueChanged<bool> onChanged) {
+  Widget _buildToggleTile(String title, bool value, ValueChanged<bool> onChanged, [bool isStaff = false]) {
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       dense: true,
       title: Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
       value: value,
       activeTrackColor: AppColors.primary,
-      onChanged: (val) {
+      onChanged: isStaff ? null : (val) {
         SoundService.instance.playButtonClick();
         onChanged(val);
       },

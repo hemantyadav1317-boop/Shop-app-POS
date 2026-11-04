@@ -226,7 +226,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                           borderRadius: BorderRadius.circular(14),
                           onTap: () {
                             SoundService.instance.playButtonClick();
-                            InventoryScreen.showAddEditProductDialogStatic(
+                            InventoryScreen.showAddEditProductDialog(
                               context,
                               existing: product,
                               preselectedCategory: widget.category,
@@ -238,7 +238,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                               children: [
                                 ProductImageView(
                                   imageUrl: product.imageUrl,
-                                  fallbackIcon: product.icon ?? '📦',
+                                  fallbackIcon: (product.icon != null && product.icon!.isNotEmpty && product.icon != '📦') ? product.icon! : InventoryScreen.getCategoryEmoji(widget.category),
                                   size: 48,
                                   borderRadius: 10,
                                 ),
