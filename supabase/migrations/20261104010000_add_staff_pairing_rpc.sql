@@ -20,6 +20,8 @@ DECLARE
   _shop record;
   _products jsonb;
   _customers jsonb;
+  _sales jsonb;
+  _expenses jsonb;
   _clean_phone text;
   _clean_pin text;
 BEGIN
@@ -67,15 +69,139 @@ BEGIN
   FROM public.customers c 
   WHERE c.shop_id = _shop.id;
 
+  -- Fetch recent sales with nested items for this shop (Bypasses RLS for authorized staff)
+  SELECT coalesce(jsonb_agg(
+    to_jsonb(s.*) || jsonb_build_object(
+      'sale_items', coalesce((
+        SELECT jsonb_agg(to_jsonb(si.*))
+        FROM public.sale_items si
+        WHERE si.sale_id = s.id
+      ), '[]'::jsonb)
+    )
+    ORDER BY s.created_at DESC
+  ), '[]'::jsonb)
+  INTO _sales
+  FROM (
+    SELECT * FROM public.sales
+    WHERE shop_id = _shop.id
+    ORDER BY created_at DESC
+    LIMIT 200
+  ) s;
+
+  -- Fetch recent daybook expenses
+  SELECT coalesce(jsonb_agg(to_jsonb(e.*) ORDER BY e.spent_on DESC), '[]'::jsonb)
+  INTO _expenses
+  FROM (
+    SELECT * FROM public.expenses
+    WHERE shop_id = _shop.id
+    ORDER BY spent_on DESC
+    LIMIT 200
+  ) e;
+
   RETURN jsonb_build_object(
     'success', true,
     'shop', to_jsonb(_shop),
     'products', _products,
-    'customers', _customers
+    'customers', _customers,
+    'sales', _sales,
+    'expenses', _expenses
   );
 END;
 $$;
 
--- Grant execution to all clients (anon, authenticated, service_role)
+-- 3. Dedicated Staff RPC to fetch latest sales on pull-to-refresh
+CREATE OR REPLACE FUNCTION public.staff_get_sales(
+  _shop_id text,
+  _pin text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _shop record;
+  _sales jsonb;
+BEGIN
+  SELECT * INTO _shop FROM public.shops 
+  WHERE id::text = _shop_id
+  AND (
+    share_code = _pin 
+    OR bill_prefix = _pin 
+    OR bill_prefix = ('PIN:' || _pin)
+    OR (share_code IS NULL AND (abs(hashtext(id::text)) % 900000 + 100000)::text = _pin)
+  )
+  LIMIT 1;
+
+  IF _shop.id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'अनधिकृत स्टाफ अनुरोध');
+  END IF;
+
+  SELECT coalesce(jsonb_agg(
+    to_jsonb(s.*) || jsonb_build_object(
+      'sale_items', coalesce((
+        SELECT jsonb_agg(to_jsonb(si.*))
+        FROM public.sale_items si
+        WHERE si.sale_id = s.id
+      ), '[]'::jsonb)
+    )
+    ORDER BY s.created_at DESC
+  ), '[]'::jsonb)
+  INTO _sales
+  FROM (
+    SELECT * FROM public.sales
+    WHERE shop_id = _shop.id
+    ORDER BY created_at DESC
+    LIMIT 200
+  ) s;
+
+  RETURN jsonb_build_object('success', true, 'sales', _sales);
+END;
+$$;
+
+-- 4. Dedicated Staff RPC to fetch latest expenses on pull-to-refresh
+CREATE OR REPLACE FUNCTION public.staff_get_expenses(
+  _shop_id text,
+  _pin text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  _shop record;
+  _expenses jsonb;
+BEGIN
+  SELECT * INTO _shop FROM public.shops 
+  WHERE id::text = _shop_id
+  AND (
+    share_code = _pin 
+    OR bill_prefix = _pin 
+    OR bill_prefix = ('PIN:' || _pin)
+    OR (share_code IS NULL AND (abs(hashtext(id::text)) % 900000 + 100000)::text = _pin)
+  )
+  LIMIT 1;
+
+  IF _shop.id IS NULL THEN
+    RETURN jsonb_build_object('success', false, 'error', 'अनधिकृत स्टाफ अनुरोध');
+  END IF;
+
+  SELECT coalesce(jsonb_agg(to_jsonb(e.*) ORDER BY e.spent_on DESC), '[]'::jsonb)
+  INTO _expenses
+  FROM (
+    SELECT * FROM public.expenses
+    WHERE shop_id = _shop.id
+    ORDER BY spent_on DESC
+    LIMIT 200
+  ) e;
+
+  RETURN jsonb_build_object('success', true, 'expenses', _expenses);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.staff_get_sales(text, text) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.staff_get_expenses(text, text) TO anon, authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.staff_verify_shop(text, text) TO anon, authenticated, service_role;
+
 

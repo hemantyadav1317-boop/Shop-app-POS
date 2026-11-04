@@ -15,6 +15,7 @@ import '../../../../data/models/sale.dart';
 import '../../../../data/models/shop.dart';
 import '../../../../data/services/supabase_service.dart';
 import '../../../../data/services/upi_service.dart';
+import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import '../../../../providers/product_provider.dart';
@@ -135,6 +136,17 @@ class _PaymentDialogState extends State<PaymentDialog> {
           }
         }
       }
+    }
+
+    final isStaff = context.read<AuthProvider>().isStaffSession;
+    if (isStaff && (_paymentMode == 'credit' || _paymentMode == 'split')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: स्टाफ को उधार (Credit) देने की अनुमति नहीं है। केवल नकद या ऑनलाइन भुगतान लें।'),
+        ),
+      );
+      return;
     }
 
     if (_paymentMode == 'credit' && cart.customer == null) {
@@ -500,10 +512,12 @@ class _PaymentDialogState extends State<PaymentDialog> {
                     _buildModeTab('cash', 'नकद (Cash)'),
                     const SizedBox(width: 6),
                     _buildModeTab('online', 'ऑनलाइन (UPI)'),
-                    const SizedBox(width: 6),
-                    _buildModeTab('credit', 'उधार (Khata)'),
-                    const SizedBox(width: 6),
-                    _buildModeTab('split', 'Split'),
+                    if (!context.watch<AuthProvider>().isStaffSession) ...[
+                      const SizedBox(width: 6),
+                      _buildModeTab('credit', 'उधार (Khata)'),
+                      const SizedBox(width: 6),
+                      _buildModeTab('split', 'Split'),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 14),

@@ -9,6 +9,7 @@ import '../../data/models/customer.dart';
 import '../../data/models/customer_payment.dart';
 import '../../data/models/sale.dart';
 import '../../data/services/supabase_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/customer_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../pos/widgets/bill_receipt_card.dart';
@@ -242,6 +243,16 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
 
   // 🛡️ Set or Update Customer Credit Limit
   void _showSetCreditLimitDialog() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक क्रेडिट लिमिट सेट कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
     final limitCtrl = TextEditingController(
       text: _currentCustomer.creditLimit > 0 ? _currentCustomer.creditLimit.toStringAsFixed(0) : '',
     );
@@ -521,6 +532,16 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
 
   // ✏️ Edit Customer Dialog
   void _showEditCustomerDialog() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक ग्राहक का विवरण एडिट कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
     final nameCtrl = TextEditingController(text: _currentCustomer.name);
     final phoneCtrl = TextEditingController(text: _currentCustomer.phone ?? '');
     final addressCtrl = TextEditingController(text: _currentCustomer.address ?? '');
@@ -598,6 +619,16 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
 
   // 🗑️ Delete Customer Check
   void _confirmDeleteCustomer() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक ग्राहक को डिलीट कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
     if (_currentCustomer.balance > 0) {
       showDialog(
         context: context,
@@ -871,46 +902,48 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
                     ),
                   ),
                 ],
-                InkWell(
-                  onTap: _showEditCustomerDialog,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.edit_outlined, size: 14, color: Color(0xFF475569)),
-                        SizedBox(width: 5),
-                        Text('एडिट (Edit)', style: TextStyle(color: Color(0xFF475569), fontSize: 11.5, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  ),
-                ),
-                InkWell(
-                  onTap: _confirmDeleteCustomer,
-                  borderRadius: BorderRadius.circular(8),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.25)),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.delete_outline_rounded, size: 14, color: Color(0xFFEF4444)),
-                        SizedBox(width: 5),
-                        Text('हटाएं (Delete)', style: TextStyle(color: Color(0xFFEF4444), fontSize: 11.5, fontWeight: FontWeight.bold)),
-                      ],
+                if (!context.watch<AuthProvider>().isStaffSession) ...[
+                  InkWell(
+                    onTap: _showEditCustomerDialog,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.25)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.edit_outlined, size: 14, color: Color(0xFF475569)),
+                          SizedBox(width: 5),
+                          Text('एडिट (Edit)', style: TextStyle(color: Color(0xFF475569), fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
                     ),
                   ),
-                ),
+                  InkWell(
+                    onTap: _confirmDeleteCustomer,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.25)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.delete_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                          SizedBox(width: 5),
+                          Text('हटाएं (Delete)', style: TextStyle(color: Color(0xFFEF4444), fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ],
@@ -1087,41 +1120,44 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen>
   // 3. ACTION BUTTONS ROW
   // ==========================================
   Widget _buildActionButtonsRow() {
+    final isStaff = context.watch<AuthProvider>().isStaffSession;
     return Row(
       children: [
-        // Credit Limit Set Button
-        Expanded(
-          child: ElevatedButton(
-            onPressed: _showSetCreditLimitDialog,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              elevation: 1,
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.speed_rounded, size: 15),
-                SizedBox(width: 5),
-                Flexible(
-                  child: Text(
-                    'क्रेडिट लिमिट',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+        if (!isStaff) ...[
+          // Credit Limit Set Button
+          Expanded(
+            child: ElevatedButton(
+              onPressed: _showSetCreditLimitDialog,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 4),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 1,
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.speed_rounded, size: 15),
+                  SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      'क्रेडिट लिमिट',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
-
-        const SizedBox(width: 8),
+          const SizedBox(width: 8),
+        ],
 
         // Receive Payment Button
         Expanded(
+          flex: isStaff ? 2 : 1,
           child: ElevatedButton(
             onPressed: _showReceiveCashDialog,
             style: ElevatedButton.styleFrom(

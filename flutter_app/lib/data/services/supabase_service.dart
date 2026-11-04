@@ -750,6 +750,31 @@ class SupabaseService {
     }
 
     if (_isInitialized && client != null && shopId != 'demo-shop-101') {
+      final prefs = await SharedPreferences.getInstance();
+      final isStaff = prefs.getBool('is_staff_session') ?? false;
+      final staffPin = prefs.getString('staff_pin') ?? '';
+
+      // If staff session, use RPC directly to bypass RLS restrictions
+      if (isStaff && staffPin.isNotEmpty) {
+        try {
+          final dynamic rpcRes = await client!.rpc('staff_get_sales', params: {
+            '_shop_id': shopId,
+            '_pin': staffPin,
+          });
+          if (rpcRes is Map && rpcRes['success'] == true && rpcRes['sales'] is List) {
+            final rpcList = (rpcRes['sales'] as List)
+                .map((e) => Sale.fromJson(e as Map<String, dynamic>))
+                .toList();
+            _localSales.clear();
+            _localSales.addAll(rpcList);
+            await _saveCachedSales(shopId, rpcList);
+            return rpcList;
+          }
+        } catch (rpcErr) {
+          debugPrint("Staff RPC get_sales error: $rpcErr");
+        }
+      }
+
       try {
         final response = await client!
             .from('sales')
@@ -773,12 +798,31 @@ class SupabaseService {
           }
         }
 
-        _localSales.clear();
-        _localSales.addAll(cloudList);
-        _saveCachedSales(shopId, cloudList);
-        return cloudList;
+        if (cloudList.isNotEmpty || !isStaff) {
+          _localSales.clear();
+          _localSales.addAll(cloudList);
+          await _saveCachedSales(shopId, cloudList);
+          return cloudList;
+        }
       } catch (e) {
         debugPrint("Error fetching sales from cloud: $e");
+        if (isStaff && staffPin.isNotEmpty) {
+          try {
+            final dynamic rpcRes = await client!.rpc('staff_get_sales', params: {
+              '_shop_id': shopId,
+              '_pin': staffPin,
+            });
+            if (rpcRes is Map && rpcRes['success'] == true && rpcRes['sales'] is List) {
+              final rpcList = (rpcRes['sales'] as List)
+                  .map((e) => Sale.fromJson(e as Map<String, dynamic>))
+                  .toList();
+              _localSales.clear();
+              _localSales.addAll(rpcList);
+              await _saveCachedSales(shopId, rpcList);
+              return rpcList;
+            }
+          } catch (_) {}
+        }
       }
     }
 
@@ -990,7 +1034,41 @@ class SupabaseService {
 
   // --- EXPENSES ---
   Future<List<Expense>> getExpenses(String shopId) async {
+    if (_localExpenses.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('cached_expenses_$shopId');
+        if (cached != null) {
+          final list = (jsonDecode(cached) as List).map((e) => Expense.fromJson(e as Map<String, dynamic>)).toList();
+          _localExpenses.addAll(list);
+        }
+      } catch (_) {}
+    }
+
     if (_isInitialized && client != null && shopId != 'demo-shop-101') {
+      final prefs = await SharedPreferences.getInstance();
+      final isStaff = prefs.getBool('is_staff_session') ?? false;
+      final staffPin = prefs.getString('staff_pin') ?? '';
+
+      // If staff session, query staff RPC
+      if (isStaff && staffPin.isNotEmpty) {
+        try {
+          final dynamic rpcRes = await client!.rpc('staff_get_expenses', params: {
+            '_shop_id': shopId,
+            '_pin': staffPin,
+          });
+          if (rpcRes is Map && rpcRes['success'] == true && rpcRes['expenses'] is List) {
+            final rpcList = (rpcRes['expenses'] as List).map((e) => Expense.fromJson(e as Map<String, dynamic>)).toList();
+            _localExpenses.clear();
+            _localExpenses.addAll(rpcList);
+            await _saveCachedExpenses(shopId, rpcList);
+            return rpcList;
+          }
+        } catch (rpcErr) {
+          debugPrint("Staff RPC get_expenses error: $rpcErr");
+        }
+      }
+
       try {
         final response = await client!
             .from('expenses')
@@ -998,7 +1076,13 @@ class SupabaseService {
             .eq('shop_id', shopId)
             .order('spent_on', ascending: false)
             .limit(100);
-        return (response as List).map((e) => Expense.fromJson(e)).toList();
+        final list = (response as List).map((e) => Expense.fromJson(e)).toList();
+        if (list.isNotEmpty || !isStaff) {
+          _localExpenses.clear();
+          _localExpenses.addAll(list);
+          await _saveCachedExpenses(shopId, list);
+          return list;
+        }
       } catch (e) {
         debugPrint("Error fetching expenses: $e");
       }
@@ -1006,8 +1090,16 @@ class SupabaseService {
     return List.from(_localExpenses);
   }
 
+  Future<void> _saveCachedExpenses(String shopId, List<Expense> list) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('cached_expenses_$shopId', jsonEncode(list.map((e) => e.toJson()).toList()));
+    } catch (_) {}
+  }
+
   Future<void> addExpense(Expense expense) async {
     _localExpenses.insert(0, expense);
+    await _saveCachedExpenses(expense.shopId, _localExpenses);
     if (_isInitialized && client != null) {
       try {
         await client!.from('expenses').insert(expense.toJson());
@@ -1214,6 +1306,8 @@ class SupabaseService {
     required String phone,
     required String pin,
     String? qrPayload,
+    String? staffName,
+    String? staffRole,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -1229,14 +1323,21 @@ class SupabaseService {
     // 2. Parse phone and pin (supports QR payload like shoppos://pair?phone=...&pin=...)
     String cleanPhone = phone.trim().replaceAll(' ', '').replaceAll('-', '');
     String cleanPin = pin.trim().replaceAll(' ', '');
+    String cleanName = (staffName ?? '').trim();
+    String cleanRole = (staffRole ?? '').trim();
 
     if (qrPayload != null && qrPayload.contains('pair?')) {
       try {
         final uri = Uri.parse(qrPayload);
         cleanPhone = uri.queryParameters['phone'] ?? cleanPhone;
         cleanPin = uri.queryParameters['pin'] ?? cleanPin;
+        if (cleanName.isEmpty) cleanName = uri.queryParameters['name'] ?? '';
+        if (cleanRole.isEmpty) cleanRole = uri.queryParameters['role'] ?? '';
       } catch (_) {}
     }
+
+    if (cleanName.isEmpty) cleanName = 'स्टाफ';
+    if (cleanRole.isEmpty) cleanRole = 'कैशियर';
 
     if (cleanPhone.isEmpty || cleanPin.isEmpty) {
       throw Exception('कृपया दुकान का मोबाइल नंबर और 6-अंकीय स्टाफ पिन दोनों दर्ज करें।');
@@ -1285,10 +1386,35 @@ class SupabaseService {
             );
           }
 
-          // Success: Reset brute-force counter and set cashier session
+          // Parse and populate sales (so staff immediately has all shop bills)
+          if (res['sales'] is List) {
+            final salesList = (res['sales'] as List)
+                .map((s) => Sale.fromJson(s as Map<String, dynamic>))
+                .toList();
+            _localSales.clear();
+            _localSales.addAll(salesList);
+            await _saveCachedSales(realShopId, salesList);
+          }
+
+          // Parse and populate expenses (so daybook has complete transaction history)
+          if (res['expenses'] is List) {
+            final expList = (res['expenses'] as List)
+                .map((e) => Expense.fromJson(e as Map<String, dynamic>))
+                .toList();
+            _localExpenses.clear();
+            _localExpenses.addAll(expList);
+            await _saveCachedExpenses(realShopId, expList);
+          }
+
+          // Success: Reset brute-force counter and set staff session
           await prefs.setInt('staff_failed_attempts', 0);
           await prefs.setBool('is_guest_mode', true);
-          await prefs.setString('active_role', 'cashier');
+          await prefs.setBool('is_staff_session', true);
+          await prefs.setString('staff_name', cleanName);
+          await prefs.setString('staff_role', cleanRole);
+          await prefs.setString('staff_pin', cleanPin);
+          await prefs.setString('staff_shop_phone', cleanPhone);
+          await prefs.setString('active_role', cleanRole);
           await prefs.setBool('setup_done_guest', true);
           await prefs.setString('saved_shop_data', jsonEncode(_localShop.toJson()));
           await prefs.setString('shop_name', _localShop.name);
@@ -1301,7 +1427,7 @@ class SupabaseService {
           await prefs.setString('shop_paper_size', _localShop.printPaperSize);
           await prefs.setBool('shop_allow_negative_stock', _localShop.allowNegativeStock);
 
-          debugPrint("Staff successfully joined shop: ${_localShop.name} (${_localShop.id})");
+          debugPrint("Staff successfully joined shop: ${_localShop.name} (${_localShop.id}) as $cleanName ($cleanRole)");
           return _localShop;
         } else if (res is Map && res['error'] != null) {
           throw Exception(res['error'].toString());
@@ -1322,7 +1448,12 @@ class SupabaseService {
           _localShop = s;
           await prefs.setInt('staff_failed_attempts', 0);
           await prefs.setBool('is_guest_mode', true);
-          await prefs.setString('active_role', 'cashier');
+          await prefs.setBool('is_staff_session', true);
+          await prefs.setString('staff_name', cleanName);
+          await prefs.setString('staff_role', cleanRole);
+          await prefs.setString('staff_pin', cleanPin);
+          await prefs.setString('staff_shop_phone', cleanPhone);
+          await prefs.setString('active_role', cleanRole);
           await prefs.setBool('setup_done_guest', true);
           return _localShop;
         }

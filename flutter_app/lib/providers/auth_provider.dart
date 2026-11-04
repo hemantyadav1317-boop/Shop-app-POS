@@ -6,18 +6,27 @@ import '../data/services/supabase_service.dart';
 class AuthProvider extends ChangeNotifier {
   User? _user;
   bool _isGuestMode = false;
+  bool _isStaffSession = false;
+  String? _staffName;
+  String? _staffRole;
   bool _isLoading = true;
   String? _lastError;
   String _customOwnerName = 'दुकानदार';
 
   User? get user => _user ?? SupabaseService.instance.client?.auth.currentUser;
   bool get isGuestMode => _isGuestMode;
+  bool get isStaffSession => _isStaffSession;
+  String? get staffName => _staffName;
+  String? get staffRole => _staffRole;
   bool get isLoading => _isLoading;
   String? get lastError => _lastError;
   bool get isAuthenticated => user != null || _isGuestMode;
   bool get isLoggedIn => isAuthenticated;
 
   String get displayName {
+    if (_isStaffSession && _staffName != null && _staffName!.trim().isNotEmpty) {
+      return _staffName!.trim();
+    }
     final u = user;
     if (u != null) {
       final meta = u.userMetadata;
@@ -42,6 +51,9 @@ class AuthProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       _isGuestMode = prefs.getBool('is_guest_mode') ?? false;
+      _isStaffSession = prefs.getBool('is_staff_session') ?? false;
+      _staffName = prefs.getString('staff_name');
+      _staffRole = prefs.getString('staff_role');
       _customOwnerName = prefs.getString('custom_owner_name') ?? 'दुकानदार';
 
       final client = SupabaseService.instance.client;
@@ -209,8 +221,28 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> continueOffline() async {
     _isGuestMode = true;
+    _isStaffSession = false;
+    _staffName = null;
+    _staffRole = null;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_guest_mode', true);
+    await prefs.remove('is_staff_session');
+    await prefs.remove('staff_name');
+    await prefs.remove('staff_role');
+    notifyListeners();
+  }
+
+  Future<void> setStaffSession({required String staffName, required String staffRole}) async {
+    _isGuestMode = true;
+    _isStaffSession = true;
+    _staffName = staffName.trim();
+    _staffRole = staffRole.trim();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_guest_mode', true);
+    await prefs.setBool('is_staff_session', true);
+    await prefs.setString('staff_name', _staffName!);
+    await prefs.setString('staff_role', _staffRole!);
     notifyListeners();
   }
 
@@ -229,10 +261,18 @@ class AuthProvider extends ChangeNotifier {
 
     _user = null;
     _isGuestMode = false;
+    _isStaffSession = false;
+    _staffName = null;
+    _staffRole = null;
     SupabaseService.instance.resetLocalData();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('is_guest_mode');
+    await prefs.remove('is_staff_session');
+    await prefs.remove('staff_name');
+    await prefs.remove('staff_role');
+    await prefs.remove('staff_pin');
+    await prefs.remove('staff_shop_phone');
     await prefs.remove('custom_owner_name');
     await prefs.remove('saved_shop_data');
     await prefs.remove('shop_name');

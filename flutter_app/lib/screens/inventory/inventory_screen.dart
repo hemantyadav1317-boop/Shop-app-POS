@@ -7,6 +7,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../data/models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../../providers/auth_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'category_products_screen.dart';
 import '../../core/utils/pos_sound_formatter.dart';
@@ -41,6 +42,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
   bool _onlyLowStock = false;
 
   void _showAddCategoryDialog(BuildContext context, [Function(String)? onCreated, String? existingCat]) {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक नई कैटेगरी बना सकते हैं।'),
+        ),
+      );
+      return;
+    }
     final catNameCtrl = TextEditingController(text: existingCat ?? '');
     final catImgCtrl = TextEditingController();
     String? selectedImageUrl = existingCat != null
@@ -141,6 +152,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _confirmDeleteCategory(BuildContext context, String catName) {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक कैटेगरी डिलीट कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
     final count = context.read<ProductProvider>().getProductCountForCategory(catName);
 
     showDialog(
@@ -202,6 +223,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _confirmDeleteProduct(BuildContext context, Product product) {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक सामान डिलीट कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -240,6 +271,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }
 
   void _showAddEditProductDialog(BuildContext context, [Product? existing, String? preselectedCategory]) {
+    final auth = context.read<AuthProvider>();
+    if (existing == null && auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक नया सामान जोड़ सकते हैं।'),
+        ),
+      );
+      return;
+    }
     final nameCtrl = TextEditingController(text: existing?.name ?? '');
     final barcodeCtrl = TextEditingController(text: existing?.barcode ?? '');
     final mrpCtrl = TextEditingController(text: existing?.mrp != null ? existing!.mrp.toString() : '');
@@ -1394,11 +1435,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
               tooltip: 'स्टॉक ऑडिट लॉग्स (Adjustment Logs)',
               onPressed: () => _showStockAdjustmentLogs(context),
             ),
-            IconButton(
-              icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 28),
-              tooltip: 'Add Product',
-              onPressed: () => _showAddEditProductDialog(context),
-            ),
+            if (!context.watch<AuthProvider>().isStaffSession)
+              IconButton(
+                icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 28),
+                tooltip: 'Add Product',
+                onPressed: () => _showAddEditProductDialog(context),
+              ),
             const SizedBox(width: 8),
           ],
         ),
@@ -1622,28 +1664,32 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                                 _confirmDeleteProduct(context, product);
                                               }
                                             },
-                                            itemBuilder: (ctx) => const [
-                                              PopupMenuItem(
-                                                value: 'edit',
-                                                child: Row(
-                                                  children: [
-                                                    Icon(Icons.edit, size: 16),
-                                                    SizedBox(width: 8),
-                                                    Text('एडिट करें'),
-                                                  ],
+                                            itemBuilder: (ctx) {
+                                              final isStaff = context.read<AuthProvider>().isStaffSession;
+                                              return [
+                                                const PopupMenuItem(
+                                                  value: 'edit',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.edit, size: 16),
+                                                      SizedBox(width: 8),
+                                                      Text('एडिट करें'),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                              PopupMenuItem(
-                                                value: 'delete',
-                                                child: Row(
-                                                  children: [
-                                                    Icon(Icons.delete_outline, size: 16, color: AppColors.error),
-                                                    SizedBox(width: 8),
-                                                    Text('हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
-                                                  ],
-                                                ),
-                                              ),
-                                            ],
+                                                if (!isStaff)
+                                                  const PopupMenuItem(
+                                                    value: 'delete',
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.delete_outline, size: 16, color: AppColors.error),
+                                                        SizedBox(width: 8),
+                                                        Text('हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                              ];
+                                            },
                                           ),
                                         ],
                                       ),
@@ -1789,15 +1835,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                         ],
                       ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('नई कैटेगरी जोड़ें', style: TextStyle(fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
+                      if (!context.watch<AuthProvider>().isStaffSession)
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('नई कैटेगरी जोड़ें', style: TextStyle(fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: () => _showAddCategoryDialog(context),
                         ),
-                        onPressed: () => _showAddCategoryDialog(context),
-                      ),
                     ],
                   ),
                 ),
@@ -1849,16 +1896,18 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.add_a_photo_outlined, color: AppColors.primary),
-                                      tooltip: 'फोटो जोड़ें / बदलें',
-                                      onPressed: () => _showAddCategoryDialog(context, null, cat),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                                      tooltip: 'Delete Category',
-                                      onPressed: () => _confirmDeleteCategory(context, cat),
-                                    ),
+                                    if (!context.watch<AuthProvider>().isStaffSession) ...[
+                                      IconButton(
+                                        icon: const Icon(Icons.add_a_photo_outlined, color: AppColors.primary),
+                                        tooltip: 'फोटो जोड़ें / बदलें',
+                                        onPressed: () => _showAddCategoryDialog(context, null, cat),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.delete_outline, color: AppColors.error),
+                                        tooltip: 'Delete Category',
+                                        onPressed: () => _confirmDeleteCategory(context, cat),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),

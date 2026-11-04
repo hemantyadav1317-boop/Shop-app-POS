@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/services/sound_service.dart';
+import '../../core/services/update_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
@@ -356,7 +357,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             right: 0,
             child: Center(
               child: Text(
-                'v1.3.5 • Made for Retail Stores',
+                'v${UpdateService.currentVersion} • Made for Retail Stores',
                 style: GoogleFonts.inter(
                   fontSize: 11,
                   color: Colors.white30,

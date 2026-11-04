@@ -214,11 +214,15 @@ class ShopProvider extends ChangeNotifier {
     required String phone,
     required String pin,
     String? qrPayload,
+    String? staffName,
+    String? staffRole,
   }) async {
     final joined = await SupabaseService.instance.verifyAndJoinStaff(
       phone: phone,
       pin: pin,
       qrPayload: qrPayload,
+      staffName: staffName,
+      staffRole: staffRole,
     );
     _shop = joined;
     notifyListeners();

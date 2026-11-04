@@ -136,10 +136,12 @@ class _DaybookScreenState extends State<DaybookScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('दैनिक रोकड़ / Daybook', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('दैनिक रोकड़ (Daybook)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        backgroundColor: const Color(0xFF00875A),
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.analytics_outlined, color: AppColors.primary),
+            icon: const Icon(Icons.analytics_outlined, color: Colors.white),
             tooltip: 'सेल्स व मुनाफा एनालिटिक्स / Analytics',
             onPressed: () {
               SoundService.instance.playButtonClick();
@@ -147,49 +149,49 @@ class _DaybookScreenState extends State<DaybookScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.add_card),
+            icon: const Icon(Icons.add_card, color: Colors.white),
             tooltip: 'Add Expense',
             onPressed: _showAddExpenseDialog,
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadDaybook,
           ),
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00875A)))
           : Column(
               children: [
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 // Analytics Banner Button
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: InkWell(
                     onTap: () {
                       SoundService.instance.playButtonClick();
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsScreen()));
                     },
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF00875A), Color(0xFF0A4D2E)],
+                          colors: [Color(0xFF00875A), Color(0xFF045D39)],
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF00875A).withOpacity(0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
+                            color: const Color(0xFF00875A).withValues(alpha: 0.28),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.insights_rounded, color: Colors.white, size: 20),
-                          SizedBox(width: 10),
+                          Icon(Icons.insights_rounded, color: Colors.white, size: 22),
+                          SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -198,109 +200,320 @@ class _DaybookScreenState extends State<DaybookScreen> {
                                   'बिक्री व मुनाफा एनालिटिक्स (Sales & Profit Reports)',
                                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                                 ),
+                                SizedBox(height: 2),
                                 Text(
                                   'Top/Least बिकने वाले सामान, मार्जिन और ट्रेंड रिपोर्ट देखें',
-                                  style: TextStyle(color: Colors.white70, fontSize: 10.5),
+                                  style: TextStyle(color: Colors.white70, fontSize: 11),
                                 ),
                               ],
                             ),
                           ),
-                          Icon(Icons.arrow_forward_ios_rounded, color: Colors.white, size: 14),
+                          Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 14),
                         ],
                       ),
                     ),
                   ),
                 ),
-                // Top Daybook Cash Tally Card
+                const SizedBox(height: 10),
+
+                // Top Daybook Cash Tally Card (3D Executive Design)
                 Container(
-                  margin: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.symmetric(horizontal: 14),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Theme.of(context).dividerColor),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.03),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Header Row: Title on Left, Calendar Badge on Right (Zero Collision)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('गल्ले में शुद्ध नकद / Net Cash in Drawer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text(
-                            DateFormat('dd MMMM yyyy').format(DateTime.now()),
-                            style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                          const Row(
+                            children: [
+                              Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF00875A), size: 18),
+                              SizedBox(width: 6),
+                              Text(
+                                'गल्ले में शुद्ध नकद (Net Cash)',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00875A).withValues(alpha: 0.10),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.event_note_rounded, size: 13, color: Color(0xFF00875A)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  DateFormat('dd MMM yyyy').format(DateTime.now()),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF00875A),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 10),
+
+                      // Large Net Drawer Cash Display
                       Text(
                         CurrencyFormatter.format(netDrawer),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          fontSize: 28,
-                          color: netDrawer >= 0 ? AppColors.primary : AppColors.error,
+                          fontSize: 32,
+                          color: netDrawer >= 0 ? const Color(0xFF00875A) : const Color(0xFFDC2626),
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      const Divider(height: 24),
+                      const SizedBox(height: 14),
+
+                      // 3 Separate 3D Stat Cards: Cash In | UPI In | Cash Out
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildStatColumn('💵 नकद आया (Cash In)', CurrencyFormatter.format(cashIn), AppColors.primary),
-                          _buildStatColumn('📲 ऑनलाइन (UPI In)', CurrencyFormatter.format(upiIn), Colors.blue),
-                          _buildStatColumn('💸 खर्च (Cash Out)', CurrencyFormatter.format(cashOut), AppColors.error),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00875A).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.2)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.arrow_downward_rounded, size: 12, color: Color(0xFF00875A)),
+                                      SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          'नकद आया',
+                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF00875A)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      CurrencyFormatter.format(cashIn),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF00875A)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFF2563EB).withValues(alpha: 0.2)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.qr_code_rounded, size: 12, color: Color(0xFF2563EB)),
+                                      SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          'ऑनलाइन आया',
+                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFF2563EB)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      CurrencyFormatter.format(upiIn),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF2563EB)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFDC2626).withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFDC2626).withValues(alpha: 0.2)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.arrow_upward_rounded, size: 12, color: Color(0xFFDC2626)),
+                                      SizedBox(width: 3),
+                                      Flexible(
+                                        child: Text(
+                                          'दुकान खर्च',
+                                          style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Color(0xFFDC2626)),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      CurrencyFormatter.format(cashOut),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFFDC2626)),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
 
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text('आज के लेनदेन / Today\'s Entries', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'आज के लेनदेन (Today\'s Entries)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${_todaySales.length + _todayExpenses.length} लेनदेन',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
                 // Transactions timeline
                 Expanded(
                   child: (_todaySales.isEmpty && _todayExpenses.isEmpty)
-                      ? const Center(child: Text('आज अभी तक कोई लेनदेन नहीं हुआ', style: TextStyle(color: AppColors.lightTextSecondary)))
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.receipt_long_rounded, size: 48, color: Colors.grey.withValues(alpha: 0.4)),
+                              const SizedBox(height: 8),
+                              const Text('आज अभी तक कोई लेनदेन नहीं हुआ', style: TextStyle(color: AppColors.lightTextSecondary)),
+                            ],
+                          ),
+                        )
                       : ListView(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           children: [
                             ..._todaySales.map((sale) => Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  elevation: 1.5,
                                   child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                                     leading: CircleAvatar(
-                                      backgroundColor: AppColors.primarySurface,
-                                      child: const Icon(Icons.arrow_downward, color: AppColors.primary, size: 20),
+                                      backgroundColor: const Color(0xFF00875A).withValues(alpha: 0.12),
+                                      child: const Icon(Icons.arrow_downward_rounded, color: Color(0xFF00875A), size: 20),
                                     ),
-                                    title: Text('Sale Bill #${sale.billNo} (${sale.customerName ?? "Walk-in"})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    subtitle: Text('${dateFormat.format(sale.createdAt)} · ${sale.paymentMode.toUpperCase()}', style: const TextStyle(fontSize: 11)),
+                                    title: Text(
+                                      'बिल #${sale.billNo} • ${sale.customerName ?? "Walk-in Customer"}',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                                    ),
+                                    subtitle: Row(
+                                      children: [
+                                        Text(dateFormat.format(sale.createdAt), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: (sale.paymentMode == 'cash'
+                                                    ? const Color(0xFF00875A)
+                                                    : const Color(0xFF2563EB))
+                                                .withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            sale.paymentMode.toUpperCase(),
+                                            style: TextStyle(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: sale.paymentMode == 'cash'
+                                                  ? const Color(0xFF00875A)
+                                                  : const Color(0xFF2563EB),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                     trailing: Text(
                                       '+ ${CurrencyFormatter.format(sale.paid)}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 14),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF00875A), fontSize: 14.5),
                                     ),
                                   ),
                                 )),
                             ..._todayExpenses.map((exp) => Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                  elevation: 1.5,
                                   child: ListTile(
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
                                     leading: CircleAvatar(
-                                      backgroundColor: AppColors.error.withOpacity(0.15),
-                                      child: const Icon(Icons.arrow_upward, color: AppColors.error, size: 20),
+                                      backgroundColor: const Color(0xFFDC2626).withValues(alpha: 0.12),
+                                      child: const Icon(Icons.arrow_upward_rounded, color: Color(0xFFDC2626), size: 20),
                                     ),
-                                    title: Text(exp.category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                    subtitle: Text('${dateFormat.format(exp.spentOn)}${exp.note != null ? " · ${exp.note}" : ""}'),
+                                    title: Text(exp.category, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                    subtitle: Text(
+                                      '${dateFormat.format(exp.spentOn)}${exp.note != null ? " • ${exp.note}" : ""}',
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    ),
                                     trailing: Text(
                                       '- ${CurrencyFormatter.format(exp.amount)}',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.error, fontSize: 14),
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFDC2626), fontSize: 14.5),
                                     ),
                                   ),
                                 )),
@@ -309,16 +522,6 @@ class _DaybookScreenState extends State<DaybookScreen> {
                 ),
               ],
             ),
-    );
-  }
-
-  Widget _buildStatColumn(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: AppColors.lightTextSecondary)),
-        const SizedBox(height: 2),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
-      ],
     );
   }
 }

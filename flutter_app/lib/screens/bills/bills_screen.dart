@@ -10,6 +10,7 @@ import '../../data/models/cart_item.dart';
 import '../../data/models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../data/services/supabase_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
 import '../pos/widgets/bill_receipt_card.dart';
@@ -89,22 +90,24 @@ class _BillsScreenState extends State<BillsScreen> {
                         style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_note, color: AppColors.primary, size: 24),
-                      tooltip: 'बिल में बदलाव करें (Edit Bill)',
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _showEditBillDialog(sale);
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 22),
-                      tooltip: 'बिल डिलीट करें (Delete Bill)',
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _confirmDeleteBill(sale);
-                      },
-                    ),
+                    if (!context.read<AuthProvider>().isStaffSession) ...[
+                      IconButton(
+                        icon: const Icon(Icons.edit_note, color: AppColors.primary, size: 24),
+                        tooltip: 'बिल में बदलाव करें (Edit Bill)',
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _showEditBillDialog(sale);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 22),
+                        tooltip: 'बिल डिलीट करें (Delete Bill)',
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _confirmDeleteBill(sale);
+                        },
+                      ),
+                    ],
                     IconButton(
                       icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
                       onPressed: () => Navigator.pop(ctx),
@@ -229,6 +232,16 @@ class _BillsScreenState extends State<BillsScreen> {
   }
 
   void _showEditBillDialog(Sale sale) {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक बिल एडिट कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
     final items = List.from(sale.items);
     String mode = sale.paymentMode;
     final discountCtrl = TextEditingController(text: sale.discount > 0 ? sale.discount.toStringAsFixed(2) : '0');
@@ -903,6 +916,16 @@ class _BillsScreenState extends State<BillsScreen> {
   }
 
   void _confirmDeleteBill(Sale sale) {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक बिल डिलीट कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (delCtx) => AlertDialog(

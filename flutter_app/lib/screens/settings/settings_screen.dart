@@ -665,6 +665,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     FocusScope.of(context).unfocus();
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक दुकान की जानकारी या UPI बदल सकते हैं।'),
+        ),
+      );
+      return;
+    }
     final currentShop = context.read<ShopProvider>().shop;
     final updated = currentShop.copyWith(
       name: _nameCtrl.text.trim().isEmpty ? 'Shop POS' : _nameCtrl.text.trim(),
@@ -814,11 +824,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         title: const Text('सेटिंग्स / Shop Settings', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
-          TextButton.icon(
-            icon: const Icon(Icons.check, size: 18),
-            label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: _saveSettings,
-          ),
+          if (!authProvider.isStaffSession)
+            TextButton.icon(
+              icon: const Icon(Icons.check, size: 18),
+              label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: _saveSettings,
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -833,9 +844,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: AppColors.primarySurface,
+                      backgroundColor: authProvider.isStaffSession ? const Color(0xFFE8F5E9) : AppColors.primarySurface,
                       radius: 22,
-                      child: const Icon(Icons.person, color: AppColors.primary, size: 26),
+                      child: Icon(
+                        authProvider.isStaffSession ? Icons.storefront_rounded : Icons.person,
+                        color: authProvider.isStaffSession ? const Color(0xFF00875A) : AppColors.primary,
+                        size: 26,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -843,13 +858,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            authProvider.displayName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            authProvider.isStaffSession
+                                ? shopProvider.shop.name
+                                : authProvider.displayName,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          Text(
-                            authProvider.email ?? (authProvider.isGuestMode ? 'ऑफ़लाइन मोड (Guest)' : 'लॉगिन नहीं है'),
-                            style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                          ),
+                          const SizedBox(height: 2),
+                          if (authProvider.isStaffSession)
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF00875A).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(
+                                    authProvider.staffRole ?? 'कैशियर',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      color: Color(0xFF00875A),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'स्टाफ: ${authProvider.staffName ?? "स्टाफ"}',
+                                    style: const TextStyle(fontSize: 11.5, color: AppColors.lightTextSecondary, fontWeight: FontWeight.w500),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            )
+                          else
+                            Text(
+                              authProvider.email ?? (authProvider.isGuestMode ? 'ऑफ़लाइन मोड (Guest)' : 'लॉगिन नहीं है'),
+                              style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                            ),
                         ],
                       ),
                     ),
@@ -935,8 +985,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         const Expanded(
                           child: Text(
-                            '⚖️ इलेक्ट्रॉनिक कांटा',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                            '⚖️ इलेक्ट्रॉनिक कांटा (Scale)',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -950,11 +1000,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            scale.isConnected ? 'CONNECTED' : 'DISCONNECTED',
+                            scale.isConnected ? '🟢 कनेक्ट' : 'डिस्कनेक्ट',
                             style: TextStyle(
-                              fontSize: 9,
+                              fontSize: 9.5,
                               fontWeight: FontWeight.bold,
-                              color: scale.isConnected ? const Color(0xFF10B981) : Colors.grey,
+                              color: scale.isConnected ? const Color(0xFF10B981) : Colors.grey.shade600,
                             ),
                           ),
                         ),
@@ -962,8 +1012,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     subtitle: Text(
                       scale.isConnected
-                          ? 'Weighing Scale • ${scale.scaleName ?? "Scale"} • Live: ${scale.liveWeight.toStringAsFixed(3)} ${scale.unit}'
-                          : 'Weighing Scale • ब्लूटूथ कांटा कनेक्ट करें',
+                          ? 'Scale • ${scale.scaleName ?? "Scale"} • Live: ${scale.liveWeight.toStringAsFixed(3)} ${scale.unit}'
+                          : 'Scale • ब्लूटूथ कांटा कनेक्ट करें',
                       style: const TextStyle(fontSize: 11.5, color: Colors.grey),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1006,9 +1056,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     title: Row(
                       children: [
-                        const Text(
-                          'AI विज़न व स्मार्ट कैमरा (Smart Produce Vision)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        const Expanded(
+                          child: Text(
+                            'AI विज़न व स्मार्ट कैमरा',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         const SizedBox(width: 6),
                         Container(
@@ -1020,7 +1074,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            ai.isAiVisionActive ? 'ACTIVE' : 'OFF',
+                            ai.isAiVisionActive ? '🟢 ON' : 'OFF',
                             style: TextStyle(
                               fontSize: 9.5,
                               fontWeight: FontWeight.bold,
@@ -1032,8 +1086,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     subtitle: Text(
                       ai.isAiVisionActive
-                          ? 'कांटे के साथ ऑटो-डिटेक्शन चालू • ${ai.voiceFeedbackEnabled ? "वॉइस ऑन" : "वॉइस बंद"}'
-                          : 'कांटे पर फल-सब्जी ऑटोमैटिक पहचान व बिलिंग सेट करें',
+                          ? 'कांटे पर ऑटो पहचान चालू • ${ai.voiceFeedbackEnabled ? "वॉइस ऑन" : "वॉइस बंद"}'
+                          : 'कांटे पर फल-सब्जी ऑटोमैटिक पहचान व बिलिंग',
                       style: const TextStyle(fontSize: 11.5, color: Colors.grey),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1127,10 +1181,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         children: [
                           Row(
                             children: [
-                              const Text('लॉगिन ईमेल: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              Text(
+                                authProvider.isStaffSession ? 'स्टाफ लॉगिन: ' : 'लॉगिन ईमेल: ',
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                              ),
                               Expanded(
                                 child: Text(
-                                  authProvider.email ?? 'लॉगिन नहीं है (Guest Mode)',
+                                  authProvider.isStaffSession
+                                      ? '${authProvider.staffName ?? "स्टाफ"} (${authProvider.staffRole ?? "कैशियर"})'
+                                      : (authProvider.email ?? 'लॉगिन नहीं है (Guest Mode)'),
                                   style: const TextStyle(fontSize: 12),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1175,8 +1234,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
 
-            // Family & Staff Sharing Card (Bhai / Father Access)
-            Card(
+            // Family & Staff Sharing Card (Bhai / Father Access) - ONLY FOR OWNER
+            if (!authProvider.isStaffSession) ...[
+              Card(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -1399,6 +1459,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 12),
+          ],
 
             // Store Profile Details
             Card(
@@ -1407,15 +1468,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('दुकान की जानकारी / Store Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    Row(
+                      children: [
+                        const Text('दुकान की जानकारी / Store Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        if (authProvider.isStaffSession) ...[
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFF59E0B)),
+                            ),
+                            child: const Text('🔒 केवल मालिक', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (authProvider.isStaffSession) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.lock_rounded, size: 15, color: Color(0xFFD97706)),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'सुरक्षा नियम: केवल दुकान मालिक दुकान का नाम व पता बदल सकते हैं।',
+                                style: TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 12),
-                    TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'दुकान का नाम *', prefixIcon: Icon(Icons.storefront))),
+                    TextField(
+                      controller: _nameCtrl,
+                      readOnly: authProvider.isStaffSession,
+                      decoration: const InputDecoration(labelText: 'दुकान का नाम *', prefixIcon: Icon(Icons.storefront)),
+                    ),
                     const SizedBox(height: 10),
-                    TextField(controller: _phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'मोबाइल नंबर', prefixIcon: Icon(Icons.phone))),
+                    TextField(
+                      controller: _phoneCtrl,
+                      readOnly: authProvider.isStaffSession,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(labelText: 'मोबाइल नंबर', prefixIcon: Icon(Icons.phone)),
+                    ),
                     const SizedBox(height: 10),
-                    TextField(controller: _addressCtrl, decoration: const InputDecoration(labelText: 'पता (Address)', prefixIcon: Icon(Icons.location_on_outlined))),
+                    TextField(
+                      controller: _addressCtrl,
+                      readOnly: authProvider.isStaffSession,
+                      decoration: const InputDecoration(labelText: 'पता (Address)', prefixIcon: Icon(Icons.location_on_outlined)),
+                    ),
                     const SizedBox(height: 10),
-                    TextField(controller: _gstinCtrl, decoration: const InputDecoration(labelText: 'GSTIN (वैकल्पिक)', prefixIcon: Icon(Icons.receipt_outlined))),
+                    TextField(
+                      controller: _gstinCtrl,
+                      readOnly: authProvider.isStaffSession,
+                      decoration: const InputDecoration(labelText: 'GSTIN (वैकल्पिक)', prefixIcon: Icon(Icons.receipt_outlined)),
+                    ),
                   ],
                 ),
               ),
@@ -1430,12 +1546,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
-                      children: const [
-                        Icon(Icons.qr_code, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Text('UPI पेमेंट सेटिंग्स व QR कोड', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      children: [
+                        const Icon(Icons.qr_code, color: AppColors.primary),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text('UPI पेमेंट सेटिंग्स व QR कोड', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        ),
+                        if (authProvider.isStaffSession)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFEF3C7),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFFF59E0B)),
+                            ),
+                            child: const Text('🔒 केवल मालिक', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
+                          ),
                       ],
                     ),
+                    if (authProvider.isStaffSession) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.lock_rounded, size: 15, color: Color(0xFFD97706)),
+                            SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'सुरक्षा नियम: केवल दुकान मालिक UPI ID और QR कोड बदल सकते हैं।',
+                                style: TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     const Text(
                       'बिलिंग के समय ग्राहक सीधे आपके UPI QR कोड को स्कैन कर के भुगतान कर सकते हैं।',
@@ -1444,6 +1594,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 12),
                     TextField(
                       controller: _upiIdCtrl,
+                      readOnly: authProvider.isStaffSession,
                       decoration: const InputDecoration(
                         labelText: 'दुकानदार की UPI ID * (उदा. 9876543210@paytm, shop@okhdfcbank)',
                         prefixIcon: Icon(Icons.payment),
@@ -1452,6 +1603,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 10),
                     TextField(
                       controller: _upiNameCtrl,
+                      readOnly: authProvider.isStaffSession,
                       decoration: const InputDecoration(
                         labelText: 'Payee Name (दुकान या खाताधारक का नाम)',
                         prefixIcon: Icon(Icons.person_pin_outlined),
@@ -1481,8 +1633,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           const SizedBox(height: 10),
 
-                          // QR Image Upload Action Buttons
-                          Wrap(
+                          // QR Image Upload Action Buttons - ONLY FOR OWNER
+                          if (!authProvider.isStaffSession)
+                            Wrap(
                             spacing: 8,
                             runSpacing: 6,
                             children: [
@@ -2068,20 +2221,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
+            if (!authProvider.isStaffSession) ...[
+              const SizedBox(height: 20),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                onPressed: () {
+                  SoundService.instance.playButtonClick();
+                  _saveSettings();
+                },
+                child: const Text('Save All Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               ),
-              onPressed: () {
-                SoundService.instance.playButtonClick();
-                _saveSettings();
-              },
-              child: const Text('Save All Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            ),
+            ],
           ],
         ),
       ),

@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/contact_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/customer.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/customer_provider.dart';
 import '../../providers/shop_provider.dart';
 
@@ -82,6 +83,16 @@ class CustomersScreen extends StatelessWidget {
   }
 
   void _confirmDeleteCustomer(BuildContext context, Customer customer) {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक ग्राहक को डिलीट कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
     if (customer.balance > 0) {
       showDialog(
         context: context,
@@ -341,28 +352,32 @@ class CustomersScreen extends StatelessWidget {
                                     _confirmDeleteCustomer(context, customer);
                                   }
                                 },
-                                itemBuilder: (context) => const [
-                                  PopupMenuItem(
-                                    value: 'ledger',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.menu_book, size: 18),
-                                        SizedBox(width: 8),
-                                        Text('खाता देखें (Ledger)'),
-                                      ],
+                                itemBuilder: (context) {
+                                  final isStaff = context.read<AuthProvider>().isStaffSession;
+                                  return [
+                                    const PopupMenuItem(
+                                      value: 'ledger',
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.menu_book, size: 18),
+                                          SizedBox(width: 8),
+                                          Text('खाता देखें (Ledger)'),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.delete_outline, size: 18, color: AppColors.error),
-                                        SizedBox(width: 8),
-                                        Text('ग्राहक हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                    if (!isStaff)
+                                      const PopupMenuItem(
+                                        value: 'delete',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                                            SizedBox(width: 8),
+                                            Text('ग्राहक हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
+                                          ],
+                                        ),
+                                      ),
+                                  ];
+                                },
                               ),
                             ],
                           ),

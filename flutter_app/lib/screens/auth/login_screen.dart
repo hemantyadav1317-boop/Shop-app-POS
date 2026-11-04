@@ -243,9 +243,11 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   }
 
   void _showJoinShopDialog(BuildContext context) {
+    final staffNameCtrl = TextEditingController();
     final phoneCtrl = TextEditingController();
     final pinCtrl = TextEditingController();
     final pasteCtrl = TextEditingController();
+    String selectedRole = 'कैशियर';
     bool isLoading = false;
     String? errorMsg;
     int activeTab = 0; // 0 = Phone + PIN, 1 = Quick Paste
@@ -387,6 +389,60 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       ),
                     ),
 
+                  // 1. Staff Personal Identity Fields (Name & Role)
+                  TextField(
+                    controller: staffNameCtrl,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      labelText: 'स्टाफ का नाम (Your Name) *',
+                      hintText: 'उदा. राहुल कुमार / सीमा जी',
+                      prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF00875A)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: InputDecoration(
+                      labelText: 'स्टाफ का पद / Role *',
+                      prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF00875A)),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
+                      ),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'कैशियर',
+                        child: Text('कैशियर (Billing / Cashier)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'सेल्समैन',
+                        child: Text('सेल्समैन (Salesman)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'स्टोर मैनेजर',
+                        child: Text('स्टोर मैनेजर (Store Manager)'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'हेल्पर',
+                        child: Text('हेल्पर (Helper)'),
+                      ),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => selectedRole = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
                   if (activeTab == 0) ...[
                     // Shop Mobile Number
                     TextField(
@@ -456,6 +512,12 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                     onPressed: isLoading
                         ? null
                         : () async {
+                            final staffName = staffNameCtrl.text.trim();
+                            if (staffName.isEmpty) {
+                              setDialogState(() => errorMsg = 'कृपया अपना नाम (स्टाफ का नाम) दर्ज करें।');
+                              return;
+                            }
+
                             String phone = phoneCtrl.text.trim();
                             String pin = pinCtrl.text.trim();
                             String? qr;
@@ -486,13 +548,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
                             try {
                               final auth = context.read<AuthProvider>();
-                              await auth.continueOffline();
+                              await auth.setStaffSession(
+                                staffName: staffName,
+                                staffRole: selectedRole,
+                              );
 
                               final shopProv = context.read<ShopProvider>();
                               final joined = await shopProv.joinShopAsStaff(
                                 phone: phone,
                                 pin: pin,
                                 qrPayload: qr,
+                                staffName: staffName,
+                                staffRole: selectedRole,
                               );
 
                               if (context.mounted) {
@@ -509,7 +576,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       backgroundColor: const Color(0xFF00875A),
-                                      content: Text('दुकान "${joined.name}" से कैशियर के रूप में सफलतापूर्वक जुड़ गए!'),
+                                      content: Text('दुकान "${joined.name}" से $staffName ($selectedRole) के रूप में जुड़ गए!'),
                                     ),
                                   );
 
@@ -825,10 +892,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
           style: TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.4),
         ),
         const SizedBox(height: 6),
-        const Text(
-          'V 1.3.5',
+        Text(
+          'V ${UpdateService.currentVersion}',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 11, color: Color(0xFF475569)),
+          style: const TextStyle(fontSize: 11, color: Color(0xFF475569)),
         ),
       ],
     );

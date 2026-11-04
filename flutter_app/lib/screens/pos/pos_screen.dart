@@ -186,10 +186,6 @@ class _PosScreenState extends State<PosScreen> {
     );
   }
 
-  void _showSavedOrders(BuildContext context) {
-    setState(() => _activeTab = 2);
-  }
-
   @override
   Widget build(BuildContext context) {
     final shop = context.watch<ShopProvider>().shop;
@@ -439,7 +435,7 @@ class _PosScreenState extends State<PosScreen> {
                             },
                             borderRadius: BorderRadius.circular(20),
                             child: Container(
-                              padding: const EdgeInsets.all(6),
+                              padding: const EdgeInsets.all(7),
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.14),
                                 shape: BoxShape.circle,
@@ -449,50 +445,9 @@ class _PosScreenState extends State<PosScreen> {
                                     ? Icons.light_mode_rounded
                                     : Icons.dark_mode_rounded,
                                 color: Colors.white,
-                                size: 18,
+                                size: 17,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              InkWell(
-                                onTap: () {
-                                  SoundService.instance.playButtonClick();
-                                  _showSavedOrders(context);
-                                },
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.14),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.bookmark_outline, color: Colors.white, size: 18),
-                                ),
-                              ),
-                              if (cart.savedCarts.isNotEmpty)
-                                Positioned(
-                                  top: -2,
-                                  right: -2,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFFEF4444),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Text(
-                                      '${cart.savedCarts.length}',
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
                           ),
                         ],
                       ),

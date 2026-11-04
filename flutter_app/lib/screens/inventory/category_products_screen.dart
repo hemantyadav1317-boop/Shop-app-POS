@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'inventory_screen.dart';
@@ -72,17 +73,18 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            tooltip: 'सामान जोड़ें',
-            onPressed: () {
-              SoundService.instance.playButtonClick();
-              InventoryScreen.showAddEditProductDialogStatic(
-                context,
-                preselectedCategory: widget.category,
-              );
-            },
-          ),
+          if (!context.watch<AuthProvider>().isStaffSession)
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline_rounded),
+              tooltip: 'सामान जोड़ें',
+              onPressed: () {
+                SoundService.instance.playButtonClick();
+                InventoryScreen.showAddEditProductDialogStatic(
+                  context,
+                  preselectedCategory: widget.category,
+                );
+              },
+            ),
         ],
       ),
       body: Column(
@@ -330,19 +332,21 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('नया सामान', style: TextStyle(fontWeight: FontWeight.bold)),
-        onPressed: () {
-          SoundService.instance.playButtonClick();
-          InventoryScreen.showAddEditProductDialogStatic(
-            context,
-            preselectedCategory: widget.category,
-          );
-        },
-      ),
+      floatingActionButton: context.watch<AuthProvider>().isStaffSession
+          ? null
+          : FloatingActionButton.extended(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.add),
+              label: const Text('नया सामान', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () {
+                SoundService.instance.playButtonClick();
+                InventoryScreen.showAddEditProductDialogStatic(
+                  context,
+                  preselectedCategory: widget.category,
+                );
+              },
+            ),
     );
   }
 
