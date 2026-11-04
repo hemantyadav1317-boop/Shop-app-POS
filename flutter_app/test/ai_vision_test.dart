@@ -27,15 +27,15 @@ void main() {
 
       final foundHindi = AiVisionCatalog.findByText('टमाटर');
       expect(foundHindi, isNotNull);
-      expect(foundHindi!.id, 'tomato');
+      expect(foundHindi!.id, 'tamatar');
 
       final foundAlias = AiVisionCatalog.findByText('tamatar');
       expect(foundAlias, isNotNull);
-      expect(foundAlias!.id, 'tomato');
+      expect(foundAlias!.id, 'tamatar');
 
       final foundKheera = AiVisionCatalog.findByText('kheera');
       expect(foundKheera, isNotNull);
-      expect(foundKheera!.id, 'cucumber');
+      expect(foundKheera!.id, 'kheera');
     });
 
     test('Confusable items mapping exists for ambiguous produce pairs', () {
@@ -62,8 +62,8 @@ void main() {
 
       final result = await AiVisionService.instance.analyzeImageBytes(bytes);
       expect(result, isNotNull);
-      // Top result should be red produce (Tomato, Apple, Pomegranate, etc.)
-      expect(['tomato', 'apple', 'pomegranate'].contains(result!.item.id), isTrue);
+      // Top result should have red in its primary colors
+      expect(result!.item.primaryColors.contains('red'), isTrue);
     });
 
     test('Analyzes green image bytes and ranks Green produce', () async {

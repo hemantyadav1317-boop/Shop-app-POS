@@ -1,0 +1,12 @@
+AI AGENT IMPORT INSTRUCTIONS - YADAV VEGGIFRUIT STORE
+
+1. Read AI_Smart_Weighing_POS_Training_Guide.pdf before ingesting images.
+2. Use images/fresh_produce/<class_id>/ as the fresh fruit/vegetable image-classification seed set.
+3. Keep images/optional_packaged_products/ separate; do not merge milk, chhach, and packaged dates into the produce model unless those SKUs are intentionally handled by the same weighing-camera flow.
+4. Use class_map.csv as the authoritative class-ID-to-label mapping. Use image_manifest.csv to read the source and orientation variant for every image.
+5. Use sku_mapping_template.csv to connect each class_id to the actual POS SKU ID, billing unit, and live price. The vision model must never predict price.
+6. Each class has one catalog seed image plus synthetic rotations (some classes may have more than one seed). Rotations are not independent camera captures and must not be split into different train/validation/test sets.
+7. This is a starter dataset. Do not claim production accuracy from these images alone. Request/collect real images from the final overhead camera, tray, background, and shop lighting. Follow the PDF capture volume and labeling plan.
+8. The current dataset is organized for image classification because the target workflow weighs one SKU at a time. It does not contain bounding-box labels for object detection.
+9. Implement an unknown/other rejection path, confidence-based cashier confirmation, one cart-add per unique weigh_event_id, and BLE stable-weight handling as described in the PDF and inference_spec.json.
+10. Benchmark the complete camera + BLE + inference + cart pipeline on the final POS device. Treat 200 ms as a target for model inference, not a guaranteed total system latency.

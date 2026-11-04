@@ -1,0 +1,50 @@
+{
+  "pipeline_name": "Yadav VeggiFruit Store - AI Smart Weighing POS",
+  "input_mode": "one weighed SKU per scale event",
+  "vision": {
+    "task": "image_classification",
+    "roi": "calibrate fixed crop around weighing tray",
+    "input_size_px": [
+      640,
+      640
+    ],
+    "model_execution": "local_on_device_preferred",
+    "target_inference_ms": 200,
+    "outputs": [
+      "class_id",
+      "top1_score",
+      "top2_score",
+      "top3_predictions",
+      "unknown_flag",
+      "model_latency_ms"
+    ]
+  },
+  "confidence_policy": {
+    "auto_add_candidate_min_top1": 0.92,
+    "cashier_confirmation_min_top1": 0.75,
+    "require_top1_top2_margin": 0.1,
+    "note": "Starting thresholds only; calibrate with actual scale-camera validation set."
+  },
+  "scale_bluetooth": {
+    "weight_unit": "grams",
+    "prefer_hardware_stable_flag": true,
+    "fallback_stable_readings": 3,
+    "fallback_stability_window_ms": 300,
+    "fallback_weight_tolerance_g": "tune_to_scale_resolution",
+    "tare_empty_tray_before_use": true
+  },
+  "cart": {
+    "add_once_per_weigh_event": true,
+    "event_id_required": true,
+    "amount_formula": "weight_g / 1000 * price_per_kg",
+    "price_source": "POS product master",
+    "rearm_condition": "scale returns to zero after product removal",
+    "manual_override_required": true
+  },
+  "safety": {
+    "unknown_or_low_confidence": "do_not_auto_add",
+    "mixed_skus_on_one_weigh_event": "not_supported; weigh separately",
+    "keep_manual_billing_fallback": true
+  },
+  "dataset_note": "Starter images include one catalog seed per class plus orientation augmentations. They are not independent real camera-angle captures and must not be split across train/validation/test as separate observations."
+}

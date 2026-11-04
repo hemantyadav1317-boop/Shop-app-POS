@@ -1,0 +1,84 @@
+﻿class_id,pos_sku_id,display_name,unit_mode,price_per_kg,price_per_piece,enabled,notes
+adrak,,Ginger,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+aloo,,Potato,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+arbi,,Taro Root,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+bathua,,Bathua Greens,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+beans,,Green Beans,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+bhindi,,Okra,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+black_baingan,,Black Eggplant,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+black_bharta_baingan,,Large Black Bharta Eggplant,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+broccoli,,Broccoli,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+chukandar,,Beetroot,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+desi_mirchi,,Green Chilli,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+dhaniya,,Coriander,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+gavar_fali,,Cluster Beans,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+gilki_tori,,Sponge Gourd,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+gobhi,,Cauliflower,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+green_capsicum,,Green Capsicum,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+hari_lahsun,,Green Garlic,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+hari_methi,,Fenugreek Greens,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+kaddu,,Pumpkin,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+karela,,Bitter Gourd,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+kundru,,Ivy Gourd,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+lahsun,,Garlic,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+lal_aloo,,Red Potato,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+lal_baingan,,Red Eggplant,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+mixed_capsicum,,Mixed Colour Capsicum,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+lauki,,Bottle Gourd,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+mushroom,,Button Mushroom,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+matar,,Green Peas,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+moti_bharva_mirchi,,Large Stuffed Chilli,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+muli,,Radish,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+orange_carrot,,Orange Carrot,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+palak,,Spinach,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+parwal_kachri,,Rajasthani Parwal Kachri,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+pudina,,Mint,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+pyaj,,Red Onion,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+safed_pyaj,,White Onion,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+salad_hybrid_tamatar,,Hybrid Salad Tomato,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+sangri_fali,,Sangri Pods,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+sem_fali,,Flat/Field Beans,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+shakarkandi,,Sweet Potato,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+singhada,,Water Chestnut,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+tamatar,,Tomato,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+tar_kakdi,,Long Green Cucumber,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+tinda,,Round Gourd,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+tori,,Ridge Gourd,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+kheera,,Cucumber,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+english_kheera,,English Cucumber,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+tikhi_barik_mirchi,,Thin Hot Green Chilli,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+red_carrot,,Red Carrot,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+bel_patra_leaves,,Bael Leaves,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+aavla,,Indian Gooseberry,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+amrood,,Guava,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+anaar,,Pomegranate,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+bael_fruit,,Bael Fruit,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+chikoo,,Sapodilla,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+desi_orange,,Desi Orange,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+green_orange,,Green Orange,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+jamun,,Java Plum,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+katahal,,Jackfruit,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+kele,,Banana,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+kivi,,Kiwi,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+malta,,Malta Orange,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+mini_orange,,Mini Orange,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+nariyal_pani,,Tender Coconut,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+papita,,Papaya,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+pear,,Pear,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+persimmon,,Persimmon,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+pineapple,,Pineapple,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+plum,,Plum,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+ramfal,,Ramfal,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+sitafal,,Custard Apple,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+strawberry,,Strawberry,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+tarbooj,,Watermelon,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+nimbu,,Lemon,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+chappan_tinda,,Chappan Tinda,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+chola_fali,,Chola Fali,kg,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+cow_milk,,Cow Milk,piece_or_pack,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+buffalo_milk,,Buffalo Milk,piece_or_pack,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+chhach,,Buttermilk,piece_or_pack,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+zahidi_dates,,Zahidi Dates,piece_or_pack,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+baran_iranian_dates,,Baran Iranian Dates,piece_or_pack,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+seer_shah_seedless_dates,,Seer Shah Seedless Dates,piece_or_pack,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.
+jk_selected_dates,,J.K. Selected Dates,piece_or_pack,,,TRUE,Fill POS SKU ID and live price before connecting auto-cart.

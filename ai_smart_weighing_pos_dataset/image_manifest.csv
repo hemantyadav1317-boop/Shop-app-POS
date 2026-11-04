@@ -1,0 +1,337 @@
+﻿image_path,class_id,english_name,local_label_roman,category,variant,source_file,source_type,is_independent_camera_capture
+images/fresh_produce/adrak/00_base.jpg,adrak,Ginger,Adrak,vegetable,00_base,adrak_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/adrak/01_rotate_90.jpg,adrak,Ginger,Adrak,vegetable,01_rotate_90,adrak_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/adrak/02_rotate_180.jpg,adrak,Ginger,Adrak,vegetable,02_rotate_180,adrak_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/adrak/03_rotate_270.jpg,adrak,Ginger,Adrak,vegetable,03_rotate_270,adrak_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/aloo/00_base.jpg,aloo,Potato,Aloo,vegetable,00_base,aloo_pos_ready.jpg,existing POS/generated catalog image,no
+images/fresh_produce/aloo/01_rotate_90.jpg,aloo,Potato,Aloo,vegetable,01_rotate_90,aloo_pos_ready.jpg,existing POS/generated catalog image,no
+images/fresh_produce/aloo/02_rotate_180.jpg,aloo,Potato,Aloo,vegetable,02_rotate_180,aloo_pos_ready.jpg,existing POS/generated catalog image,no
+images/fresh_produce/aloo/03_rotate_270.jpg,aloo,Potato,Aloo,vegetable,03_rotate_270,aloo_pos_ready.jpg,existing POS/generated catalog image,no
+images/fresh_produce/arbi/00_base.jpg,arbi,Taro Root,Arbi,vegetable,00_base,arbi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/arbi/01_rotate_90.jpg,arbi,Taro Root,Arbi,vegetable,01_rotate_90,arbi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/arbi/02_rotate_180.jpg,arbi,Taro Root,Arbi,vegetable,02_rotate_180,arbi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/arbi/03_rotate_270.jpg,arbi,Taro Root,Arbi,vegetable,03_rotate_270,arbi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bathua/00_base.jpg,bathua,Bathua Greens,Bathua,leafy_green,00_base,bathua_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bathua/01_rotate_90.jpg,bathua,Bathua Greens,Bathua,leafy_green,01_rotate_90,bathua_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bathua/02_rotate_180.jpg,bathua,Bathua Greens,Bathua,leafy_green,02_rotate_180,bathua_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bathua/03_rotate_270.jpg,bathua,Bathua Greens,Bathua,leafy_green,03_rotate_270,bathua_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/beans/00_base.jpg,beans,Green Beans,Beans,vegetable,00_base,beans_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/beans/01_rotate_90.jpg,beans,Green Beans,Beans,vegetable,01_rotate_90,beans_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/beans/02_rotate_180.jpg,beans,Green Beans,Beans,vegetable,02_rotate_180,beans_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/beans/03_rotate_270.jpg,beans,Green Beans,Beans,vegetable,03_rotate_270,beans_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bhindi/00_base.jpg,bhindi,Okra,Bhindi,vegetable,00_base,bhindi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bhindi/01_rotate_90.jpg,bhindi,Okra,Bhindi,vegetable,01_rotate_90,bhindi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bhindi/02_rotate_180.jpg,bhindi,Okra,Bhindi,vegetable,02_rotate_180,bhindi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bhindi/03_rotate_270.jpg,bhindi,Okra,Bhindi,vegetable,03_rotate_270,bhindi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/black_baingan/00_base.jpg,black_baingan,Black Eggplant,Black Baingan,vegetable,00_base,black_baingan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/black_baingan/01_rotate_90.jpg,black_baingan,Black Eggplant,Black Baingan,vegetable,01_rotate_90,black_baingan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/black_baingan/02_rotate_180.jpg,black_baingan,Black Eggplant,Black Baingan,vegetable,02_rotate_180,black_baingan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/black_baingan/03_rotate_270.jpg,black_baingan,Black Eggplant,Black Baingan,vegetable,03_rotate_270,black_baingan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/black_bharta_baingan/00_base.jpg,black_bharta_baingan,Large Black Bharta Eggplant,Black Bharta Baingan,vegetable,00_base,black_bharta_baingan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/black_bharta_baingan/01_rotate_90.jpg,black_bharta_baingan,Large Black Bharta Eggplant,Black Bharta Baingan,vegetable,01_rotate_90,black_bharta_baingan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/black_bharta_baingan/02_rotate_180.jpg,black_bharta_baingan,Large Black Bharta Eggplant,Black Bharta Baingan,vegetable,02_rotate_180,black_bharta_baingan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/black_bharta_baingan/03_rotate_270.jpg,black_bharta_baingan,Large Black Bharta Eggplant,Black Bharta Baingan,vegetable,03_rotate_270,black_bharta_baingan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/broccoli/00_base.jpg,broccoli,Broccoli,Broccoli,vegetable,00_base,brokali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/broccoli/01_rotate_90.jpg,broccoli,Broccoli,Broccoli,vegetable,01_rotate_90,brokali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/broccoli/02_rotate_180.jpg,broccoli,Broccoli,Broccoli,vegetable,02_rotate_180,brokali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/broccoli/03_rotate_270.jpg,broccoli,Broccoli,Broccoli,vegetable,03_rotate_270,brokali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chukandar/00_base.jpg,chukandar,Beetroot,Chukandar,vegetable,00_base,chukandar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chukandar/01_rotate_90.jpg,chukandar,Beetroot,Chukandar,vegetable,01_rotate_90,chukandar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chukandar/02_rotate_180.jpg,chukandar,Beetroot,Chukandar,vegetable,02_rotate_180,chukandar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chukandar/03_rotate_270.jpg,chukandar,Beetroot,Chukandar,vegetable,03_rotate_270,chukandar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/desi_mirchi/00_base.jpg,desi_mirchi,Green Chilli,Desi Mirchi,vegetable,00_base,desi_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/desi_mirchi/01_rotate_90.jpg,desi_mirchi,Green Chilli,Desi Mirchi,vegetable,01_rotate_90,desi_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/desi_mirchi/02_rotate_180.jpg,desi_mirchi,Green Chilli,Desi Mirchi,vegetable,02_rotate_180,desi_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/desi_mirchi/03_rotate_270.jpg,desi_mirchi,Green Chilli,Desi Mirchi,vegetable,03_rotate_270,desi_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/dhaniya/00_base.jpg,dhaniya,Coriander,Dhaniya,leafy_green,00_base,dhaniya_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/dhaniya/01_rotate_90.jpg,dhaniya,Coriander,Dhaniya,leafy_green,01_rotate_90,dhaniya_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/dhaniya/02_rotate_180.jpg,dhaniya,Coriander,Dhaniya,leafy_green,02_rotate_180,dhaniya_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/dhaniya/03_rotate_270.jpg,dhaniya,Coriander,Dhaniya,leafy_green,03_rotate_270,dhaniya_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gavar_fali/00_base.jpg,gavar_fali,Cluster Beans,Gavar Fali,vegetable,00_base,gavar_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gavar_fali/01_rotate_90.jpg,gavar_fali,Cluster Beans,Gavar Fali,vegetable,01_rotate_90,gavar_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gavar_fali/02_rotate_180.jpg,gavar_fali,Cluster Beans,Gavar Fali,vegetable,02_rotate_180,gavar_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gavar_fali/03_rotate_270.jpg,gavar_fali,Cluster Beans,Gavar Fali,vegetable,03_rotate_270,gavar_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gilki_tori/00_base.jpg,gilki_tori,Sponge Gourd,Gilki Tori,vegetable,00_base,gilki_tori_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gilki_tori/01_rotate_90.jpg,gilki_tori,Sponge Gourd,Gilki Tori,vegetable,01_rotate_90,gilki_tori_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gilki_tori/02_rotate_180.jpg,gilki_tori,Sponge Gourd,Gilki Tori,vegetable,02_rotate_180,gilki_tori_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gilki_tori/03_rotate_270.jpg,gilki_tori,Sponge Gourd,Gilki Tori,vegetable,03_rotate_270,gilki_tori_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gobhi/00_base.jpg,gobhi,Cauliflower,Gobhi,vegetable,00_base,gobhi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gobhi/01_rotate_90.jpg,gobhi,Cauliflower,Gobhi,vegetable,01_rotate_90,gobhi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gobhi/02_rotate_180.jpg,gobhi,Cauliflower,Gobhi,vegetable,02_rotate_180,gobhi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/gobhi/03_rotate_270.jpg,gobhi,Cauliflower,Gobhi,vegetable,03_rotate_270,gobhi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/green_capsicum/00_base.jpg,green_capsicum,Green Capsicum,Green Shimla Mirch,vegetable,00_base,green_simla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/green_capsicum/01_rotate_90.jpg,green_capsicum,Green Capsicum,Green Shimla Mirch,vegetable,01_rotate_90,green_simla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/green_capsicum/02_rotate_180.jpg,green_capsicum,Green Capsicum,Green Shimla Mirch,vegetable,02_rotate_180,green_simla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/green_capsicum/03_rotate_270.jpg,green_capsicum,Green Capsicum,Green Shimla Mirch,vegetable,03_rotate_270,green_simla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/hari_lahsun/00_base.jpg,hari_lahsun,Green Garlic,Hari Lahsun,vegetable,00_base,hari_lahsun_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/hari_lahsun/01_rotate_90.jpg,hari_lahsun,Green Garlic,Hari Lahsun,vegetable,01_rotate_90,hari_lahsun_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/hari_lahsun/02_rotate_180.jpg,hari_lahsun,Green Garlic,Hari Lahsun,vegetable,02_rotate_180,hari_lahsun_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/hari_lahsun/03_rotate_270.jpg,hari_lahsun,Green Garlic,Hari Lahsun,vegetable,03_rotate_270,hari_lahsun_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/hari_methi/00_base.jpg,hari_methi,Fenugreek Greens,Hari Methi,leafy_green,00_base,hari_methi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/hari_methi/01_rotate_90.jpg,hari_methi,Fenugreek Greens,Hari Methi,leafy_green,01_rotate_90,hari_methi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/hari_methi/02_rotate_180.jpg,hari_methi,Fenugreek Greens,Hari Methi,leafy_green,02_rotate_180,hari_methi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/hari_methi/03_rotate_270.jpg,hari_methi,Fenugreek Greens,Hari Methi,leafy_green,03_rotate_270,hari_methi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kaddu/00_base.jpg,kaddu,Pumpkin,Kaddu,vegetable,00_base,kaddu_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kaddu/01_rotate_90.jpg,kaddu,Pumpkin,Kaddu,vegetable,01_rotate_90,kaddu_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kaddu/02_rotate_180.jpg,kaddu,Pumpkin,Kaddu,vegetable,02_rotate_180,kaddu_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kaddu/03_rotate_270.jpg,kaddu,Pumpkin,Kaddu,vegetable,03_rotate_270,kaddu_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/karela/00_base.jpg,karela,Bitter Gourd,Karela,vegetable,00_base,karela_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/karela/01_rotate_90.jpg,karela,Bitter Gourd,Karela,vegetable,01_rotate_90,karela_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/karela/02_rotate_180.jpg,karela,Bitter Gourd,Karela,vegetable,02_rotate_180,karela_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/karela/03_rotate_270.jpg,karela,Bitter Gourd,Karela,vegetable,03_rotate_270,karela_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kundru/00_base.jpg,kundru,Ivy Gourd,Kundru,vegetable,00_base,kundru_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kundru/01_rotate_90.jpg,kundru,Ivy Gourd,Kundru,vegetable,01_rotate_90,kundru_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kundru/02_rotate_180.jpg,kundru,Ivy Gourd,Kundru,vegetable,02_rotate_180,kundru_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kundru/03_rotate_270.jpg,kundru,Ivy Gourd,Kundru,vegetable,03_rotate_270,kundru_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lahsun/00_base.jpg,lahsun,Garlic,Lahsun,vegetable,00_base,lahsun_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lahsun/01_rotate_90.jpg,lahsun,Garlic,Lahsun,vegetable,01_rotate_90,lahsun_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lahsun/02_rotate_180.jpg,lahsun,Garlic,Lahsun,vegetable,02_rotate_180,lahsun_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lahsun/03_rotate_270.jpg,lahsun,Garlic,Lahsun,vegetable,03_rotate_270,lahsun_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lal_aloo/00_base.jpg,lal_aloo,Red Potato,Lal Aloo,vegetable,00_base,lal_aloo_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lal_aloo/01_rotate_90.jpg,lal_aloo,Red Potato,Lal Aloo,vegetable,01_rotate_90,lal_aloo_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lal_aloo/02_rotate_180.jpg,lal_aloo,Red Potato,Lal Aloo,vegetable,02_rotate_180,lal_aloo_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lal_aloo/03_rotate_270.jpg,lal_aloo,Red Potato,Lal Aloo,vegetable,03_rotate_270,lal_aloo_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lal_baingan/00_base.jpg,lal_baingan,Red Eggplant,Lal Baingan,vegetable,00_base,lal_bengan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lal_baingan/01_rotate_90.jpg,lal_baingan,Red Eggplant,Lal Baingan,vegetable,01_rotate_90,lal_bengan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lal_baingan/02_rotate_180.jpg,lal_baingan,Red Eggplant,Lal Baingan,vegetable,02_rotate_180,lal_bengan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lal_baingan/03_rotate_270.jpg,lal_baingan,Red Eggplant,Lal Baingan,vegetable,03_rotate_270,lal_bengan_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mixed_capsicum/00_base.jpg,mixed_capsicum,Mixed Colour Capsicum,Lal-Pili Shimla Mirch,vegetable,00_base,lal_pili_simla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mixed_capsicum/01_rotate_90.jpg,mixed_capsicum,Mixed Colour Capsicum,Lal-Pili Shimla Mirch,vegetable,01_rotate_90,lal_pili_simla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mixed_capsicum/02_rotate_180.jpg,mixed_capsicum,Mixed Colour Capsicum,Lal-Pili Shimla Mirch,vegetable,02_rotate_180,lal_pili_simla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mixed_capsicum/03_rotate_270.jpg,mixed_capsicum,Mixed Colour Capsicum,Lal-Pili Shimla Mirch,vegetable,03_rotate_270,lal_pili_simla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lauki/00_base.jpg,lauki,Bottle Gourd,Lauki,vegetable,00_base,lauki_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lauki/01_rotate_90.jpg,lauki,Bottle Gourd,Lauki,vegetable,01_rotate_90,lauki_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lauki/02_rotate_180.jpg,lauki,Bottle Gourd,Lauki,vegetable,02_rotate_180,lauki_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/lauki/03_rotate_270.jpg,lauki,Bottle Gourd,Lauki,vegetable,03_rotate_270,lauki_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mushroom/00_base.jpg,mushroom,Button Mushroom,Mushroom,vegetable,00_base,mashroom_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mushroom/01_rotate_90.jpg,mushroom,Button Mushroom,Mushroom,vegetable,01_rotate_90,mashroom_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mushroom/02_rotate_180.jpg,mushroom,Button Mushroom,Mushroom,vegetable,02_rotate_180,mashroom_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mushroom/03_rotate_270.jpg,mushroom,Button Mushroom,Mushroom,vegetable,03_rotate_270,mashroom_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/matar/00_base.jpg,matar,Green Peas,Matar,vegetable,00_base,matar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/matar/01_rotate_90.jpg,matar,Green Peas,Matar,vegetable,01_rotate_90,matar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/matar/02_rotate_180.jpg,matar,Green Peas,Matar,vegetable,02_rotate_180,matar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/matar/03_rotate_270.jpg,matar,Green Peas,Matar,vegetable,03_rotate_270,matar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/moti_bharva_mirchi/00_base.jpg,moti_bharva_mirchi,Large Stuffed Chilli,Moti Bharva Mirchi,vegetable,00_base,moti_bharva_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/moti_bharva_mirchi/01_rotate_90.jpg,moti_bharva_mirchi,Large Stuffed Chilli,Moti Bharva Mirchi,vegetable,01_rotate_90,moti_bharva_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/moti_bharva_mirchi/02_rotate_180.jpg,moti_bharva_mirchi,Large Stuffed Chilli,Moti Bharva Mirchi,vegetable,02_rotate_180,moti_bharva_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/moti_bharva_mirchi/03_rotate_270.jpg,moti_bharva_mirchi,Large Stuffed Chilli,Moti Bharva Mirchi,vegetable,03_rotate_270,moti_bharva_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/muli/00_base.jpg,muli,Radish,Muli,vegetable,00_base,muli_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/muli/01_rotate_90.jpg,muli,Radish,Muli,vegetable,01_rotate_90,muli_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/muli/02_rotate_180.jpg,muli,Radish,Muli,vegetable,02_rotate_180,muli_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/muli/03_rotate_270.jpg,muli,Radish,Muli,vegetable,03_rotate_270,muli_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/orange_carrot/00_base.jpg,orange_carrot,Orange Carrot,Orange Gajar,vegetable,00_base,orange_carrot_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/orange_carrot/01_rotate_90.jpg,orange_carrot,Orange Carrot,Orange Gajar,vegetable,01_rotate_90,orange_carrot_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/orange_carrot/02_rotate_180.jpg,orange_carrot,Orange Carrot,Orange Gajar,vegetable,02_rotate_180,orange_carrot_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/orange_carrot/03_rotate_270.jpg,orange_carrot,Orange Carrot,Orange Gajar,vegetable,03_rotate_270,orange_carrot_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/palak/00_base.jpg,palak,Spinach,Palak,leafy_green,00_base,palak_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/palak/01_rotate_90.jpg,palak,Spinach,Palak,leafy_green,01_rotate_90,palak_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/palak/02_rotate_180.jpg,palak,Spinach,Palak,leafy_green,02_rotate_180,palak_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/palak/03_rotate_270.jpg,palak,Spinach,Palak,leafy_green,03_rotate_270,palak_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/parwal_kachri/00_base.jpg,parwal_kachri,Rajasthani Parwal Kachri,Parwal Kachri,vegetable,00_base,parwal_kachri_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/parwal_kachri/01_rotate_90.jpg,parwal_kachri,Rajasthani Parwal Kachri,Parwal Kachri,vegetable,01_rotate_90,parwal_kachri_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/parwal_kachri/02_rotate_180.jpg,parwal_kachri,Rajasthani Parwal Kachri,Parwal Kachri,vegetable,02_rotate_180,parwal_kachri_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/parwal_kachri/03_rotate_270.jpg,parwal_kachri,Rajasthani Parwal Kachri,Parwal Kachri,vegetable,03_rotate_270,parwal_kachri_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pudina/00_base.jpg,pudina,Mint,Pudina,leafy_green,00_base,pudina_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pudina/01_rotate_90.jpg,pudina,Mint,Pudina,leafy_green,01_rotate_90,pudina_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pudina/02_rotate_180.jpg,pudina,Mint,Pudina,leafy_green,02_rotate_180,pudina_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pudina/03_rotate_270.jpg,pudina,Mint,Pudina,leafy_green,03_rotate_270,pudina_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pyaj/00_base.jpg,pyaj,Red Onion,Pyaj,vegetable,00_base,pyaj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pyaj/01_rotate_90.jpg,pyaj,Red Onion,Pyaj,vegetable,01_rotate_90,pyaj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pyaj/02_rotate_180.jpg,pyaj,Red Onion,Pyaj,vegetable,02_rotate_180,pyaj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pyaj/03_rotate_270.jpg,pyaj,Red Onion,Pyaj,vegetable,03_rotate_270,pyaj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/safed_pyaj/00_base.jpg,safed_pyaj,White Onion,Safed Pyaj,vegetable,00_base,safed_pyaj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/safed_pyaj/01_rotate_90.jpg,safed_pyaj,White Onion,Safed Pyaj,vegetable,01_rotate_90,safed_pyaj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/safed_pyaj/02_rotate_180.jpg,safed_pyaj,White Onion,Safed Pyaj,vegetable,02_rotate_180,safed_pyaj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/safed_pyaj/03_rotate_270.jpg,safed_pyaj,White Onion,Safed Pyaj,vegetable,03_rotate_270,safed_pyaj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/salad_hybrid_tamatar/00_base.jpg,salad_hybrid_tamatar,Hybrid Salad Tomato,Salad Hybrid Tamatar,vegetable,00_base,salad_hybrid_tamatar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/salad_hybrid_tamatar/01_rotate_90.jpg,salad_hybrid_tamatar,Hybrid Salad Tomato,Salad Hybrid Tamatar,vegetable,01_rotate_90,salad_hybrid_tamatar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/salad_hybrid_tamatar/02_rotate_180.jpg,salad_hybrid_tamatar,Hybrid Salad Tomato,Salad Hybrid Tamatar,vegetable,02_rotate_180,salad_hybrid_tamatar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/salad_hybrid_tamatar/03_rotate_270.jpg,salad_hybrid_tamatar,Hybrid Salad Tomato,Salad Hybrid Tamatar,vegetable,03_rotate_270,salad_hybrid_tamatar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sangri_fali/00_base.jpg,sangri_fali,Sangri Pods,Sangri ki Fali,vegetable,00_base,sangri_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sangri_fali/01_rotate_90.jpg,sangri_fali,Sangri Pods,Sangri ki Fali,vegetable,01_rotate_90,sangri_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sangri_fali/02_rotate_180.jpg,sangri_fali,Sangri Pods,Sangri ki Fali,vegetable,02_rotate_180,sangri_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sangri_fali/03_rotate_270.jpg,sangri_fali,Sangri Pods,Sangri ki Fali,vegetable,03_rotate_270,sangri_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sem_fali/00_base.jpg,sem_fali,Flat/Field Beans,Sem Fali,vegetable,00_base,sem_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sem_fali/01_rotate_90.jpg,sem_fali,Flat/Field Beans,Sem Fali,vegetable,01_rotate_90,sem_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sem_fali/02_rotate_180.jpg,sem_fali,Flat/Field Beans,Sem Fali,vegetable,02_rotate_180,sem_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sem_fali/03_rotate_270.jpg,sem_fali,Flat/Field Beans,Sem Fali,vegetable,03_rotate_270,sem_fali_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/shakarkandi/00_base.jpg,shakarkandi,Sweet Potato,Shakarkandi,vegetable,00_base,shakarkandi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/shakarkandi/01_rotate_90.jpg,shakarkandi,Sweet Potato,Shakarkandi,vegetable,01_rotate_90,shakarkandi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/shakarkandi/02_rotate_180.jpg,shakarkandi,Sweet Potato,Shakarkandi,vegetable,02_rotate_180,shakarkandi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/shakarkandi/03_rotate_270.jpg,shakarkandi,Sweet Potato,Shakarkandi,vegetable,03_rotate_270,shakarkandi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/singhada/00_base.jpg,singhada,Water Chestnut,Singhada,vegetable,00_base,singhada_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/singhada/01_rotate_90.jpg,singhada,Water Chestnut,Singhada,vegetable,01_rotate_90,singhada_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/singhada/02_rotate_180.jpg,singhada,Water Chestnut,Singhada,vegetable,02_rotate_180,singhada_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/singhada/03_rotate_270.jpg,singhada,Water Chestnut,Singhada,vegetable,03_rotate_270,singhada_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tamatar/00_base.jpg,tamatar,Tomato,Tamatar,vegetable,00_base,tamatar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tamatar/01_rotate_90.jpg,tamatar,Tomato,Tamatar,vegetable,01_rotate_90,tamatar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tamatar/02_rotate_180.jpg,tamatar,Tomato,Tamatar,vegetable,02_rotate_180,tamatar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tamatar/03_rotate_270.jpg,tamatar,Tomato,Tamatar,vegetable,03_rotate_270,tamatar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tar_kakdi/00_base.jpg,tar_kakdi,Long Green Cucumber,Tar Kakdi,vegetable,00_base,tar_kakdi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tar_kakdi/01_rotate_90.jpg,tar_kakdi,Long Green Cucumber,Tar Kakdi,vegetable,01_rotate_90,tar_kakdi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tar_kakdi/02_rotate_180.jpg,tar_kakdi,Long Green Cucumber,Tar Kakdi,vegetable,02_rotate_180,tar_kakdi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tar_kakdi/03_rotate_270.jpg,tar_kakdi,Long Green Cucumber,Tar Kakdi,vegetable,03_rotate_270,tar_kakdi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tinda/00_base.jpg,tinda,Round Gourd,Tinda,vegetable,00_base,tinda_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tinda/01_rotate_90.jpg,tinda,Round Gourd,Tinda,vegetable,01_rotate_90,tinda_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tinda/02_rotate_180.jpg,tinda,Round Gourd,Tinda,vegetable,02_rotate_180,tinda_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tinda/03_rotate_270.jpg,tinda,Round Gourd,Tinda,vegetable,03_rotate_270,tinda_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tori/00_base.jpg,tori,Ridge Gourd,Tori,vegetable,00_base,tori_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tori/01_rotate_90.jpg,tori,Ridge Gourd,Tori,vegetable,01_rotate_90,tori_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tori/02_rotate_180.jpg,tori,Ridge Gourd,Tori,vegetable,02_rotate_180,tori_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tori/03_rotate_270.jpg,tori,Ridge Gourd,Tori,vegetable,03_rotate_270,tori_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kheera/00_base.jpg,kheera,Cucumber,Kheera,vegetable,00_base,kheera_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kheera/01_rotate_90.jpg,kheera,Cucumber,Kheera,vegetable,01_rotate_90,kheera_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kheera/02_rotate_180.jpg,kheera,Cucumber,Kheera,vegetable,02_rotate_180,kheera_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kheera/03_rotate_270.jpg,kheera,Cucumber,Kheera,vegetable,03_rotate_270,kheera_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/english_kheera/00_base.jpg,english_kheera,English Cucumber,English Kheera,vegetable,00_base,english_cucumber_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/english_kheera/01_rotate_90.jpg,english_kheera,English Cucumber,English Kheera,vegetable,01_rotate_90,english_cucumber_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/english_kheera/02_rotate_180.jpg,english_kheera,English Cucumber,English Kheera,vegetable,02_rotate_180,english_cucumber_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/english_kheera/03_rotate_270.jpg,english_kheera,English Cucumber,English Kheera,vegetable,03_rotate_270,english_cucumber_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tikhi_barik_mirchi/00_base.jpg,tikhi_barik_mirchi,Thin Hot Green Chilli,Tikhi Barik Mirchi,vegetable,00_base,tikhi_barik_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tikhi_barik_mirchi/01_rotate_90.jpg,tikhi_barik_mirchi,Thin Hot Green Chilli,Tikhi Barik Mirchi,vegetable,01_rotate_90,tikhi_barik_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tikhi_barik_mirchi/02_rotate_180.jpg,tikhi_barik_mirchi,Thin Hot Green Chilli,Tikhi Barik Mirchi,vegetable,02_rotate_180,tikhi_barik_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tikhi_barik_mirchi/03_rotate_270.jpg,tikhi_barik_mirchi,Thin Hot Green Chilli,Tikhi Barik Mirchi,vegetable,03_rotate_270,tikhi_barik_mirchi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/red_carrot/00_base.jpg,red_carrot,Red Carrot,Lal Gajar,vegetable,00_base,gajar_red_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/red_carrot/01_rotate_90.jpg,red_carrot,Red Carrot,Lal Gajar,vegetable,01_rotate_90,gajar_red_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/red_carrot/02_rotate_180.jpg,red_carrot,Red Carrot,Lal Gajar,vegetable,02_rotate_180,gajar_red_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/red_carrot/03_rotate_270.jpg,red_carrot,Red Carrot,Lal Gajar,vegetable,03_rotate_270,gajar_red_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bel_patra_leaves/00_base.jpg,bel_patra_leaves,Bael Leaves,Bel Patra,leafy_green,00_base,bel_patra_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bel_patra_leaves/01_rotate_90.jpg,bel_patra_leaves,Bael Leaves,Bel Patra,leafy_green,01_rotate_90,bel_patra_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bel_patra_leaves/02_rotate_180.jpg,bel_patra_leaves,Bael Leaves,Bel Patra,leafy_green,02_rotate_180,bel_patra_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bel_patra_leaves/03_rotate_270.jpg,bel_patra_leaves,Bael Leaves,Bel Patra,leafy_green,03_rotate_270,bel_patra_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/aavla/00_base.jpg,aavla,Indian Gooseberry,Aavla,fruit,00_base,aavla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/aavla/01_rotate_90.jpg,aavla,Indian Gooseberry,Aavla,fruit,01_rotate_90,aavla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/aavla/02_rotate_180.jpg,aavla,Indian Gooseberry,Aavla,fruit,02_rotate_180,aavla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/aavla/03_rotate_270.jpg,aavla,Indian Gooseberry,Aavla,fruit,03_rotate_270,aavla_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/amrood/00_base.jpg,amrood,Guava,Amrood,fruit,00_base,amrood_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/amrood/01_rotate_90.jpg,amrood,Guava,Amrood,fruit,01_rotate_90,amrood_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/amrood/02_rotate_180.jpg,amrood,Guava,Amrood,fruit,02_rotate_180,amrood_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/amrood/03_rotate_270.jpg,amrood,Guava,Amrood,fruit,03_rotate_270,amrood_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/anaar/00_base.jpg,anaar,Pomegranate,Anaar,fruit,00_base,anaar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/anaar/01_rotate_90.jpg,anaar,Pomegranate,Anaar,fruit,01_rotate_90,anaar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/anaar/02_rotate_180.jpg,anaar,Pomegranate,Anaar,fruit,02_rotate_180,anaar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/anaar/03_rotate_270.jpg,anaar,Pomegranate,Anaar,fruit,03_rotate_270,anaar_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bael_fruit/seed0_00_base.jpg,bael_fruit,Bael Fruit,Bel Fruit,fruit,seed0_00_base,bael_fruit_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bael_fruit/seed0_01_rotate_90.jpg,bael_fruit,Bael Fruit,Bel Fruit,fruit,seed0_01_rotate_90,bael_fruit_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bael_fruit/seed0_02_rotate_180.jpg,bael_fruit,Bael Fruit,Bel Fruit,fruit,seed0_02_rotate_180,bael_fruit_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bael_fruit/seed0_03_rotate_270.jpg,bael_fruit,Bael Fruit,Bel Fruit,fruit,seed0_03_rotate_270,bael_fruit_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bael_fruit/seed1_00_base.jpg,bael_fruit,Bael Fruit,Bel Fruit,fruit,seed1_00_base,bel_fal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bael_fruit/seed1_01_rotate_90.jpg,bael_fruit,Bael Fruit,Bel Fruit,fruit,seed1_01_rotate_90,bel_fal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bael_fruit/seed1_02_rotate_180.jpg,bael_fruit,Bael Fruit,Bel Fruit,fruit,seed1_02_rotate_180,bel_fal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/bael_fruit/seed1_03_rotate_270.jpg,bael_fruit,Bael Fruit,Bel Fruit,fruit,seed1_03_rotate_270,bel_fal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chikoo/00_base.jpg,chikoo,Sapodilla,Chikoo,fruit,00_base,chikoo_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chikoo/01_rotate_90.jpg,chikoo,Sapodilla,Chikoo,fruit,01_rotate_90,chikoo_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chikoo/02_rotate_180.jpg,chikoo,Sapodilla,Chikoo,fruit,02_rotate_180,chikoo_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chikoo/03_rotate_270.jpg,chikoo,Sapodilla,Chikoo,fruit,03_rotate_270,chikoo_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/desi_orange/00_base.jpg,desi_orange,Desi Orange,Desi Santra,fruit,00_base,desi_orange_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/desi_orange/01_rotate_90.jpg,desi_orange,Desi Orange,Desi Santra,fruit,01_rotate_90,desi_orange_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/desi_orange/02_rotate_180.jpg,desi_orange,Desi Orange,Desi Santra,fruit,02_rotate_180,desi_orange_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/desi_orange/03_rotate_270.jpg,desi_orange,Desi Orange,Desi Santra,fruit,03_rotate_270,desi_orange_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/green_orange/00_base.jpg,green_orange,Green Orange,Green Orange,fruit,00_base,green_orange_pos_ready.jpg,existing POS/generated catalog image,no
+images/fresh_produce/green_orange/01_rotate_90.jpg,green_orange,Green Orange,Green Orange,fruit,01_rotate_90,green_orange_pos_ready.jpg,existing POS/generated catalog image,no
+images/fresh_produce/green_orange/02_rotate_180.jpg,green_orange,Green Orange,Green Orange,fruit,02_rotate_180,green_orange_pos_ready.jpg,existing POS/generated catalog image,no
+images/fresh_produce/green_orange/03_rotate_270.jpg,green_orange,Green Orange,Green Orange,fruit,03_rotate_270,green_orange_pos_ready.jpg,existing POS/generated catalog image,no
+images/fresh_produce/jamun/00_base.jpg,jamun,Java Plum,Jamun,fruit,00_base,jamun_pos_whole.jpg,existing POS/generated catalog image,no
+images/fresh_produce/jamun/01_rotate_90.jpg,jamun,Java Plum,Jamun,fruit,01_rotate_90,jamun_pos_whole.jpg,existing POS/generated catalog image,no
+images/fresh_produce/jamun/02_rotate_180.jpg,jamun,Java Plum,Jamun,fruit,02_rotate_180,jamun_pos_whole.jpg,existing POS/generated catalog image,no
+images/fresh_produce/jamun/03_rotate_270.jpg,jamun,Java Plum,Jamun,fruit,03_rotate_270,jamun_pos_whole.jpg,existing POS/generated catalog image,no
+images/fresh_produce/katahal/00_base.jpg,katahal,Jackfruit,Katahal,fruit,00_base,katahal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/katahal/01_rotate_90.jpg,katahal,Jackfruit,Katahal,fruit,01_rotate_90,katahal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/katahal/02_rotate_180.jpg,katahal,Jackfruit,Katahal,fruit,02_rotate_180,katahal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/katahal/03_rotate_270.jpg,katahal,Jackfruit,Katahal,fruit,03_rotate_270,katahal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kele/00_base.jpg,kele,Banana,Kele,fruit,00_base,kele_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kele/01_rotate_90.jpg,kele,Banana,Kele,fruit,01_rotate_90,kele_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kele/02_rotate_180.jpg,kele,Banana,Kele,fruit,02_rotate_180,kele_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kele/03_rotate_270.jpg,kele,Banana,Kele,fruit,03_rotate_270,kele_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kivi/00_base.jpg,kivi,Kiwi,Kivi,fruit,00_base,kivi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kivi/01_rotate_90.jpg,kivi,Kiwi,Kivi,fruit,01_rotate_90,kivi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kivi/02_rotate_180.jpg,kivi,Kiwi,Kivi,fruit,02_rotate_180,kivi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/kivi/03_rotate_270.jpg,kivi,Kiwi,Kivi,fruit,03_rotate_270,kivi_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/malta/00_base.jpg,malta,Malta Orange,Malta,fruit,00_base,malta_pos_v2.jpg,existing POS/generated catalog image,no
+images/fresh_produce/malta/01_rotate_90.jpg,malta,Malta Orange,Malta,fruit,01_rotate_90,malta_pos_v2.jpg,existing POS/generated catalog image,no
+images/fresh_produce/malta/02_rotate_180.jpg,malta,Malta Orange,Malta,fruit,02_rotate_180,malta_pos_v2.jpg,existing POS/generated catalog image,no
+images/fresh_produce/malta/03_rotate_270.jpg,malta,Malta Orange,Malta,fruit,03_rotate_270,malta_pos_v2.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mini_orange/00_base.jpg,mini_orange,Mini Orange,Mini Santra,fruit,00_base,mini_orange_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mini_orange/01_rotate_90.jpg,mini_orange,Mini Orange,Mini Santra,fruit,01_rotate_90,mini_orange_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mini_orange/02_rotate_180.jpg,mini_orange,Mini Orange,Mini Santra,fruit,02_rotate_180,mini_orange_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/mini_orange/03_rotate_270.jpg,mini_orange,Mini Orange,Mini Santra,fruit,03_rotate_270,mini_orange_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/nariyal_pani/00_base.jpg,nariyal_pani,Tender Coconut,Nariyal Pani,fruit,00_base,nariyal_pani_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/nariyal_pani/01_rotate_90.jpg,nariyal_pani,Tender Coconut,Nariyal Pani,fruit,01_rotate_90,nariyal_pani_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/nariyal_pani/02_rotate_180.jpg,nariyal_pani,Tender Coconut,Nariyal Pani,fruit,02_rotate_180,nariyal_pani_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/nariyal_pani/03_rotate_270.jpg,nariyal_pani,Tender Coconut,Nariyal Pani,fruit,03_rotate_270,nariyal_pani_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/papita/00_base.jpg,papita,Papaya,Papita,fruit,00_base,papita_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/papita/01_rotate_90.jpg,papita,Papaya,Papita,fruit,01_rotate_90,papita_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/papita/02_rotate_180.jpg,papita,Papaya,Papita,fruit,02_rotate_180,papita_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/papita/03_rotate_270.jpg,papita,Papaya,Papita,fruit,03_rotate_270,papita_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pear/00_base.jpg,pear,Pear,Nashpati,fruit,00_base,pear_pos_no_text_256x384.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pear/01_rotate_90.jpg,pear,Pear,Nashpati,fruit,01_rotate_90,pear_pos_no_text_256x384.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pear/02_rotate_180.jpg,pear,Pear,Nashpati,fruit,02_rotate_180,pear_pos_no_text_256x384.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pear/03_rotate_270.jpg,pear,Pear,Nashpati,fruit,03_rotate_270,pear_pos_no_text_256x384.jpg,existing POS/generated catalog image,no
+images/fresh_produce/persimmon/00_base.jpg,persimmon,Persimmon,Persimmon,fruit,00_base,persimmon_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/persimmon/01_rotate_90.jpg,persimmon,Persimmon,Persimmon,fruit,01_rotate_90,persimmon_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/persimmon/02_rotate_180.jpg,persimmon,Persimmon,Persimmon,fruit,02_rotate_180,persimmon_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/persimmon/03_rotate_270.jpg,persimmon,Persimmon,Persimmon,fruit,03_rotate_270,persimmon_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pineapple/00_base.jpg,pineapple,Pineapple,Pineapple,fruit,00_base,pineapple_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pineapple/01_rotate_90.jpg,pineapple,Pineapple,Pineapple,fruit,01_rotate_90,pineapple_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pineapple/02_rotate_180.jpg,pineapple,Pineapple,Pineapple,fruit,02_rotate_180,pineapple_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/pineapple/03_rotate_270.jpg,pineapple,Pineapple,Pineapple,fruit,03_rotate_270,pineapple_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/plum/00_base.jpg,plum,Plum,Plum,fruit,00_base,plum_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/plum/01_rotate_90.jpg,plum,Plum,Plum,fruit,01_rotate_90,plum_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/plum/02_rotate_180.jpg,plum,Plum,Plum,fruit,02_rotate_180,plum_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/plum/03_rotate_270.jpg,plum,Plum,Plum,fruit,03_rotate_270,plum_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/ramfal/00_base.jpg,ramfal,Ramfal,Ramfal,fruit,00_base,ramfal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/ramfal/01_rotate_90.jpg,ramfal,Ramfal,Ramfal,fruit,01_rotate_90,ramfal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/ramfal/02_rotate_180.jpg,ramfal,Ramfal,Ramfal,fruit,02_rotate_180,ramfal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/ramfal/03_rotate_270.jpg,ramfal,Ramfal,Ramfal,fruit,03_rotate_270,ramfal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sitafal/00_base.jpg,sitafal,Custard Apple,Sitafal,fruit,00_base,sitafal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sitafal/01_rotate_90.jpg,sitafal,Custard Apple,Sitafal,fruit,01_rotate_90,sitafal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sitafal/02_rotate_180.jpg,sitafal,Custard Apple,Sitafal,fruit,02_rotate_180,sitafal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/sitafal/03_rotate_270.jpg,sitafal,Custard Apple,Sitafal,fruit,03_rotate_270,sitafal_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/strawberry/00_base.jpg,strawberry,Strawberry,Strawberry,fruit,00_base,strawberry_pos_no_text_256x384.jpg,existing POS/generated catalog image,no
+images/fresh_produce/strawberry/01_rotate_90.jpg,strawberry,Strawberry,Strawberry,fruit,01_rotate_90,strawberry_pos_no_text_256x384.jpg,existing POS/generated catalog image,no
+images/fresh_produce/strawberry/02_rotate_180.jpg,strawberry,Strawberry,Strawberry,fruit,02_rotate_180,strawberry_pos_no_text_256x384.jpg,existing POS/generated catalog image,no
+images/fresh_produce/strawberry/03_rotate_270.jpg,strawberry,Strawberry,Strawberry,fruit,03_rotate_270,strawberry_pos_no_text_256x384.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tarbooj/00_base.jpg,tarbooj,Watermelon,Tarbooj,fruit,00_base,tarbooj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tarbooj/01_rotate_90.jpg,tarbooj,Watermelon,Tarbooj,fruit,01_rotate_90,tarbooj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tarbooj/02_rotate_180.jpg,tarbooj,Watermelon,Tarbooj,fruit,02_rotate_180,tarbooj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/tarbooj/03_rotate_270.jpg,tarbooj,Watermelon,Tarbooj,fruit,03_rotate_270,tarbooj_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/nimbu/00_base.jpg,nimbu,Lemon,Nimbu,fruit,00_base,nimbu_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/nimbu/01_rotate_90.jpg,nimbu,Lemon,Nimbu,fruit,01_rotate_90,nimbu_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/nimbu/02_rotate_180.jpg,nimbu,Lemon,Nimbu,fruit,02_rotate_180,nimbu_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/nimbu/03_rotate_270.jpg,nimbu,Lemon,Nimbu,fruit,03_rotate_270,nimbu_pos.jpg,existing POS/generated catalog image,no
+images/fresh_produce/chappan_tinda/00_base.jpg,chappan_tinda,Chappan Tinda,Chappan Tinda,vegetable,00_base,a_clean_high_resolution_studio_photo_on_a_white_b.png,existing POS/generated catalog image,no
+images/fresh_produce/chappan_tinda/01_rotate_90.jpg,chappan_tinda,Chappan Tinda,Chappan Tinda,vegetable,01_rotate_90,a_clean_high_resolution_studio_photo_on_a_white_b.png,existing POS/generated catalog image,no
+images/fresh_produce/chappan_tinda/02_rotate_180.jpg,chappan_tinda,Chappan Tinda,Chappan Tinda,vegetable,02_rotate_180,a_clean_high_resolution_studio_photo_on_a_white_b.png,existing POS/generated catalog image,no
+images/fresh_produce/chappan_tinda/03_rotate_270.jpg,chappan_tinda,Chappan Tinda,Chappan Tinda,vegetable,03_rotate_270,a_clean_high_resolution_studio_photo_on_a_white_b.png,existing POS/generated catalog image,no
+images/fresh_produce/chola_fali/00_base.jpg,chola_fali,Chola Fali,Chola Fali,vegetable,00_base,a_clean_high_key_product_photo_on_a_pure_white_ba.png,existing POS/generated catalog image,no
+images/fresh_produce/chola_fali/01_rotate_90.jpg,chola_fali,Chola Fali,Chola Fali,vegetable,01_rotate_90,a_clean_high_key_product_photo_on_a_pure_white_ba.png,existing POS/generated catalog image,no
+images/fresh_produce/chola_fali/02_rotate_180.jpg,chola_fali,Chola Fali,Chola Fali,vegetable,02_rotate_180,a_clean_high_key_product_photo_on_a_pure_white_ba.png,existing POS/generated catalog image,no
+images/fresh_produce/chola_fali/03_rotate_270.jpg,chola_fali,Chola Fali,Chola Fali,vegetable,03_rotate_270,a_clean_high_key_product_photo_on_a_pure_white_ba.png,existing POS/generated catalog image,no
+images/optional_packaged_products/cow_milk/00_base.jpg,cow_milk,Cow Milk,Milk,packaged_product,00_base,cow_milk_pos_256x384.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/cow_milk/01_rotate_90.jpg,cow_milk,Cow Milk,Milk,packaged_product,01_rotate_90,cow_milk_pos_256x384.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/cow_milk/02_rotate_180.jpg,cow_milk,Cow Milk,Milk,packaged_product,02_rotate_180,cow_milk_pos_256x384.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/cow_milk/03_rotate_270.jpg,cow_milk,Cow Milk,Milk,packaged_product,03_rotate_270,cow_milk_pos_256x384.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/buffalo_milk/00_base.jpg,buffalo_milk,Buffalo Milk,Buffalo Milk,packaged_product,00_base,buffalo_milk_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/buffalo_milk/01_rotate_90.jpg,buffalo_milk,Buffalo Milk,Buffalo Milk,packaged_product,01_rotate_90,buffalo_milk_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/buffalo_milk/02_rotate_180.jpg,buffalo_milk,Buffalo Milk,Buffalo Milk,packaged_product,02_rotate_180,buffalo_milk_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/buffalo_milk/03_rotate_270.jpg,buffalo_milk,Buffalo Milk,Buffalo Milk,packaged_product,03_rotate_270,buffalo_milk_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/chhach/00_base.jpg,chhach,Buttermilk,Chhach,packaged_product,00_base,chhach_labeled_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/chhach/01_rotate_90.jpg,chhach,Buttermilk,Chhach,packaged_product,01_rotate_90,chhach_labeled_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/chhach/02_rotate_180.jpg,chhach,Buttermilk,Chhach,packaged_product,02_rotate_180,chhach_labeled_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/chhach/03_rotate_270.jpg,chhach,Buttermilk,Chhach,packaged_product,03_rotate_270,chhach_labeled_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/zahidi_dates/00_base.jpg,zahidi_dates,Zahidi Dates,Zahidi Khajoor,packaged_product,00_base,zahidi_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/zahidi_dates/01_rotate_90.jpg,zahidi_dates,Zahidi Dates,Zahidi Khajoor,packaged_product,01_rotate_90,zahidi_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/zahidi_dates/02_rotate_180.jpg,zahidi_dates,Zahidi Dates,Zahidi Khajoor,packaged_product,02_rotate_180,zahidi_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/zahidi_dates/03_rotate_270.jpg,zahidi_dates,Zahidi Dates,Zahidi Khajoor,packaged_product,03_rotate_270,zahidi_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/baran_iranian_dates/00_base.jpg,baran_iranian_dates,Baran Iranian Dates,Baran Dates,packaged_product,00_base,baran_iranian_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/baran_iranian_dates/01_rotate_90.jpg,baran_iranian_dates,Baran Iranian Dates,Baran Dates,packaged_product,01_rotate_90,baran_iranian_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/baran_iranian_dates/02_rotate_180.jpg,baran_iranian_dates,Baran Iranian Dates,Baran Dates,packaged_product,02_rotate_180,baran_iranian_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/baran_iranian_dates/03_rotate_270.jpg,baran_iranian_dates,Baran Iranian Dates,Baran Dates,packaged_product,03_rotate_270,baran_iranian_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/seer_shah_seedless_dates/00_base.jpg,seer_shah_seedless_dates,Seer Shah Seedless Dates,Seedless Dates,packaged_product,00_base,seer_shah_seedless_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/seer_shah_seedless_dates/01_rotate_90.jpg,seer_shah_seedless_dates,Seer Shah Seedless Dates,Seedless Dates,packaged_product,01_rotate_90,seer_shah_seedless_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/seer_shah_seedless_dates/02_rotate_180.jpg,seer_shah_seedless_dates,Seer Shah Seedless Dates,Seedless Dates,packaged_product,02_rotate_180,seer_shah_seedless_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/seer_shah_seedless_dates/03_rotate_270.jpg,seer_shah_seedless_dates,Seer Shah Seedless Dates,Seedless Dates,packaged_product,03_rotate_270,seer_shah_seedless_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/jk_selected_dates/00_base.jpg,jk_selected_dates,J.K. Selected Dates,JK Khajoor,packaged_product,00_base,jk_selected_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/jk_selected_dates/01_rotate_90.jpg,jk_selected_dates,J.K. Selected Dates,JK Khajoor,packaged_product,01_rotate_90,jk_selected_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/jk_selected_dates/02_rotate_180.jpg,jk_selected_dates,J.K. Selected Dates,JK Khajoor,packaged_product,02_rotate_180,jk_selected_dates_pos.jpg,existing POS/generated catalog image,no
+images/optional_packaged_products/jk_selected_dates/03_rotate_270.jpg,jk_selected_dates,J.K. Selected Dates,JK Khajoor,packaged_product,03_rotate_270,jk_selected_dates_pos.jpg,existing POS/generated catalog image,no

@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'ai_vision_catalog.dart';
+import 'ai_vision_model_data.dart';
 
 class AiRecognitionResult {
   final ProduceItem item;
@@ -33,7 +34,6 @@ class AiVisionService {
   /// Analyzes JPEG/PNG image bytes and returns the classified produce
   Future<AiRecognitionResult?> analyzeImageBytes(Uint8List bytes) async {
     try {
-      // Decode image in background compute / isolate if supported
       final image = await compute(_decodeAndAnalyze, bytes);
       return image;
     } catch (e) {
@@ -48,44 +48,59 @@ class AiVisionService {
       final decoded = img.decodeImage(bytes);
       if (decoded == null) return null;
 
-      // Crop center 70% region (where produce sits on weighing scale)
-      final cropW = (decoded.width * 0.70).toInt();
-      final cropH = (decoded.height * 0.70).toInt();
+      // Crop center 75% region (where produce sits on weighing scale tray)
+      final cropW = (decoded.width * 0.75).toInt();
+      final cropH = (decoded.height * 0.75).toInt();
       final cropX = ((decoded.width - cropW) / 2).toInt();
       final cropY = ((decoded.height - cropH) / 2).toInt();
 
       final cropped = img.copyCrop(decoded, x: cropX, y: cropY, width: cropW, height: cropH);
-      // Resize to standard 160x160 for fast edge/color analysis
-      final thumb = img.copyResize(cropped, width: 160, height: 160);
+      final thumb = img.copyResize(cropped, width: 128, height: 128);
 
-      // Color spectrum bins
+      final hueBins = List<double>.filled(16, 0.0);
+      final satBins = List<double>.filled(4, 0.0);
+      final valBins = List<double>.filled(4, 0.0);
+
       int redCount = 0;
       int greenCount = 0;
       int yellowBrownCount = 0;
       int purpleCount = 0;
       int whiteCount = 0;
       int orangeCount = 0;
+
+      double totalDiff = 0.0;
       int totalPixels = 0;
 
-      for (int y = 0; y < thumb.height; y += 2) {
-        for (int x = 0; x < thumb.width; x += 2) {
+      for (int y = 0; y < thumb.height; y++) {
+        for (int x = 0; x < thumb.width; x++) {
           final p = thumb.getPixel(x, y);
           final r = p.r.toInt();
           final g = p.g.toInt();
           final b = p.b.toInt();
 
-          // Convert RGB to HSV
           final maxC = math.max(r, math.max(g, b));
           final minC = math.min(r, math.min(g, b));
           final delta = maxC - minC;
 
-          if (maxC < 35) continue; // Skip very dark shadow
+          if (x > 0) {
+            final prev = thumb.getPixel(x - 1, y);
+            totalDiff += (r - prev.r).abs() + (g - prev.g).abs() + (b - prev.b).abs();
+          }
+
+          if (maxC < 30) continue; // Dark background
           totalPixels++;
 
-          if (delta < 25 && maxC > 180) {
-            // Low saturation, high brightness -> White/Cream (Garlic, Cauliflower, Radish, Salt)
+          final sat = maxC == 0 ? 0.0 : delta / maxC;
+          final val = maxC / 255.0;
+
+          int sBin = (sat * 4).floor().clamp(0, 3);
+          satBins[sBin]++;
+
+          int vBin = (val * 4).floor().clamp(0, 3);
+          valBins[vBin]++;
+
+          if (sat < 0.18 && val > 0.65) {
             whiteCount++;
-            continue;
           }
 
           double hue = 0.0;
@@ -101,24 +116,38 @@ class AiVisionService {
             if (hue < 0) hue += 360;
           }
 
-          // Binning according to Hue (degrees)
-          if ((hue >= 345 || hue <= 15) && delta > 30) {
-            redCount++; // Red: Tomato, Apple, Pomegranate
-          } else if (hue > 15 && hue <= 45 && delta > 30) {
-            orangeCount++; // Orange: Carrot, Orange, Papaya
-          } else if (hue > 45 && hue <= 80 && delta > 25) {
-            yellowBrownCount++; // Yellow/Brown: Potato, Ginger, Banana, Onion outer
-          } else if (hue > 80 && hue <= 170 && delta > 25) {
-            greenCount++; // Green: Chilli, Cucumber, Kakdi, Bhindi, Capsicum, Palak
-          } else if (hue > 260 && hue <= 340 && delta > 20) {
-            purpleCount++; // Purple: Brinjal, Onion
-          } else {
-            yellowBrownCount++; // Earthy tones
+          int hBin = (hue / (360 / 16)).floor().clamp(0, 15);
+          hueBins[hBin]++;
+
+          if (sat >= 0.15) {
+            if ((hue >= 345 || hue <= 15)) {
+              redCount++;
+            } else if (hue > 15 && hue <= 45) {
+              orangeCount++;
+            } else if (hue > 45 && hue <= 80) {
+              yellowBrownCount++;
+            } else if (hue > 80 && hue <= 170) {
+              greenCount++;
+            } else if (hue > 260 && hue <= 340) {
+              purpleCount++;
+            } else {
+              yellowBrownCount++;
+            }
           }
         }
       }
 
       if (totalPixels == 0) totalPixels = 1;
+
+      for (int i = 0; i < 16; i++) {
+        hueBins[i] /= totalPixels;
+      }
+      for (int i = 0; i < 4; i++) {
+        satBins[i] /= totalPixels;
+      }
+      for (int i = 0; i < 4; i++) {
+        valBins[i] /= totalPixels;
+      }
 
       final redPct = redCount / totalPixels;
       final greenPct = greenCount / totalPixels;
@@ -127,75 +156,98 @@ class AiVisionService {
       final whitePct = whiteCount / totalPixels;
       final orangePct = orangeCount / totalPixels;
 
-      // Score each catalog item against the visual metrics
-      final scores = <ProduceItem, double>{};
+      final textureScore = (totalDiff / (thumb.width * thumb.height * 255 * 3)).clamp(0.0, 1.0);
 
-      for (final item in AiVisionCatalog.allItems) {
-        double score = 0.20; // Base baseline
+      final inputVector = [
+        ...hueBins,
+        ...satBins,
+        ...valBins,
+        redPct,
+        greenPct,
+        yellowBrownPct,
+        purplePct,
+        whitePct,
+        orangePct,
+        textureScore,
+      ];
 
-        // Color score
+      // Compute Cosine Similarity against all 83 trained class centroids
+      final scoredCandidates = <MapEntry<ProduceItem, double>>[];
+
+      double inputMag = 0.0;
+      for (final v in inputVector) {
+        inputMag += v * v;
+      }
+      inputMag = math.sqrt(inputMag);
+      if (inputMag == 0) inputMag = 1.0;
+
+      for (final entry in AiVisionModelData.centroids.entries) {
+        final classId = entry.key;
+        final centroid = entry.value;
+
+        final item = AiVisionCatalog.findById(classId);
+        if (item == null) continue;
+
+        double dot = 0.0;
+        double centMag = 0.0;
+        for (int i = 0; i < inputVector.length && i < centroid.length; i++) {
+          dot += inputVector[i] * centroid[i];
+          centMag += centroid[i] * centroid[i];
+        }
+        centMag = math.sqrt(centMag);
+        if (centMag == 0) centMag = 1.0;
+
+        double similarity = (dot / (inputMag * centMag)).clamp(0.0, 1.0);
+
+        // Color boost heuristics if primary color clearly dominates
         for (final col in item.primaryColors) {
-          if (col == 'red') score += redPct * 0.50;
-          if (col == 'green') score += greenPct * 0.50;
-          if (col == 'yellow' || col == 'brown') score += yellowBrownPct * 0.45;
-          if (col == 'purple') score += purplePct * 0.55;
-          if (col == 'white') score += whitePct * 0.50;
-          if (col == 'orange') score += orangePct * 0.50;
+          if (col == 'red' && redPct > 0.40) similarity += redPct * 0.15;
+          if (col == 'green' && greenPct > 0.40) similarity += greenPct * 0.15;
+          if ((col == 'yellow' || col == 'brown') && yellowBrownPct > 0.40) similarity += yellowBrownPct * 0.12;
+          if (col == 'purple' && purplePct > 0.30) similarity += purplePct * 0.20;
+          if (col == 'white' && whitePct > 0.40) similarity += whitePct * 0.15;
+          if (col == 'orange' && orangePct > 0.35) similarity += orangePct * 0.15;
         }
 
-        // Texture / shape profile
-        if (item.shapeType == 'elongated' && greenPct > 0.40) {
-          if (['cucumber', 'kakdi', 'bottle_gourd', 'green_chilli', 'ladyfinger'].contains(item.id)) {
-            score += 0.15;
-          }
-        }
-        if (item.shapeType == 'round' && redPct > 0.35) {
-          if (['tomato', 'apple', 'pomegranate'].contains(item.id)) {
-            score += 0.20;
-          }
-        }
-        if (item.shapeType == 'round' && yellowBrownPct > 0.35) {
-          if (['potato', 'onion'].contains(item.id)) {
-            score += 0.20;
-          }
-        }
-
-        scores[item] = score.clamp(0.05, 0.98);
+        scoredCandidates.add(MapEntry(item, similarity.clamp(0.05, 0.98)));
       }
 
-      // Sort by descending score
-      final sorted = scores.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-      if (sorted.isEmpty) return null;
+      scoredCandidates.sort((a, b) => b.value.compareTo(a.value));
+      if (scoredCandidates.isEmpty) return null;
 
-      final top1 = sorted[0];
-      final top2 = sorted.length > 1 ? sorted[1] : null;
+      final top1 = scoredCandidates[0];
+      final top2 = scoredCandidates.length > 1 ? scoredCandidates[1] : null;
+      final top3 = scoredCandidates.length > 2 ? scoredCandidates[2] : null;
 
-      // Check for ambiguity (e.g. Cucumber vs Kakdi, or Raw Mango vs Guava)
       bool isAmbiguous = false;
-      List<ProduceItem> alternatives = [];
+      final alternatives = <ProduceItem>[];
 
       if (top2 != null) {
         final scoreDiff = top1.value - top2.value;
         final areConfusable = top1.key.confusableWith.contains(top2.key.id) ||
             top2.key.confusableWith.contains(top1.key.id);
 
-        if (areConfusable && scoreDiff < 0.20) {
+        if (areConfusable && scoreDiff < 0.15) {
           isAmbiguous = true;
-          alternatives = [top1.key, top2.key];
+          alternatives.add(top1.key);
+          alternatives.add(top2.key);
+          if (top3 != null && top3.value > 0.65) alternatives.add(top3.key);
         } else if (scoreDiff < 0.08) {
           isAmbiguous = true;
-          alternatives = [top1.key, top2.key];
+          alternatives.add(top1.key);
+          alternatives.add(top2.key);
+          if (top3 != null && top3.value > 0.65) alternatives.add(top3.key);
         }
       }
 
-      final confidence = isAmbiguous ? (top1.value * 0.85).clamp(0.50, 0.79) : top1.value;
+      final confidence = isAmbiguous ? (top1.value * 0.88).clamp(0.55, 0.82) : top1.value;
 
       return AiRecognitionResult(
         item: top1.key,
         confidence: confidence,
         isAmbiguous: isAmbiguous,
         alternativeItems: alternatives,
-        debugDetails: 'R:${(redPct * 100).toInt()}% G:${(greenPct * 100).toInt()}% Y/B:${(yellowBrownPct * 100).toInt()}%',
+        debugDetails: 'Top: ${top1.key.hindiName} (${(top1.value * 100).toInt()}%) | R:${(redPct * 100).toInt()}% G:${(greenPct * 100).toInt()}% Y:${(yellowBrownPct * 100).toInt()}%',
       );
     } catch (e) {
       debugPrint('Error in _decodeAndAnalyze: $e');

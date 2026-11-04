@@ -1,0 +1,84 @@
+﻿class_id,english_name,local_label_roman,category,source_files,seed_image_count,augmented_image_count,notes
+adrak,Ginger,Adrak,vegetable,adrak_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+aloo,Potato,Aloo,vegetable,aloo_pos_ready.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+arbi,Taro Root,Arbi,vegetable,arbi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+bathua,Bathua Greens,Bathua,leafy_green,bathua_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+beans,Green Beans,Beans,vegetable,beans_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+bhindi,Okra,Bhindi,vegetable,bhindi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+black_baingan,Black Eggplant,Black Baingan,vegetable,black_baingan_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+black_bharta_baingan,Large Black Bharta Eggplant,Black Bharta Baingan,vegetable,black_bharta_baingan_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+broccoli,Broccoli,Broccoli,vegetable,brokali_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+chukandar,Beetroot,Chukandar,vegetable,chukandar_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+desi_mirchi,Green Chilli,Desi Mirchi,vegetable,desi_mirchi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+dhaniya,Coriander,Dhaniya,leafy_green,dhaniya_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+gavar_fali,Cluster Beans,Gavar Fali,vegetable,gavar_fali_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+gilki_tori,Sponge Gourd,Gilki Tori,vegetable,gilki_tori_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+gobhi,Cauliflower,Gobhi,vegetable,gobhi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+green_capsicum,Green Capsicum,Green Shimla Mirch,vegetable,green_simla_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+hari_lahsun,Green Garlic,Hari Lahsun,vegetable,hari_lahsun_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+hari_methi,Fenugreek Greens,Hari Methi,leafy_green,hari_methi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+kaddu,Pumpkin,Kaddu,vegetable,kaddu_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+karela,Bitter Gourd,Karela,vegetable,karela_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+kundru,Ivy Gourd,Kundru,vegetable,kundru_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+lahsun,Garlic,Lahsun,vegetable,lahsun_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+lal_aloo,Red Potato,Lal Aloo,vegetable,lal_aloo_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+lal_baingan,Red Eggplant,Lal Baingan,vegetable,lal_bengan_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+mixed_capsicum,Mixed Colour Capsicum,Lal-Pili Shimla Mirch,vegetable,lal_pili_simla_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+lauki,Bottle Gourd,Lauki,vegetable,lauki_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+mushroom,Button Mushroom,Mushroom,vegetable,mashroom_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+matar,Green Peas,Matar,vegetable,matar_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+moti_bharva_mirchi,Large Stuffed Chilli,Moti Bharva Mirchi,vegetable,moti_bharva_mirchi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+muli,Radish,Muli,vegetable,muli_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+orange_carrot,Orange Carrot,Orange Gajar,vegetable,orange_carrot_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+palak,Spinach,Palak,leafy_green,palak_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+parwal_kachri,Rajasthani Parwal Kachri,Parwal Kachri,vegetable,parwal_kachri_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+pudina,Mint,Pudina,leafy_green,pudina_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+pyaj,Red Onion,Pyaj,vegetable,pyaj_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+safed_pyaj,White Onion,Safed Pyaj,vegetable,safed_pyaj_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+salad_hybrid_tamatar,Hybrid Salad Tomato,Salad Hybrid Tamatar,vegetable,salad_hybrid_tamatar_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+sangri_fali,Sangri Pods,Sangri ki Fali,vegetable,sangri_fali_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+sem_fali,Flat/Field Beans,Sem Fali,vegetable,sem_fali_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+shakarkandi,Sweet Potato,Shakarkandi,vegetable,shakarkandi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+singhada,Water Chestnut,Singhada,vegetable,singhada_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+tamatar,Tomato,Tamatar,vegetable,tamatar_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+tar_kakdi,Long Green Cucumber,Tar Kakdi,vegetable,tar_kakdi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+tinda,Round Gourd,Tinda,vegetable,tinda_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+tori,Ridge Gourd,Tori,vegetable,tori_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+kheera,Cucumber,Kheera,vegetable,kheera_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+english_kheera,English Cucumber,English Kheera,vegetable,english_cucumber_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+tikhi_barik_mirchi,Thin Hot Green Chilli,Tikhi Barik Mirchi,vegetable,tikhi_barik_mirchi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+red_carrot,Red Carrot,Lal Gajar,vegetable,gajar_red_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+bel_patra_leaves,Bael Leaves,Bel Patra,leafy_green,bel_patra_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+aavla,Indian Gooseberry,Aavla,fruit,aavla_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+amrood,Guava,Amrood,fruit,amrood_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+anaar,Pomegranate,Anaar,fruit,anaar_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+bael_fruit,Bael Fruit,Bel Fruit,fruit,bael_fruit_pos.jpg;bel_fal_pos.jpg,2,8,Each seed has four orientation variants; variants are not independent physical captures.
+chikoo,Sapodilla,Chikoo,fruit,chikoo_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+desi_orange,Desi Orange,Desi Santra,fruit,desi_orange_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+green_orange,Green Orange,Green Orange,fruit,green_orange_pos_ready.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+jamun,Java Plum,Jamun,fruit,jamun_pos_whole.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+katahal,Jackfruit,Katahal,fruit,katahal_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+kele,Banana,Kele,fruit,kele_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+kivi,Kiwi,Kivi,fruit,kivi_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+malta,Malta Orange,Malta,fruit,malta_pos_v2.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+mini_orange,Mini Orange,Mini Santra,fruit,mini_orange_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+nariyal_pani,Tender Coconut,Nariyal Pani,fruit,nariyal_pani_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+papita,Papaya,Papita,fruit,papita_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+pear,Pear,Nashpati,fruit,pear_pos_no_text_256x384.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+persimmon,Persimmon,Persimmon,fruit,persimmon_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+pineapple,Pineapple,Pineapple,fruit,pineapple_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+plum,Plum,Plum,fruit,plum_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+ramfal,Ramfal,Ramfal,fruit,ramfal_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+sitafal,Custard Apple,Sitafal,fruit,sitafal_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+strawberry,Strawberry,Strawberry,fruit,strawberry_pos_no_text_256x384.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+tarbooj,Watermelon,Tarbooj,fruit,tarbooj_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+nimbu,Lemon,Nimbu,fruit,nimbu_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+chappan_tinda,Chappan Tinda,Chappan Tinda,vegetable,a_clean_high_resolution_studio_photo_on_a_white_b.png,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+chola_fali,Chola Fali,Chola Fali,vegetable,a_clean_high_key_product_photo_on_a_pure_white_ba.png,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+cow_milk,Cow Milk,Milk,packaged_product,cow_milk_pos_256x384.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+buffalo_milk,Buffalo Milk,Buffalo Milk,packaged_product,buffalo_milk_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+chhach,Buttermilk,Chhach,packaged_product,chhach_labeled_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+zahidi_dates,Zahidi Dates,Zahidi Khajoor,packaged_product,zahidi_dates_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+baran_iranian_dates,Baran Iranian Dates,Baran Dates,packaged_product,baran_iranian_dates_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+seer_shah_seedless_dates,Seer Shah Seedless Dates,Seedless Dates,packaged_product,seer_shah_seedless_dates_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
+jk_selected_dates,J.K. Selected Dates,JK Khajoor,packaged_product,jk_selected_dates_pos.jpg,1,4,Each seed has four orientation variants; variants are not independent physical captures.
