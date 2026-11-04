@@ -25,7 +25,9 @@ import '../../providers/customer_provider.dart';
 import '../auth/login_screen.dart';
 import 'printer_settings_screen.dart';
 import 'weighing_scale_settings_screen.dart';
+import 'ai_vision_settings_screen.dart';
 import '../../providers/weighing_scale_provider.dart';
+import '../../providers/ai_vision_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -980,7 +982,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
 
-            // ☁️ Multi-Device Cloud Sync Card
+            // 📷 AI Produce Vision & Camera Settings Card
+            Card(
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              child: Consumer<AiVisionProvider>(
+                builder: (context, ai, _) {
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    leading: Container(
+                      padding: const EdgeInsets.all(9),
+                      decoration: BoxDecoration(
+                        color: ai.isAiVisionActive
+                            ? const Color(0xFF06B6D4).withValues(alpha: 0.15)
+                            : Colors.grey.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.camera_alt_rounded,
+                        color: ai.isAiVisionActive ? const Color(0xFF06B6D4) : Colors.grey,
+                        size: 22,
+                      ),
+                    ),
+                    title: Row(
+                      children: [
+                        const Text(
+                          'AI विज़न व स्मार्ट कैमरा (Smart Produce Vision)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: ai.isAiVisionActive
+                                ? const Color(0xFF06B6D4).withValues(alpha: 0.15)
+                                : Colors.grey.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            ai.isAiVisionActive ? 'ACTIVE' : 'OFF',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.bold,
+                              color: ai.isAiVisionActive ? const Color(0xFF06B6D4) : Colors.grey,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(
+                      ai.isAiVisionActive
+                          ? 'कांटे के साथ ऑटो-डिटेक्शन चालू • ${ai.voiceFeedbackEnabled ? "वॉइस ऑन" : "वॉइस बंद"}'
+                          : 'कांटे पर फल-सब्जी ऑटोमैटिक पहचान व बिलिंग सेट करें',
+                      style: const TextStyle(fontSize: 11.5, color: Colors.grey),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF06B6D4)),
+                    onTap: () {
+                      SoundService.instance.playButtonClick();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AiVisionSettingsScreen()),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 12),
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(

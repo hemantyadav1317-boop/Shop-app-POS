@@ -76,6 +76,12 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
 
   @override
   void playAppStartup() => _play('playAppStartup', 'success.wav', 0.45);
+
+  @override
+  void playAiRecognized() => _play('playSuccess', 'success.wav', 0.75);
+
+  @override
+  void playAiAmbiguousAlert() => _play('playDelete', 'delete.wav', 0.70);
 }
 
 SoundPlayerPlatform getPlatformPlayer() => SoundPlayerImpl();

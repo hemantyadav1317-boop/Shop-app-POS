@@ -12,6 +12,7 @@ import 'providers/cart_provider.dart';
 import 'providers/product_provider.dart';
 import 'providers/customer_provider.dart';
 import 'providers/weighing_scale_provider.dart';
+import 'providers/ai_vision_provider.dart';
 import 'core/services/sound_service.dart';
 import 'screens/splash/splash_screen.dart';
 
@@ -58,6 +59,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => ProductProvider()..loadProducts(initialShopId)),
         ChangeNotifierProvider(create: (_) => CustomerProvider()..loadCustomers(initialShopId)),
         ChangeNotifierProvider(create: (_) => WeighingScaleProvider()),
+        ChangeNotifierProvider(create: (_) => AiVisionProvider()),
       ],
       child: const ShopPosApp(),
     ),

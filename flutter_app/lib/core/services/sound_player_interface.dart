@@ -8,4 +8,6 @@ abstract class SoundPlayerPlatform {
   void playProductAdd();
   void playNumberKey();
   void playAppStartup();
+  void playAiRecognized();
+  void playAiAmbiguousAlert();
 }

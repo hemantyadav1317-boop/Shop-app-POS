@@ -114,4 +114,20 @@ class SoundService {
       _player.playAppStartup();
     } catch (_) {}
   }
+
+  void playAiRecognized() {
+    if (!_enabled) return;
+    try {
+      HapticFeedback.mediumImpact();
+      _player.playAiRecognized();
+    } catch (_) {}
+  }
+
+  void playAiAmbiguousAlert() {
+    if (!_enabled) return;
+    try {
+      HapticFeedback.heavyImpact();
+      _player.playAiAmbiguousAlert();
+    } catch (_) {}
+  }
 }

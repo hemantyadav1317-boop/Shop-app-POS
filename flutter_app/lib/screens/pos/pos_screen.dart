@@ -5,12 +5,15 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../core/services/sound_service.dart';
 import '../../providers/cart_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/weighing_scale_provider.dart';
+import '../../providers/ai_vision_provider.dart';
 import '../settings/weighing_scale_settings_screen.dart';
 import 'widgets/product_grid.dart';
 import 'widgets/cart_panel.dart';
 import 'widgets/quick_sale_keypad.dart';
+import 'widgets/ai_vision_overlay.dart';
 import 'kirana_pos_screen.dart';
 
 class PosScreen extends StatefulWidget {
@@ -197,13 +200,30 @@ class _PosScreenState extends State<PosScreen> {
     final isTablet = MediaQuery.of(context).size.width >= 768;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final scale = context.watch<WeighingScaleProvider>();
+    final ai = context.watch<AiVisionProvider>();
+    if (ai.isAiVisionActive) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.read<AiVisionProvider>().onScaleReadingChanged(
+            weight: scale.liveWeight,
+            isStable: scale.isStable,
+            productProvider: context.read<ProductProvider>(),
+            cartProvider: context.read<CartProvider>(),
+          );
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       bottomNavigationBar: _buildBottomTabBar(isDark, cart),
       body: SafeArea(
         top: true,
-        child: Column(
+        child: Stack(
           children: [
+            Column(
+              children: [
             // Lush Organic Indian Store Header
             Stack(
               children: [
@@ -360,6 +380,57 @@ class _PosScreenState extends State<PosScreen> {
                             },
                           ),
                           const SizedBox(width: 8),
+                          Consumer<AiVisionProvider>(
+                            builder: (context, aiProvider, _) {
+                              return InkWell(
+                                onTap: () {
+                                  SoundService.instance.playButtonClick();
+                                  aiProvider.toggleAiVision();
+                                },
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 5),
+                                  decoration: BoxDecoration(
+                                    color: aiProvider.isAiVisionActive
+                                        ? const Color(0xFF06B6D4).withValues(alpha: 0.25)
+                                        : Colors.white.withValues(alpha: 0.14),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: aiProvider.isAiVisionActive
+                                          ? const Color(0xFF06B6D4)
+                                          : Colors.white24,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.camera_alt_rounded,
+                                        color: aiProvider.isAiVisionActive
+                                            ? const Color(0xFF22D3EE)
+                                            : Colors.white70,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        aiProvider.isAiVisionActive ? 'AI ON' : 'AI',
+                                        style: TextStyle(
+                                          color: aiProvider.isAiVisionActive
+                                              ? const Color(0xFF22D3EE)
+                                              : Colors.white,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
                           InkWell(
                             onTap: () {
                               SoundService.instance.playButtonClick();
@@ -437,8 +508,11 @@ class _PosScreenState extends State<PosScreen> {
             ),
           ],
         ),
-      ),
-    );
+        const AiVisionOverlay(),
+      ],
+    ),
+  ),
+);
   }
 
   Widget _buildMainContent(bool isTablet, bool isDark, CartProvider cart) {

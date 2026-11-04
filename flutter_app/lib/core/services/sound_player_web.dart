@@ -65,6 +65,12 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
       js.context.callMethod('eval', ["window.posAudio && window.posAudio.playAppStartup && window.posAudio.playAppStartup()"]);
     } catch (_) {}
   }
+
+  @override
+  void playAiRecognized() => playSuccess();
+
+  @override
+  void playAiAmbiguousAlert() => playDelete();
 }
 
 SoundPlayerPlatform getPlatformPlayer() => SoundPlayerImpl();
