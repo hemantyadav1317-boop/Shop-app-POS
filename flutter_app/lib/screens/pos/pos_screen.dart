@@ -26,6 +26,17 @@ class PosScreen extends StatefulWidget {
 class _PosScreenState extends State<PosScreen> {
   int _activeTab = 0; // 0: Sale, 1: Quick Sale, 2: Saved Orders
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final shopId = context.read<ShopProvider>().shop.id;
+        context.read<CartProvider>().loadSavedOrders(shopId);
+      }
+    });
+  }
+
   void _showCartSheet(BuildContext context) {
     SoundService.instance.playButtonClick();
     showModalBottomSheet(
@@ -780,71 +791,99 @@ class _PosScreenState extends State<PosScreen> {
                 'Saved / Held Orders (${cart.savedCarts.length})',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
-              TextButton.icon(
-                onPressed: () => setState(() => _activeTab = 0),
-                icon: const Icon(Icons.arrow_back, size: 16),
-                label: const Text('Back to Sale'),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: cart.isLoadingSaved
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.sync_rounded, size: 20),
+                    tooltip: 'क्लाउड सिंक रिफ्रेश करें',
+                    onPressed: () {
+                      final shopId = context.read<ShopProvider>().shop.id;
+                      cart.loadSavedOrders(shopId, forceCloud: true);
+                    },
+                  ),
+                  TextButton.icon(
+                    onPressed: () => setState(() => _activeTab = 0),
+                    icon: const Icon(Icons.arrow_back, size: 16),
+                    label: const Text('Back to Sale'),
+                  ),
+                ],
               ),
             ],
           ),
           const Divider(),
           Expanded(
-            child: ListView.separated(
-              itemCount: cart.savedCarts.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, i) {
-                final saved = cart.savedCarts[i];
-                final total = saved.items.fold(0.0, (sum, it) => sum + it.total) - saved.discount;
-
-                return Card(
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    leading: CircleAvatar(
-                      backgroundColor: const Color(0xFF00875A).withValues(alpha: 0.15),
-                      child: const Icon(Icons.receipt_long, color: Color(0xFF00875A)),
-                    ),
-                    title: Text(
-                      saved.customer?.name ?? 'Walk-in Customer',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text('${saved.items.length} Items · Saved at ${saved.time}'),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          CurrencyFormatter.format(total),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF00875A)),
-                        ),
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () {
-                            SoundService.instance.playButtonClick();
-                            cart.recallCart(saved);
-                            setState(() => _activeTab = 0);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00875A),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                          child: const Text('Recall'),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
-                          tooltip: 'Delete',
-                          onPressed: () {
-                            SoundService.instance.playDelete();
-                            cart.removeSavedCart(saved.id);
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                );
+            child: RefreshIndicator(
+              onRefresh: () async {
+                final shopId = context.read<ShopProvider>().shop.id;
+                await cart.loadSavedOrders(shopId, forceCloud: true);
               },
+              child: ListView.separated(
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: cart.savedCarts.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, i) {
+                  final saved = cart.savedCarts[i];
+                  final total = saved.items.fold(0.0, (sum, it) => sum + it.total) - saved.discount;
+
+                  return Card(
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                      leading: CircleAvatar(
+                        backgroundColor: const Color(0xFF00875A).withValues(alpha: 0.15),
+                        child: const Icon(Icons.receipt_long, color: Color(0xFF00875A)),
+                      ),
+                      title: Text(
+                        saved.customer?.name ?? 'Walk-in Customer',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text('${saved.items.length} Items · Saved at ${saved.time}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            CurrencyFormatter.format(total),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF00875A)),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: cart.isResumeBusy
+                                ? null
+                                : () async {
+                                    SoundService.instance.playButtonClick();
+                                    final shopId = context.read<ShopProvider>().shop.id;
+                                    final ok = await cart.recallCart(saved, shopId);
+                                    if (ok && mounted) {
+                                      setState(() => _activeTab = 0);
+                                    }
+                                  },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00875A),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: const Text('Recall'),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                            tooltip: 'Delete',
+                            onPressed: () {
+                              SoundService.instance.playDelete();
+                              final shopId = context.read<ShopProvider>().shop.id;
+                              cart.removeSavedCart(saved.id, shopId);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ],

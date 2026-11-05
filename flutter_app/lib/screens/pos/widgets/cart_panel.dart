@@ -626,7 +626,8 @@ class _CartPanelState extends State<CartPanel> {
                         ? null
                         : () {
                             SoundService.instance.playButtonClick();
-                            cart.saveCurrentCart();
+                            final shopId = context.read<ShopProvider>().shop.id;
+                            cart.saveCurrentCart(shopId);
                             _discountController.clear();
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Bill saved and held')),

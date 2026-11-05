@@ -1620,4 +1620,72 @@ class SupabaseService {
     final b64 = base64Encode(bytes);
     return 'data:image/jpeg;base64,$b64';
   }
+
+  // ===========================================================================
+  // SAVED ORDERS (HELD CARTS) MULTI-DEVICE CLOUD SYNC
+  // ===========================================================================
+
+  Future<bool> saveOrderToCloud({
+    required String orderId,
+    required String shopId,
+    required List<Map<String, dynamic>> lines,
+    required double discount,
+    String? customerId,
+    String? customerName,
+    String? customerPhone,
+    String? label,
+  }) async {
+    final validShopId = await _ensureValidShopId(shopId);
+    if (client != null && _isInitialized) {
+      try {
+        final payload = {
+          'id': orderId,
+          'shop_id': validShopId,
+          'lines': lines,
+          'discount': discount,
+          'customer_id': (customerId != null && customerId.isNotEmpty) ? customerId : null,
+          'customer_name': (customerName != null && customerName.isNotEmpty) ? customerName : null,
+          'customer_phone': (customerPhone != null && customerPhone.isNotEmpty) ? customerPhone : null,
+          'label': label ?? 'Held Order',
+        };
+        await client!.from('saved_orders').upsert(payload);
+        debugPrint('[SupabaseService] Successfully synced saved order $orderId to Supabase');
+        return true;
+      } catch (e) {
+        debugPrint('[SupabaseService] saveOrderToCloud error: $e');
+      }
+    }
+    return false;
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSavedOrdersFromCloud(String shopId) async {
+    final validShopId = await _ensureValidShopId(shopId);
+    if (client != null && _isInitialized) {
+      try {
+        final res = await client!
+            .from('saved_orders')
+            .select()
+            .eq('shop_id', validShopId)
+            .order('created_at', ascending: false);
+        final list = (res as List).map((row) => Map<String, dynamic>.from(row as Map)).toList();
+        debugPrint('[SupabaseService] Fetched ${list.length} saved orders from Supabase');
+        return list;
+      } catch (e) {
+        debugPrint('[SupabaseService] fetchSavedOrdersFromCloud error: $e');
+      }
+    }
+    return [];
+  }
+
+  Future<bool> deleteSavedOrderFromCloud(String orderId) async {
+    if (client != null && _isInitialized) {
+      try {
+        final res = await client!.from('saved_orders').delete().eq('id', orderId).select('id');
+        return (res as List).isNotEmpty;
+      } catch (e) {
+        debugPrint('[SupabaseService] deleteSavedOrderFromCloud error: $e');
+      }
+    }
+    return true; // offline safe fallback
+  }
 }
