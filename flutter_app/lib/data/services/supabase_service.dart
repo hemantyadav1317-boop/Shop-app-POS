@@ -95,8 +95,6 @@ class SupabaseService {
         final list = (jsonDecode(cachedProds) as List).map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
         _localProducts.clear();
         _localProducts.addAll(list);
-      } else if (_localProducts.isEmpty) {
-        _localProducts.addAll(CatalogData.getInitialProducts(_localShop.id));
       }
 
       final cachedCusts = prefs.getString('cached_customers_${_localShop.id}');
@@ -378,8 +376,24 @@ class SupabaseService {
   // --- PRODUCTS ---
   Future<List<Product>> getProducts(String shopId) async {
     final validShopId = await _ensureValidShopId(shopId);
+    final prefs = await SharedPreferences.getInstance();
+    final queueKey = 'pending_deleted_products_$validShopId';
+    final pendingDeletions = prefs.getStringList(queueKey) ?? [];
 
     if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
+      // Flush any pending offline deletions first
+      if (pendingDeletions.isNotEmpty) {
+        final toRemove = <String>[];
+        for (final delId in pendingDeletions) {
+          try {
+            await client!.from('products').delete().eq('id', delId);
+            toRemove.add(delId);
+          } catch (_) {}
+        }
+        pendingDeletions.removeWhere((id) => toRemove.contains(id));
+        await prefs.setStringList(queueKey, pendingDeletions);
+      }
+
       try {
         final response = await client!
             .from('products')
@@ -387,13 +401,20 @@ class SupabaseService {
             .eq('shop_id', validShopId)
             .eq('is_active', true)
             .order('name');
-        final list = (response as List).map((e) => Product.fromJson(e)).toList();
+        final list = (response as List)
+            .map((e) => Product.fromJson(e))
+            .where((p) => !pendingDeletions.contains(p.id))
+            .toList();
 
         // ONLY sync local products if they genuinely belong to validShopId (NEVER push demo-shop-101 items to user's real shop)
         final cloudIds = list.map((p) => p.id).toSet();
         final cloudNames = list.map((p) => p.name.trim().toLowerCase()).toSet();
         final unUploaded = _localProducts
-            .where((lp) => lp.shopId == validShopId && !cloudIds.contains(lp.id) && !cloudNames.contains(lp.name.trim().toLowerCase()))
+            .where((lp) =>
+                lp.shopId == validShopId &&
+                !pendingDeletions.contains(lp.id) &&
+                !cloudIds.contains(lp.id) &&
+                !cloudNames.contains(lp.name.trim().toLowerCase()))
             .toList();
         if (unUploaded.isNotEmpty) {
           debugPrint("Auto-syncing ${unUploaded.length} un-uploaded local products to cloud for shop $validShopId...");
@@ -413,19 +434,17 @@ class SupabaseService {
 
     // Fallback: check cached preferences for validShopId
     try {
-      final prefs = await SharedPreferences.getInstance();
       final cached = prefs.getString('cached_products_$validShopId');
       if (cached != null) {
-        final list = (jsonDecode(cached) as List).map((e) => Product.fromJson(e as Map<String, dynamic>)).toList();
+        final list = (jsonDecode(cached) as List)
+            .map((e) => Product.fromJson(e as Map<String, dynamic>))
+            .where((p) => !pendingDeletions.contains(p.id))
+            .toList();
         _localProducts.clear();
         _localProducts.addAll(list);
         return list;
       }
     } catch (_) {}
-
-    if (validShopId == 'demo-shop-101' && _localProducts.isEmpty) {
-      _localProducts.addAll(CatalogData.getInitialProducts('demo-shop-101'));
-    }
 
     return List.from(_localProducts);
   }
@@ -513,34 +532,68 @@ class SupabaseService {
 
   Future<void> deleteProduct(String productId) async {
     _localProducts.removeWhere((p) => p.id == productId);
-    if (isInitialized && client != null) {
+    _saveCachedProducts(_localShop.id, _localProducts);
+
+    final prefs = await SharedPreferences.getInstance();
+    final queueKey = 'pending_deleted_products_${_localShop.id}';
+    final pendingDeletions = prefs.getStringList(queueKey) ?? [];
+    if (!pendingDeletions.contains(productId)) {
+      pendingDeletions.add(productId);
+      await prefs.setStringList(queueKey, pendingDeletions);
+    }
+
+    if (isInitialized && client != null && _localShop.id != 'demo-shop-101') {
       try {
         await client!.from('products').delete().eq('id', productId);
+        pendingDeletions.remove(productId);
+        await prefs.setStringList(queueKey, pendingDeletions);
+        debugPrint("SUCCESS: Deleted product $productId from Supabase Cloud");
       } catch (e) {
-        debugPrint("Error deleting product in cloud: $e");
+        debugPrint("Error deleting product in cloud (queued for retry): $e");
       }
     }
-    _saveCachedProducts(_localShop.id, _localProducts);
   }
 
   // --- CUSTOMERS ---
   Future<List<Customer>> getCustomers(String shopId) async {
     final validShopId = await _ensureValidShopId(shopId);
+    final prefs = await SharedPreferences.getInstance();
+    final queueKey = 'pending_deleted_customers_$validShopId';
+    final pendingDeletions = prefs.getStringList(queueKey) ?? [];
 
     if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
+      // Flush pending offline customer deletions
+      if (pendingDeletions.isNotEmpty) {
+        final toRemove = <String>[];
+        for (final delId in pendingDeletions) {
+          try {
+            await client!.from('customers').delete().eq('id', delId);
+            toRemove.add(delId);
+          } catch (_) {}
+        }
+        pendingDeletions.removeWhere((id) => toRemove.contains(id));
+        await prefs.setStringList(queueKey, pendingDeletions);
+      }
+
       try {
         final response = await client!
             .from('customers')
             .select('*')
             .eq('shop_id', validShopId)
             .order('name');
-        final cloudList = (response as List).map((e) => Customer.fromJson(e)).toList();
+        final cloudList = (response as List)
+            .map((e) => Customer.fromJson(e))
+            .where((c) => !pendingDeletions.contains(c.id))
+            .toList();
 
         // Auto-sync any local customers genuinely belonging to validShopId (NEVER demo dummy data)
         final cloudIds = cloudList.map((c) => c.id).toSet();
         final cloudNames = cloudList.map((c) => c.name.trim().toLowerCase()).toSet();
         for (final localCust in List<Customer>.from(_localCustomers)) {
-          if (localCust.shopId == validShopId && !cloudIds.contains(localCust.id) && !cloudNames.contains(localCust.name.trim().toLowerCase())) {
+          if (localCust.shopId == validShopId &&
+              !pendingDeletions.contains(localCust.id) &&
+              !cloudIds.contains(localCust.id) &&
+              !cloudNames.contains(localCust.name.trim().toLowerCase())) {
             debugPrint("Auto-syncing un-synced customer to cloud: ${localCust.name}");
             final saved = await addCustomer(localCust.copyWith(shopId: validShopId));
             cloudList.add(saved);
@@ -559,10 +612,12 @@ class SupabaseService {
 
     // Fallback: check cached preferences for validShopId
     try {
-      final prefs = await SharedPreferences.getInstance();
       final cached = prefs.getString('cached_customers_$validShopId');
       if (cached != null) {
-        final list = (jsonDecode(cached) as List).map((e) => Customer.fromJson(e as Map<String, dynamic>)).toList();
+        final list = (jsonDecode(cached) as List)
+            .map((e) => Customer.fromJson(e as Map<String, dynamic>))
+            .where((c) => !pendingDeletions.contains(c.id))
+            .toList();
         _localCustomers.clear();
         _localCustomers.addAll(list);
         return list;
@@ -754,14 +809,26 @@ class SupabaseService {
 
   Future<void> deleteCustomer(String customerId) async {
     _localCustomers.removeWhere((c) => c.id == customerId);
-    if (_isInitialized && client != null) {
+    _saveCachedCustomers(_localShop.id, _localCustomers);
+
+    final prefs = await SharedPreferences.getInstance();
+    final queueKey = 'pending_deleted_customers_${_localShop.id}';
+    final pendingDeletions = prefs.getStringList(queueKey) ?? [];
+    if (!pendingDeletions.contains(customerId)) {
+      pendingDeletions.add(customerId);
+      await prefs.setStringList(queueKey, pendingDeletions);
+    }
+
+    if (_isInitialized && client != null && _localShop.id != 'demo-shop-101') {
       try {
         await client!.from('customers').delete().eq('id', customerId);
+        pendingDeletions.remove(customerId);
+        await prefs.setStringList(queueKey, pendingDeletions);
+        debugPrint("SUCCESS: Deleted customer $customerId from Supabase Cloud");
       } catch (e) {
-        debugPrint("Error deleting customer: $e");
+        debugPrint("Error deleting customer in cloud (queued for retry): $e");
       }
     }
-    _saveCachedCustomers(_localShop.id, _localCustomers);
   }
 
   // --- SALES & BILLING (CREATE, READ, UPDATE, DELETE) ---
@@ -1052,14 +1119,26 @@ class SupabaseService {
   /// Delete / cancel an existing bill
   Future<void> deleteSale(String saleId) async {
     _localSales.removeWhere((s) => s.id == saleId);
-    if (_isInitialized && client != null) {
+    _saveCachedSales(_localShop.id, _localSales);
+
+    final prefs = await SharedPreferences.getInstance();
+    final queueKey = 'pending_deleted_sales_${_localShop.id}';
+    final pendingDeletions = prefs.getStringList(queueKey) ?? [];
+    if (!pendingDeletions.contains(saleId)) {
+      pendingDeletions.add(saleId);
+      await prefs.setStringList(queueKey, pendingDeletions);
+    }
+
+    if (_isInitialized && client != null && _localShop.id != 'demo-shop-101') {
       try {
         await client!.from('sales').delete().eq('id', saleId);
+        pendingDeletions.remove(saleId);
+        await prefs.setStringList(queueKey, pendingDeletions);
+        debugPrint("SUCCESS: Deleted sale $saleId from Supabase Cloud");
       } catch (e) {
         debugPrint("Error deleting sale in cloud: $e");
       }
     }
-    _saveCachedSales(_localShop.id, _localSales);
   }
 
   // --- EXPENSES ---
@@ -1149,24 +1228,24 @@ class SupabaseService {
       try {
         final fullPayload = <String, dynamic>{
           'name': shop.name,
-          if (shop.phone != null) 'phone': shop.phone,
-          if (shop.address != null) 'address': shop.address,
-          if (shop.gstin != null) 'gst_number': shop.gstin,
-          if (shop.upiId != null) 'upi_id': shop.upiId,
-          if (shop.upiPayeeName != null) 'upi_payee_name': shop.upiPayeeName,
+          'phone': shop.phone,
+          'address': shop.address,
+          'gst_number': shop.gstin,
+          'upi_id': shop.upiId,
+          'upi_payee_name': shop.upiPayeeName,
           'allow_negative_stock': shop.allowNegativeStock,
           'print_paper_size': shop.printPaperSize,
-          if (shop.receiptFooter != null) 'receipt_footer': shop.receiptFooter,
-          if (shop.qrImageUrl != null) 'qr_image_url': shop.qrImageUrl,
+          'receipt_footer': shop.receiptFooter,
+          'qr_image_url': shop.qrImageUrl,
           'store_type': shop.storeType,
           'updated_at': DateTime.now().toIso8601String(),
         };
 
         final corePayload = <String, dynamic>{
           'name': shop.name,
-          if (shop.phone != null) 'phone': shop.phone,
-          if (shop.address != null) 'address': shop.address,
-          if (shop.gstin != null) 'gst_number': shop.gstin,
+          'phone': shop.phone,
+          'address': shop.address,
+          'gst_number': shop.gstin,
           'updated_at': DateTime.now().toIso8601String(),
         };
 

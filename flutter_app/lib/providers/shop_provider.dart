@@ -204,16 +204,51 @@ class ShopProvider extends ChangeNotifier {
 
     // Keep primary SharedPreferences keys updated for backward compatibility
     await prefs.setString('shop_name', updated.name);
-    if (updated.phone != null) await prefs.setString('shop_phone', updated.phone!);
-    if (updated.address != null) await prefs.setString('shop_address', updated.address!);
-    if (updated.gstin != null) await prefs.setString('shop_gstin', updated.gstin!);
-    if (updated.upiId != null) await prefs.setString('shop_upi_id', updated.upiId!);
-    if (updated.upiPayeeName != null) await prefs.setString('shop_upi_payee_name', updated.upiPayeeName!);
-    if (updated.receiptFooter != null) await prefs.setString('shop_receipt_footer', updated.receiptFooter!);
+    if (updated.phone != null && updated.phone!.trim().isNotEmpty) {
+      await prefs.setString('shop_phone', updated.phone!.trim());
+    } else {
+      await prefs.remove('shop_phone');
+    }
+
+    if (updated.address != null && updated.address!.trim().isNotEmpty) {
+      await prefs.setString('shop_address', updated.address!.trim());
+    } else {
+      await prefs.remove('shop_address');
+    }
+
+    if (updated.gstin != null && updated.gstin!.trim().isNotEmpty) {
+      await prefs.setString('shop_gstin', updated.gstin!.trim());
+    } else {
+      await prefs.remove('shop_gstin');
+    }
+
+    if (updated.upiId != null && updated.upiId!.trim().isNotEmpty) {
+      await prefs.setString('shop_upi_id', updated.upiId!.trim());
+    } else {
+      await prefs.remove('shop_upi_id');
+    }
+
+    if (updated.upiPayeeName != null && updated.upiPayeeName!.trim().isNotEmpty) {
+      await prefs.setString('shop_upi_payee_name', updated.upiPayeeName!.trim());
+    } else {
+      await prefs.remove('shop_upi_payee_name');
+    }
+
+    if (updated.receiptFooter != null && updated.receiptFooter!.trim().isNotEmpty) {
+      await prefs.setString('shop_receipt_footer', updated.receiptFooter!.trim());
+    } else {
+      await prefs.remove('shop_receipt_footer');
+    }
+
     await prefs.setString('shop_paper_size', updated.printPaperSize);
     await prefs.setBool('shop_allow_negative_stock', updated.allowNegativeStock);
     await prefs.setString('shop_store_type', updated.storeType);
-    if (updated.qrImageUrl != null) await prefs.setString('shop_qr_image_url', updated.qrImageUrl!);
+
+    if (updated.qrImageUrl != null && updated.qrImageUrl!.trim().isNotEmpty) {
+      await prefs.setString('shop_qr_image_url', updated.qrImageUrl!.trim());
+    } else {
+      await prefs.remove('shop_qr_image_url');
+    }
 
     final synced = await SupabaseService.instance.updateShop(updated);
     if (synced.id != _shop.id) {

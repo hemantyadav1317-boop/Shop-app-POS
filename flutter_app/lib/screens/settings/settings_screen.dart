@@ -679,14 +679,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final updated = currentShop.copyWith(
       name: _nameCtrl.text.trim().isEmpty ? 'Shop POS' : _nameCtrl.text.trim(),
       phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+      clearPhone: _phoneCtrl.text.trim().isEmpty,
       address: _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
+      clearAddress: _addressCtrl.text.trim().isEmpty,
       gstin: _gstinCtrl.text.trim().isEmpty ? null : _gstinCtrl.text.trim(),
+      clearGstin: _gstinCtrl.text.trim().isEmpty,
       upiId: _upiIdCtrl.text.trim().isEmpty ? null : _upiIdCtrl.text.trim(),
+      clearUpiId: _upiIdCtrl.text.trim().isEmpty,
       upiPayeeName: _upiNameCtrl.text.trim().isEmpty ? null : _upiNameCtrl.text.trim(),
+      clearUpiPayeeName: _upiNameCtrl.text.trim().isEmpty,
       receiptFooter: _footerCtrl.text.trim(),
       printPaperSize: _paperSize,
       allowNegativeStock: _allowNegativeStock,
-      qrImageUrl: _qrImageUrl,
+      qrImageUrl: (_qrImageUrl != null && _qrImageUrl!.trim().isNotEmpty) ? _qrImageUrl : null,
+      clearQrImageUrl: _qrImageUrl == null || _qrImageUrl!.trim().isEmpty,
     );
 
     await context.read<ShopProvider>().updateShop(updated);
