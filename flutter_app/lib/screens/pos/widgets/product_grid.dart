@@ -343,19 +343,19 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
 
-        // 2. FIXED / STICKY Text-Only Category Bar (Pinned while scrolling products - Large Touch-Friendly Tabs)
+        // 2. FIXED / STICKY Compact Category Bar (Pinned while scrolling products - Sleek & Space-Efficient)
         SliverPersistentHeader(
           pinned: true,
           delegate: _StickyCategoryHeaderDelegate(
-            height: isMobile ? 58.0 : 68.0,
+            height: isMobile ? 38.0 : 44.0,
             backgroundColor: isDark ? const Color(0xFF0F172A) : Theme.of(context).scaffoldBackgroundColor,
             child: SizedBox(
-              height: isMobile ? 58.0 : 68.0,
+              height: isMobile ? 38.0 : 44.0,
               child: ListView.separated(
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 16, vertical: isMobile ? 6 : 8),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14, vertical: isMobile ? 3 : 4),
                 scrollDirection: Axis.horizontal,
                 itemCount: productProvider.categories.length,
-                separatorBuilder: (_, _) => SizedBox(width: isMobile ? 8 : 12),
+                separatorBuilder: (_, _) => SizedBox(width: isMobile ? 6 : 8),
                 itemBuilder: (context, i) {
                   final cat = productProvider.categories[i];
                   final isSelected = productProvider.selectedCategory == cat;
@@ -366,30 +366,35 @@ class _ProductGridState extends State<ProductGrid> {
                       SoundService.instance.playButtonClick();
                       productProvider.selectCategory(cat);
                     },
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(20),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 180),
-                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 18 : 26, vertical: isMobile ? 9 : 13),
+                      padding: EdgeInsets.symmetric(horizontal: isMobile ? 11 : 15, vertical: isMobile ? 4 : 5),
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: isSelected
                             ? const Color(0xFF00875A)
                             : (isDark ? const Color(0xFF1E293B) : Colors.white),
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isSelected
                               ? const Color(0xFF00875A)
                               : (isDark ? Colors.white24 : Colors.grey.shade300),
-                          width: isSelected ? 2.4 : 1.2,
+                          width: isSelected ? 1.5 : 1.0,
                         ),
                         boxShadow: [
-                          BoxShadow(
-                            color: isSelected
-                                ? const Color(0xFF00875A).withValues(alpha: 0.38)
-                                : Colors.black.withValues(alpha: 0.04),
-                            blurRadius: isSelected ? 8 : 2,
-                            offset: const Offset(0, 3),
-                          ),
+                          if (isSelected)
+                            BoxShadow(
+                              color: const Color(0xFF00875A).withValues(alpha: 0.25),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1.5),
+                            )
+                          else
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 1,
+                              offset: const Offset(0, 1),
+                            ),
                         ],
                       ),
                       child: Row(
@@ -398,26 +403,26 @@ class _ProductGridState extends State<ProductGrid> {
                           Text(
                             cat,
                             style: TextStyle(
-                              fontSize: isMobile ? 14.5 : 17.5,
-                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w700,
+                              fontSize: isMobile ? 12.5 : 14.5,
+                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                               color: isSelected ? Colors.white : (isDark ? Colors.white : const Color(0xFF1E293B)),
-                              letterSpacing: 0.3,
+                              letterSpacing: 0.2,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 5),
                           Container(
-                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 10, vertical: isMobile ? 2.5 : 4),
+                            padding: EdgeInsets.symmetric(horizontal: isMobile ? 6 : 8, vertical: isMobile ? 1.5 : 2.5),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? Colors.white.withValues(alpha: 0.25)
                                   : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey.shade200),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
                               '$count',
                               style: TextStyle(
-                                fontSize: isMobile ? 11.5 : 14.0,
-                                fontWeight: FontWeight.w900,
+                                fontSize: isMobile ? 10.5 : 12.0,
+                                fontWeight: FontWeight.w700,
                                 color: isSelected
                                     ? Colors.white
                                     : (isDark ? Colors.white70 : Colors.grey.shade800),
@@ -434,7 +439,7 @@ class _ProductGridState extends State<ProductGrid> {
           ),
         ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: 6)),
+        const SliverToBoxAdapter(child: SizedBox(height: 4)),
 
         // 3. Dense Product Grid with Full-Bleed Photos
         productProvider.filteredProducts.isEmpty
