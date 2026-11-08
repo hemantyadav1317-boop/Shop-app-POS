@@ -358,12 +358,17 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final changeDue = (paidAmount - cart.total) > 0 ? (paidAmount - cart.total) : 0.0;
     final remainingUdhar = (cart.total - paidAmount) > 0 ? (cart.total - paidAmount) : 0.0;
 
-    final upiUri = UpiService.generateUpiUri(
-      upiId: shop.upiId ?? '9876543210@upi',
-      payeeName: shop.upiPayeeName ?? shop.name,
-      amount: _paymentMode == 'split' ? remainingUdhar : cart.total,
-      note: 'Bill #$_billNo',
-    );
+    final hasValidUpi = shop.upiId != null && shop.upiId!.trim().isNotEmpty && shop.upiId!.contains('@');
+    final upiUri = hasValidUpi
+        ? UpiService.generateUpiUri(
+            upiId: shop.upiId!.trim(),
+            payeeName: (shop.upiPayeeName != null && shop.upiPayeeName!.trim().isNotEmpty)
+                ? shop.upiPayeeName!.trim()
+                : shop.name,
+            amount: _paymentMode == 'split' ? remainingUdhar : cart.total,
+            note: 'Bill #$_billNo',
+          )
+        : null;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
@@ -401,7 +406,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     required double paidAmount,
     required double changeDue,
     required double remainingUdhar,
-    required String upiUri,
+    required String? upiUri,
   }) {
     return Column(
       children: [
@@ -537,7 +542,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                         const Text('UPI QR कोड स्कैन करें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue)),
                         const SizedBox(height: 8),
                         Center(
-                          child: shop.qrImageUrl != null && shop.qrImageUrl!.isNotEmpty
+                          child: (shop.qrImageUrl != null && shop.qrImageUrl!.trim().isNotEmpty)
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: shop.qrImageUrl!.startsWith('data:image')
@@ -546,7 +551,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                           width: 150,
                                           height: 150,
                                           fit: BoxFit.contain,
-                                          errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                                          errorBuilder: (context, error, stackTrace) => (upiUri != null)
+                                              ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
+                                              : _buildNoUpiWarning(),
                                         )
                                       : shop.qrImageUrl!.startsWith('http')
                                           ? Image.network(
@@ -554,7 +561,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                               width: 150,
                                               height: 150,
                                               fit: BoxFit.contain,
-                                              errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                                              errorBuilder: (context, error, stackTrace) => (upiUri != null)
+                                                  ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
+                                                  : _buildNoUpiWarning(),
                                             )
                                           : (!kIsWeb
                                               ? Image.file(
@@ -562,18 +571,27 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                                   width: 150,
                                                   height: 150,
                                                   fit: BoxFit.contain,
-                                                  errorBuilder: (context, error, stackTrace) => QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                                                  errorBuilder: (context, error, stackTrace) => (upiUri != null)
+                                                      ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
+                                                      : _buildNoUpiWarning(),
                                                 )
-                                              : QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)),
+                                              : (upiUri != null
+                                                  ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
+                                                  : _buildNoUpiWarning())),
                                 )
-                              : QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white),
+                              : (upiUri != null
+                                  ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
+                                  : _buildNoUpiWarning()),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           CurrencyFormatter.format(_paymentMode == 'split' ? remainingUdhar : cart.total),
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
                         ),
-                        Text('UPI ID: ${shop.upiId ?? "9876543210@upi"}', style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
+                        if (shop.upiId != null && shop.upiId!.trim().isNotEmpty)
+                          Text('UPI ID: ${shop.upiId!.trim()}', style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary))
+                        else
+                          const Text('UPI ID: सेट नहीं है (Settings में जोड़ें)', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w500)),
                         const SizedBox(height: 6),
                         CheckboxListTile(
                           title: const Text('Payment प्राप्त हो गया (Verified)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -996,6 +1014,35 @@ class _PaymentDialogState extends State<PaymentDialog> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNoUpiWarning() {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 36),
+          SizedBox(height: 6),
+          Text(
+            'UPI QR उपलब्ध नहीं है',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown),
+          ),
+          SizedBox(height: 4),
+          Text(
+            'दुकानदार की UPI ID या QR फोटो सेटिंग्स में नहीं है। कृपया सेटिंग्स में दर्ज करें।',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Colors.black87),
+          ),
+        ],
       ),
     );
   }

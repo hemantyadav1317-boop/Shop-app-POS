@@ -111,6 +111,10 @@ class SupabaseService {
   }
 
   void setLocalShop(Shop shop) {
+    if (_localShop.id != 'demo-shop-101' && shop.id == 'demo-shop-101') {
+      // Ironclad Guard: Never downgrade an active configured shop to demo-shop-101
+      return;
+    }
     _localShop = shop;
   }
 
@@ -188,7 +192,20 @@ class SupabaseService {
           final shopId = member['shop_id'].toString();
           final memberShop = await client!.from('shops').select('*').eq('id', shopId).maybeSingle();
           if (memberShop != null) {
-            final shop = Shop.fromJson(memberShop);
+            final cloudShop = Shop.fromJson(memberShop);
+            final localUpi = (cloudShop.upiId != null && cloudShop.upiId!.trim().isNotEmpty)
+                ? cloudShop.upiId
+                : (_localShop.upiId ?? prefs.getString('shop_upi_id'));
+            final localQr = (cloudShop.qrImageUrl != null && cloudShop.qrImageUrl!.trim().isNotEmpty)
+                ? cloudShop.qrImageUrl
+                : (_localShop.qrImageUrl ?? prefs.getString('shop_qr_image_url'));
+            final shop = cloudShop.copyWith(
+              upiId: localUpi,
+              qrImageUrl: localQr,
+              upiPayeeName: (cloudShop.upiPayeeName != null && cloudShop.upiPayeeName!.trim().isNotEmpty)
+                  ? cloudShop.upiPayeeName
+                  : (_localShop.upiPayeeName ?? prefs.getString('shop_upi_payee_name')),
+            );
             _localShop = shop;
             await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
             await prefs.setString('saved_shop_data_$userId', jsonEncode(shop.toJson()));
@@ -204,7 +221,20 @@ class SupabaseService {
       try {
         final owned = await client!.from('shops').select('*').eq('owner_id', userId).maybeSingle();
         if (owned != null) {
-          final shop = Shop.fromJson(owned);
+          final cloudShop = Shop.fromJson(owned);
+          final localUpi = (cloudShop.upiId != null && cloudShop.upiId!.trim().isNotEmpty)
+              ? cloudShop.upiId
+              : (_localShop.upiId ?? prefs.getString('shop_upi_id'));
+          final localQr = (cloudShop.qrImageUrl != null && cloudShop.qrImageUrl!.trim().isNotEmpty)
+              ? cloudShop.qrImageUrl
+              : (_localShop.qrImageUrl ?? prefs.getString('shop_qr_image_url'));
+          final shop = cloudShop.copyWith(
+            upiId: localUpi,
+            qrImageUrl: localQr,
+            upiPayeeName: (cloudShop.upiPayeeName != null && cloudShop.upiPayeeName!.trim().isNotEmpty)
+                ? cloudShop.upiPayeeName
+                : (_localShop.upiPayeeName ?? prefs.getString('shop_upi_payee_name')),
+          );
           _localShop = shop;
           await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
           await prefs.setString('saved_shop_data_$userId', jsonEncode(shop.toJson()));

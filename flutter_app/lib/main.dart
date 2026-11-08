@@ -37,13 +37,47 @@ void main() async {
   String initialShopId = 'demo-shop-101';
   try {
     final prefs = await SharedPreferences.getInstance();
-    final savedShop = prefs.getString('saved_shop_data');
+    var savedShop = prefs.getString('saved_shop_data');
+    if (savedShop == null) {
+      for (final key in prefs.getKeys()) {
+        if (key.startsWith('saved_shop_data_') && key != 'saved_shop_data_guest') {
+          final candidate = prefs.getString(key);
+          if (candidate != null && candidate.isNotEmpty) {
+            savedShop = candidate;
+            break;
+          }
+        }
+      }
+    }
     if (savedShop != null) {
       final decoded = jsonDecode(savedShop) as Map<String, dynamic>;
       initialShop = Shop.fromJson(decoded);
+      final localUpi = prefs.getString('shop_upi_id');
+      final localQr = prefs.getString('shop_qr_image_url');
+      if ((initialShop.upiId == null || initialShop.upiId!.isEmpty) && localUpi != null && localUpi.isNotEmpty) {
+        initialShop = initialShop.copyWith(upiId: localUpi);
+      }
+      if ((initialShop.qrImageUrl == null || initialShop.qrImageUrl!.isEmpty) && localQr != null && localQr.isNotEmpty) {
+        initialShop = initialShop.copyWith(qrImageUrl: localQr);
+      }
       SupabaseService.instance.setLocalShop(initialShop);
       if (decoded['id'] != null) {
         initialShopId = decoded['id'] as String;
+      }
+    } else {
+      final name = prefs.getString('shop_name');
+      if (name != null && name.trim().isNotEmpty && name != 'मेरी दुकान (My Store)') {
+        initialShop = initialShop.copyWith(
+          name: name,
+          phone: prefs.getString('shop_phone'),
+          address: prefs.getString('shop_address'),
+          gstin: prefs.getString('shop_gstin'),
+          upiId: prefs.getString('shop_upi_id'),
+          upiPayeeName: prefs.getString('shop_upi_payee_name'),
+          qrImageUrl: prefs.getString('shop_qr_image_url'),
+          storeType: prefs.getString('shop_store_type') ?? 'vegetable',
+        );
+        SupabaseService.instance.setLocalShop(initialShop);
       }
     }
   } catch (e) {

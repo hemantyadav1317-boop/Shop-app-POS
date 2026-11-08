@@ -124,6 +124,39 @@ class ShopProvider extends ChangeNotifier {
 
   Future<void> resetToGuest() async {
     _currentUserId = null;
+    final prefs = await SharedPreferences.getInstance();
+
+    // Preserve previously configured shop data from local preferences if present
+    final cached = prefs.getString('saved_shop_data') ?? prefs.getString('saved_shop_data_guest');
+    if (cached != null) {
+      try {
+        final decoded = jsonDecode(cached) as Map<String, dynamic>;
+        final restored = Shop.fromJson(decoded);
+        if (restored.id != 'demo-shop-101' && restored.name != 'मेरी दुकान (My Store)') {
+          _shop = restored;
+          SupabaseService.instance.setLocalShop(_shop);
+          notifyListeners();
+          return;
+        }
+      } catch (_) {}
+    }
+
+    final shopName = prefs.getString('shop_name');
+    if (shopName != null && shopName.trim().isNotEmpty && shopName != 'मेरी दुकान (My Store)') {
+      _shop = _shop.copyWith(
+        name: shopName,
+        phone: prefs.getString('shop_phone') ?? _shop.phone,
+        address: prefs.getString('shop_address') ?? _shop.address,
+        gstin: prefs.getString('shop_gstin') ?? _shop.gstin,
+        upiId: prefs.getString('shop_upi_id') ?? _shop.upiId,
+        upiPayeeName: prefs.getString('shop_upi_payee_name') ?? _shop.upiPayeeName,
+        qrImageUrl: prefs.getString('shop_qr_image_url') ?? _shop.qrImageUrl,
+      );
+      SupabaseService.instance.setLocalShop(_shop);
+      notifyListeners();
+      return;
+    }
+
     _shop = defaultShop;
     SupabaseService.instance.setLocalShop(_shop);
     notifyListeners();
@@ -156,6 +189,7 @@ class ShopProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final key = _shopStorageKey(_currentUserId);
     await prefs.setString(key, jsonEncode(shop.toJson()));
+    await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
   }
 
   Future<void> updateShop(Shop updated) async {
@@ -166,6 +200,7 @@ class ShopProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final key = _shopStorageKey(_currentUserId);
     await prefs.setString(key, jsonEncode(updated.toJson()));
+    await prefs.setString('saved_shop_data', jsonEncode(updated.toJson()));
 
     // Keep primary SharedPreferences keys updated for backward compatibility
     await prefs.setString('shop_name', updated.name);
@@ -184,6 +219,7 @@ class ShopProvider extends ChangeNotifier {
     if (synced.id != _shop.id) {
       _shop = synced;
       await prefs.setString(key, jsonEncode(synced.toJson()));
+      await prefs.setString('saved_shop_data', jsonEncode(synced.toJson()));
       notifyListeners();
     }
   }

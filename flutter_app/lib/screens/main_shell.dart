@@ -50,8 +50,9 @@ class _MainShellState extends State<MainShell> {
     if (mounted) {
       final auth = context.read<AuthProvider>();
       if (!auth.isAuthenticated) {
+        // Unsubscribe from real-time websocket when offline/unauthenticated,
+        // but NEVER wipe or reset active shop to demo mode while app is running!
         SupabaseService.instance.unsubscribeFromShopChanges();
-        context.read<ShopProvider>().resetToGuest();
       } else {
         _syncUserCloudData();
       }
