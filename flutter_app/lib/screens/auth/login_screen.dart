@@ -94,18 +94,21 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final userKey = user != null ? 'setup_done_${user.id}' : 'setup_done_guest';
     final isSetupDoneLocal = prefs.getBool(userKey) ?? false;
     final prods = productProvider.products;
+    final custs = customerProvider.customers;
 
     // Check if user already has an existing shop setup:
-    // 1. Local preference flag was already completed.
-    // 2. OR shop already has products loaded from cloud.
-    // 3. OR shop has a non-default custom name or phone number.
-    final bool isExistingShop = isSetupDoneLocal ||
+    // 1. Any logged-in user with a cloud shop (UUID) ALREADY has a store -> ALWAYS go to MainShell!
+    // 2. Local preference flag was already completed.
+    // 3. OR shop already has products or customers loaded.
+    // 4. OR shop has a non-default custom name or phone number.
+    final bool hasCloudShop = currentShop.id != 'demo-shop-101' && currentShop.id.trim().isNotEmpty;
+    final bool isExistingShop = (user != null && hasCloudShop) ||
+        isSetupDoneLocal ||
         prods.isNotEmpty ||
+        custs.isNotEmpty ||
         (currentShop.id != 'demo-shop-101' &&
             currentShop.name.trim().isNotEmpty &&
-            currentShop.name != 'मेरी दुकान (My Store)' &&
-            currentShop.name != 'Fresh Veggie Store' &&
-            !currentShop.name.startsWith('मेरी दुकान (')) ||
+            currentShop.name != 'मेरी दुकान (My Store)') ||
         (currentShop.phone != null && currentShop.phone!.trim().isNotEmpty);
 
     if (isExistingShop) {
@@ -121,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         );
       }
     } else {
-      // Brand new user: guide them through store & mode configuration
+      // Brand new user without account or shop: guide them through store configuration
       if (context.mounted) {
         Navigator.pushReplacement(
           context,

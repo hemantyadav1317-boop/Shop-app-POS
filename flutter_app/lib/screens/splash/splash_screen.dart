@@ -110,12 +110,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         final shopProv = context.read<ShopProvider>();
         final shop = await shopProv.loadForUser(auth.user!.id, email: auth.user!.email);
         final prods = await SupabaseService.instance.getProducts(shop.id);
-        final isExisting = prods.isNotEmpty ||
-            (shop.id != 'demo-shop-101' &&
-                shop.name.isNotEmpty &&
-                shop.name != 'मेरी दुकान (My Store)' &&
-                shop.name != 'Fresh Veggie Store' &&
-                !shop.name.startsWith('मेरी दुकान (')) ||
+        final isExisting = (shop.id != 'demo-shop-101') ||
+            prods.isNotEmpty ||
+            (shop.name.isNotEmpty && shop.name != 'मेरी दुकान (My Store)') ||
             (shop.phone != null && shop.phone!.isNotEmpty);
 
         if (isExisting) {

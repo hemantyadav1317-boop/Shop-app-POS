@@ -10,7 +10,6 @@ import '../models/customer_payment.dart';
 import '../models/sale.dart';
 import '../models/expense.dart';
 import '../models/shop.dart';
-import 'catalog_data.dart';
 
 class SupabaseService {
   static final SupabaseService instance = SupabaseService._internal();
@@ -183,77 +182,119 @@ class SupabaseService {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // Step 1: Check shop_members first (Fastest and avoids RLS deadlocks on shops table)
+      // Step 1: Collect all candidate shops from shop_members & shops safely (NO maybeSingle crash)
+      final List<Shop> candidateShops = [];
+      final Set<String> seenShopIds = {};
+
+      // 1A. Check shop_members
       try {
-        final member = await client!.from('shop_members').select('shop_id').eq('user_id', userId).maybeSingle();
-        if (member != null && member['shop_id'] != null) {
-          final shopId = member['shop_id'].toString();
-          final memberShop = await client!.from('shops').select('*').eq('id', shopId).maybeSingle();
-          if (memberShop != null) {
-            final cloudShop = Shop.fromJson(memberShop);
-            final localUpi = (cloudShop.upiId != null && cloudShop.upiId!.trim().isNotEmpty)
-                ? cloudShop.upiId
-                : (_localShop.upiId ?? prefs.getString('shop_upi_id'));
-            final localQr = (cloudShop.qrImageUrl != null && cloudShop.qrImageUrl!.trim().isNotEmpty)
-                ? cloudShop.qrImageUrl
-                : (_localShop.qrImageUrl ?? prefs.getString('shop_qr_image_url'));
-            final shop = cloudShop.copyWith(
-              upiId: localUpi,
-              qrImageUrl: localQr,
-              upiPayeeName: (cloudShop.upiPayeeName != null && cloudShop.upiPayeeName!.trim().isNotEmpty)
-                  ? cloudShop.upiPayeeName
-                  : (_localShop.upiPayeeName ?? prefs.getString('shop_upi_payee_name')),
-            );
-            _localShop = shop;
-            await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
-            await prefs.setString('saved_shop_data_$userId', jsonEncode(shop.toJson()));
-            debugPrint("Synced shop via shop_members: ${shop.id} (${shop.name})");
-            return shop;
+        final List memberRows = await client!
+            .from('shop_members')
+            .select('shop_id')
+            .eq('user_id', userId);
+        for (final m in memberRows) {
+          if (m != null && m['shop_id'] != null) {
+            final sid = m['shop_id'].toString().trim();
+            if (sid.isNotEmpty && !seenShopIds.contains(sid)) {
+              seenShopIds.add(sid);
+              try {
+                final sRow = await client!.from('shops').select('*').eq('id', sid).maybeSingle();
+                if (sRow != null) {
+                  candidateShops.add(Shop.fromJson(sRow));
+                }
+              } catch (_) {}
+            }
           }
         }
       } catch (memErr) {
         debugPrint("Check shop_members error: $memErr");
       }
 
-      // Step 2: Check shops where user is owner_id
+      // 1B. Check shops table where user is owner_id
       try {
-        final owned = await client!.from('shops').select('*').eq('owner_id', userId).maybeSingle();
-        if (owned != null) {
-          final cloudShop = Shop.fromJson(owned);
-          final localUpi = (cloudShop.upiId != null && cloudShop.upiId!.trim().isNotEmpty)
-              ? cloudShop.upiId
-              : (_localShop.upiId ?? prefs.getString('shop_upi_id'));
-          final localQr = (cloudShop.qrImageUrl != null && cloudShop.qrImageUrl!.trim().isNotEmpty)
-              ? cloudShop.qrImageUrl
-              : (_localShop.qrImageUrl ?? prefs.getString('shop_qr_image_url'));
-          final shop = cloudShop.copyWith(
-            upiId: localUpi,
-            qrImageUrl: localQr,
-            upiPayeeName: (cloudShop.upiPayeeName != null && cloudShop.upiPayeeName!.trim().isNotEmpty)
-                ? cloudShop.upiPayeeName
-                : (_localShop.upiPayeeName ?? prefs.getString('shop_upi_payee_name')),
-          );
-          _localShop = shop;
-          await prefs.setString('saved_shop_data', jsonEncode(shop.toJson()));
-          await prefs.setString('saved_shop_data_$userId', jsonEncode(shop.toJson()));
-
-          // Ensure owner is also in shop_members so RLS is satisfied for future queries
-          try {
-            await client!.from('shop_members').upsert({
-              'shop_id': shop.id,
-              'user_id': userId,
-              'role': 'owner',
-            });
-          } catch (_) {}
-
-          debugPrint("Synced shop via owner_id: ${shop.id} (${shop.name})");
-          return shop;
+        final List ownedRows = await client!
+            .from('shops')
+            .select('*')
+            .eq('owner_id', userId);
+        for (final o in ownedRows) {
+          if (o != null && o['id'] != null) {
+            final sid = o['id'].toString().trim();
+            if (!seenShopIds.contains(sid)) {
+              seenShopIds.add(sid);
+              candidateShops.add(Shop.fromJson(o));
+            }
+          }
         }
       } catch (ownedErr) {
         debugPrint("Check shops owner_id error: $ownedErr");
       }
 
-      // Step 3: User does not have a shop in cloud yet -> create one with a clean UUID
+      // If we found candidate shops:
+      if (candidateShops.isNotEmpty) {
+        // If there's more than 1 shop, prioritize the one with actual customers/sales/products!
+        Shop bestShop = candidateShops.first;
+        if (candidateShops.length > 1) {
+          int maxScore = -1;
+          for (final candidate in candidateShops) {
+            int score = 0;
+            try {
+              final cList = await client!.from('customers').select('id').eq('shop_id', candidate.id).limit(1);
+              if ((cList as List).isNotEmpty) score += 50;
+            } catch (_) {}
+            try {
+              final sList = await client!.from('sales').select('id').eq('shop_id', candidate.id).limit(1);
+              if ((sList as List).isNotEmpty) score += 50;
+            } catch (_) {}
+            try {
+              final pList = await client!.from('products').select('id').eq('shop_id', candidate.id).limit(1);
+              if ((pList as List).isNotEmpty) score += 20;
+            } catch (_) {}
+            if (score > maxScore) {
+              maxScore = score;
+              bestShop = candidate;
+            }
+          }
+        }
+
+        // Ensure owner is in shop_members for bestShop so RLS is 100% satisfied
+        try {
+          await client!.from('shop_members').upsert({
+            'shop_id': bestShop.id,
+            'user_id': userId,
+            'role': 'owner',
+          });
+        } catch (_) {}
+
+        // Migrate any legacy data where shop_id was stored as raw userId
+        try {
+          await client!.from('customers').update({'shop_id': bestShop.id}).eq('shop_id', userId);
+          await client!.from('sales').update({'shop_id': bestShop.id}).eq('shop_id', userId);
+          await client!.from('products').update({'shop_id': bestShop.id}).eq('shop_id', userId);
+        } catch (_) {}
+
+        final localUpi = (bestShop.upiId != null && bestShop.upiId!.trim().isNotEmpty)
+            ? bestShop.upiId
+            : (_localShop.upiId ?? prefs.getString('shop_upi_id'));
+        final localQr = (bestShop.qrImageUrl != null && bestShop.qrImageUrl!.trim().isNotEmpty)
+            ? bestShop.qrImageUrl
+            : (_localShop.qrImageUrl ?? prefs.getString('shop_qr_image_url'));
+
+        final resolvedShop = bestShop.copyWith(
+          upiId: localUpi,
+          qrImageUrl: localQr,
+          upiPayeeName: (bestShop.upiPayeeName != null && bestShop.upiPayeeName!.trim().isNotEmpty)
+              ? bestShop.upiPayeeName
+              : (_localShop.upiPayeeName ?? prefs.getString('shop_upi_payee_name')),
+        );
+
+        _localShop = resolvedShop;
+        await prefs.setString('saved_shop_data', jsonEncode(resolvedShop.toJson()));
+        await prefs.setString('saved_shop_data_$userId', jsonEncode(resolvedShop.toJson()));
+        debugPrint("Successfully resolved and linked user's shop: ${resolvedShop.id} (${resolvedShop.name})");
+        return resolvedShop;
+      }
+
+      // Step 2: User does not have ANY shop in cloud yet -> create one with a clean UUID
       final isCrossAccount = fallback != null &&
           (fallback.id != 'demo-shop-101' && fallback.id != userId && !fallback.id.contains(userId));
       final cleanFallback = isCrossAccount ? null : fallback;
