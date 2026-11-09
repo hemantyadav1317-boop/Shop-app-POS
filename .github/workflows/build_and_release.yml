@@ -47,7 +47,14 @@ jobs:
 
       - name: Build Android Release APK
         working-directory: ./flutter_app
-        run: flutter build apk --release
+        run: flutter build apk --release --verbose
+
+      - name: Upload Build Failure Logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-build-logs
+          path: flutter_app/build/app/outputs/
 
       - name: Rename APK
         run: |
