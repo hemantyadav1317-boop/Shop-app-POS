@@ -278,10 +278,14 @@ class SupabaseService {
         final localQr = (bestShop.qrImageUrl != null && bestShop.qrImageUrl!.trim().isNotEmpty)
             ? bestShop.qrImageUrl
             : (_localShop.qrImageUrl ?? prefs.getString('shop_qr_image_url'));
+        final localReviewUrl = (bestShop.googleReviewUrl != null && bestShop.googleReviewUrl!.trim().isNotEmpty)
+            ? bestShop.googleReviewUrl
+            : (_localShop.googleReviewUrl ?? prefs.getString('shop_google_review_url'));
 
         final resolvedShop = bestShop.copyWith(
           upiId: localUpi,
           qrImageUrl: localQr,
+          googleReviewUrl: localReviewUrl,
           upiPayeeName: (bestShop.upiPayeeName != null && bestShop.upiPayeeName!.trim().isNotEmpty)
               ? bestShop.upiPayeeName
               : (_localShop.upiPayeeName ?? prefs.getString('shop_upi_payee_name')),
@@ -1025,7 +1029,7 @@ class SupabaseService {
           '_customer_id': custId,
           '_customer_name': targetSale.customerName,
           '_customer_phone': targetSale.customerPhone,
-          '_note': null,
+          '_note': targetSale.encodedNote,
         });
         debugPrint("Sale successfully synced to cloud via create_sale RPC");
 
@@ -1037,7 +1041,17 @@ class SupabaseService {
               .eq('id', saleId)
               .maybeSingle();
           if (createdRow != null) {
-            final cloudSale = Sale.fromJson(createdRow);
+            final parsedCloud = Sale.fromJson(createdRow);
+            final cloudSale = parsedCloud.copyWith(
+              clientRef: parsedCloud.clientRef ?? targetSale.clientRef,
+              paymentStatus: targetSale.paymentStatus,
+              cashPaid: targetSale.cashPaid,
+              upiPaid: targetSale.upiPaid,
+              upiPayable: targetSale.upiPayable,
+              creditAmount: targetSale.creditAmount,
+              onlineVerified: targetSale.onlineVerified,
+              verificationSource: targetSale.verificationSource,
+            );
             final idx = _localSales.indexWhere((s) => s.id == targetSale.id || s.clientRef == targetSale.clientRef);
             if (idx != -1) {
               _localSales[idx] = cloudSale;
@@ -1068,6 +1082,7 @@ class SupabaseService {
             'payment_mode': ['cash', 'online', 'credit', 'split', 'set_later'].contains(targetSale.paymentMode)
                 ? targetSale.paymentMode
                 : 'cash',
+            'note': targetSale.encodedNote,
           };
           await client!.from('sales').insert(salePayload);
 
@@ -1147,7 +1162,24 @@ class SupabaseService {
 
     if (_isInitialized && client != null && updatedSale.shopId != 'demo-shop-101') {
       try {
-        await client!.from('sales').update(updatedSale.toJson()).eq('id', updatedSale.id);
+        final validMode = ['cash', 'online', 'credit', 'split', 'set_later'].contains(updatedSale.paymentMode)
+            ? updatedSale.paymentMode
+            : 'cash';
+        final custId = (updatedSale.customerId != null && updatedSale.customerId!.length >= 30)
+            ? updatedSale.customerId
+            : null;
+        await client!.from('sales').update({
+          'customer_id': custId,
+          'customer_name': updatedSale.customerName,
+          'customer_phone': updatedSale.customerPhone,
+          'sub_total': updatedSale.subtotal,
+          'discount': updatedSale.discount,
+          'total': updatedSale.total,
+          'paid': updatedSale.paid,
+          'due': updatedSale.due,
+          'payment_mode': validMode,
+          'note': updatedSale.encodedNote,
+        }).eq('id', updatedSale.id);
       } catch (e) {
         debugPrint("Error updating sale in cloud: $e");
       }
@@ -1267,7 +1299,7 @@ class SupabaseService {
       if (user == null) return _localShop;
 
       try {
-        final fullPayload = <String, dynamic>{
+        final extendedPayload = <String, dynamic>{
           'name': shop.name,
           'phone': shop.phone,
           'address': shop.address,
@@ -1280,6 +1312,11 @@ class SupabaseService {
           'qr_image_url': shop.qrImageUrl,
           'store_type': shop.storeType,
           'updated_at': DateTime.now().toIso8601String(),
+        };
+
+        final fullPayload = <String, dynamic>{
+          ...extendedPayload,
+          'google_review_url': shop.googleReviewUrl,
         };
 
         final corePayload = <String, dynamic>{
@@ -1327,7 +1364,7 @@ class SupabaseService {
           }
         }
 
-        // Try updating/inserting full payload first; fallback to core payload if columns missing
+        // Try updating/inserting full payload first; fallback without google_review_url, then to core payload if columns missing
         try {
           if (isExistingInDb) {
             final updated = await client!.from('shops').update(fullPayload).eq('id', targetShopId).select().maybeSingle();
@@ -1355,24 +1392,41 @@ class SupabaseService {
             }
           }
         } catch (fullErr) {
-          debugPrint("Full shop update failed (likely missing columns), falling back to core payload: $fullErr");
-          if (isExistingInDb) {
-            final updated = await client!.from('shops').update(corePayload).eq('id', targetShopId).select().maybeSingle();
-            if (updated != null) {
-              _localShop = _localShop.copyWith(
-                id: targetShopId,
-                name: updated['name'] ?? _localShop.name,
-                phone: updated['phone'] ?? _localShop.phone,
-                address: updated['address'] ?? _localShop.address,
-                gstin: updated['gst_number'] ?? _localShop.gstin,
-              );
+          debugPrint("Full shop update failed (trying without google_review_url): $fullErr");
+          try {
+            if (isExistingInDb) {
+              final updated = await client!.from('shops').update(extendedPayload).eq('id', targetShopId).select().maybeSingle();
+              if (updated != null) {
+                _localShop = Shop.fromJson(updated).copyWith(googleReviewUrl: shop.googleReviewUrl);
+              }
+            } else {
+              await client!.from('shops').insert({
+                'id': targetShopId,
+                'owner_id': user.id,
+                ...extendedPayload,
+              });
+              _localShop = shop.copyWith(id: targetShopId);
             }
-          } else {
-            await client!.from('shops').insert({
-              'id': targetShopId,
-              'owner_id': user.id,
-              ...corePayload,
-            });
+          } catch (extErr) {
+            debugPrint("Extended shop update failed (likely missing columns), falling back to core payload: $extErr");
+            if (isExistingInDb) {
+              final updated = await client!.from('shops').update(corePayload).eq('id', targetShopId).select().maybeSingle();
+              if (updated != null) {
+                _localShop = _localShop.copyWith(
+                  id: targetShopId,
+                  name: updated['name'] ?? _localShop.name,
+                  phone: updated['phone'] ?? _localShop.phone,
+                  address: updated['address'] ?? _localShop.address,
+                  gstin: updated['gst_number'] ?? _localShop.gstin,
+                  googleReviewUrl: shop.googleReviewUrl,
+                );
+              }
+            } else {
+              await client!.from('shops').insert({
+                'id': targetShopId,
+                'owner_id': user.id,
+                ...corePayload,
+              });
             try {
               await client!.from('shop_members').upsert({
                 'shop_id': targetShopId,
@@ -1381,16 +1435,18 @@ class SupabaseService {
               });
             } catch (_) {}
             final created = await client!.from('shops').select('*').eq('id', targetShopId).maybeSingle();
-            if (created != null) {
-              _localShop = _localShop.copyWith(
-                id: targetShopId,
-                name: created['name'] ?? _localShop.name,
-                phone: created['phone'] ?? _localShop.phone,
-                address: created['address'] ?? _localShop.address,
-                gstin: created['gst_number'] ?? _localShop.gstin,
-              );
-            } else {
-              _localShop = shop.copyWith(id: targetShopId);
+              if (created != null) {
+                _localShop = _localShop.copyWith(
+                  id: targetShopId,
+                  name: created['name'] ?? _localShop.name,
+                  phone: created['phone'] ?? _localShop.phone,
+                  address: created['address'] ?? _localShop.address,
+                  gstin: created['gst_number'] ?? _localShop.gstin,
+                  googleReviewUrl: shop.googleReviewUrl,
+                );
+              } else {
+                _localShop = shop.copyWith(id: targetShopId);
+              }
             }
           }
         }

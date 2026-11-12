@@ -12,6 +12,7 @@ import '../../core/services/update_service.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/services/bluetooth_printer_service.dart';
+import '../../core/utils/payment_qr_helper.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/cart_item.dart';
@@ -43,6 +44,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _gstinCtrl;
   late TextEditingController _upiIdCtrl;
   late TextEditingController _upiNameCtrl;
+  late TextEditingController _googleReviewUrlCtrl;
   late TextEditingController _footerCtrl;
   late String _paperSize;
   late bool _allowNegativeStock;
@@ -64,6 +66,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _gstinCtrl = TextEditingController(text: shop.gstin ?? '');
     _upiIdCtrl = TextEditingController(text: shop.upiId ?? '');
     _upiNameCtrl = TextEditingController(text: shop.upiPayeeName ?? '');
+    _googleReviewUrlCtrl = TextEditingController(text: shop.googleReviewUrl ?? '');
     _footerCtrl = TextEditingController(text: shop.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏');
     _paperSize = shop.printPaperSize;
     _allowNegativeStock = shop.allowNegativeStock;
@@ -71,6 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     _upiIdCtrl.addListener(() => setState(() {}));
     _upiNameCtrl.addListener(() => setState(() {}));
+    _googleReviewUrlCtrl.addListener(() => setState(() {}));
 
     void attachTypeSound(TextEditingController ctrl) {
       String prev = ctrl.text;
@@ -88,6 +92,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     attachTypeSound(_gstinCtrl);
     attachTypeSound(_upiIdCtrl);
     attachTypeSound(_upiNameCtrl);
+    attachTypeSound(_googleReviewUrlCtrl);
     attachTypeSound(_footerCtrl);
 
     _loadBtPrinterInfo();
@@ -251,6 +256,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _gstinCtrl.dispose();
     _upiIdCtrl.dispose();
     _upiNameCtrl.dispose();
+    _googleReviewUrlCtrl.dispose();
     _footerCtrl.dispose();
     super.dispose();
   }
@@ -675,6 +681,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
       return;
     }
+    final reviewUrl = _googleReviewUrlCtrl.text.trim();
+    if (reviewUrl.isNotEmpty && !PaymentQrHelper.isValidGoogleReviewUrl(reviewUrl)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('कृपया मान्य Google Maps Review URL दर्ज करें (https:// से शुरू)।'),
+        ),
+      );
+      return;
+    }
     final currentShop = context.read<ShopProvider>().shop;
     final updated = currentShop.copyWith(
       name: _nameCtrl.text.trim().isEmpty ? 'Shop POS' : _nameCtrl.text.trim(),
@@ -688,6 +704,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       clearUpiId: _upiIdCtrl.text.trim().isEmpty,
       upiPayeeName: _upiNameCtrl.text.trim().isEmpty ? null : _upiNameCtrl.text.trim(),
       clearUpiPayeeName: _upiNameCtrl.text.trim().isEmpty,
+      googleReviewUrl: reviewUrl.isEmpty ? null : reviewUrl,
+      clearGoogleReviewUrl: reviewUrl.isEmpty,
       receiptFooter: _footerCtrl.text.trim(),
       printPaperSize: _paperSize,
       allowNegativeStock: _allowNegativeStock,
@@ -1834,6 +1852,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                           ),
+                          const SizedBox(height: 14),
+                          const Divider(),
+                          const SizedBox(height: 10),
+                          const Row(
+                            children: [
+                              Icon(Icons.star_rate_rounded, color: Color(0xFFD97706), size: 18),
+                              SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Google Maps Review URL (भुगतान पूर्ण होने के बाद बिल QR)',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'जब ग्राहक का पूरा पेमेंट प्राप्त (Verified) हो जाएगा, तो बिल में पेमेंट QR की जगह आपका Google Review QR दिखेगा। खाली होने पर कोई नकली लिंक नहीं बनेगा।',
+                            style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                          ),
+                          const SizedBox(height: 10),
+                          TextField(
+                            controller: _googleReviewUrlCtrl,
+                            readOnly: authProvider.isStaffSession,
+                            keyboardType: TextInputType.url,
+                            decoration: InputDecoration(
+                              labelText: 'Google Maps Review Link (https://g.page/r/...)',
+                              hintText: 'https://g.page/r/YOUR_STORE_ID/review',
+                              prefixIcon: const Icon(Icons.rate_review_outlined),
+                              suffixIcon: _googleReviewUrlCtrl.text.trim().isNotEmpty && !authProvider.isStaffSession
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 18),
+                                      onPressed: () => _googleReviewUrlCtrl.clear(),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                          if (PaymentQrHelper.isValidGoogleReviewUrl(_googleReviewUrlCtrl.text)) ...[
+                            const SizedBox(height: 10),
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.amber.shade300),
+                                ),
+                                child: Column(
+                                  children: [
+                                    QrImageView(
+                                      data: _googleReviewUrlCtrl.text.trim(),
+                                      version: QrVersions.auto,
+                                      size: 110,
+                                      backgroundColor: Colors.white,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      PaymentQrHelper.googleReviewInstructionHindi,
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF92400E)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),

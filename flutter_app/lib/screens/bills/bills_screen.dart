@@ -5,6 +5,7 @@ import 'package:screenshot/screenshot.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/utils/payment_qr_helper.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/cart_item.dart';
 import '../../data/models/product.dart';
@@ -70,161 +71,301 @@ class _BillsScreenState extends State<BillsScreen> {
     final userEmail = SupabaseService.instance.client?.auth.currentUser?.email;
     final dateFormat = DateFormat('dd-MM-yyyy h:mm a');
     final screenshotController = ScreenshotController();
+    Sale currentSale = sale;
+    bool isVerifying = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 720),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Sale Invoice Receipt',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 480, maxHeight: 760),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 8, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Invoice #${currentSale.billNo}',
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                            ),
+                            Text(
+                              currentSale.isFullyPaidAndVerified
+                                  ? 'Status: Paid ✓'
+                                  : (currentSale.effectiveUpiPayable > 0.009
+                                      ? 'Status: UPI Pending (₹${currentSale.effectiveUpiPayable.toStringAsFixed(0)})'
+                                      : 'Status: Due / उधार (₹${currentSale.due.toStringAsFixed(0)})'),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: currentSale.isFullyPaidAndVerified ? const Color(0xFF00875A) : Colors.amber.shade800,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    if (!context.read<AuthProvider>().isStaffSession) ...[
+                      if (!context.read<AuthProvider>().isStaffSession) ...[
+                        IconButton(
+                          icon: const Icon(Icons.edit_note, color: AppColors.primary, size: 24),
+                          tooltip: 'बिल में बदलाव करें (Edit Bill)',
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showEditBillDialog(currentSale);
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 22),
+                          tooltip: 'बिल डिलीट करें (Delete Bill)',
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _confirmDeleteBill(currentSale);
+                          },
+                        ),
+                      ],
                       IconButton(
-                        icon: const Icon(Icons.edit_note, color: AppColors.primary, size: 24),
-                        tooltip: 'बिल में बदलाव करें (Edit Bill)',
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _showEditBillDialog(sale);
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 22),
-                        tooltip: 'बिल डिलीट करें (Delete Bill)',
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _confirmDeleteBill(sale);
-                        },
+                        icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
+                        onPressed: () => Navigator.pop(ctx),
                       ),
                     ],
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
-              const Divider(height: 1),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Screenshot(
-                    controller: screenshotController,
-                    child: BillReceiptCard(
-                      shopName: shop.name,
-                      shopAddress: shop.address,
-                      shopPhone: shop.phone,
-                      shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
-                      gstin: shop.gstin,
-                      billNo: '${sale.billNo}',
-                      dateString: dateFormat.format(sale.createdAt.toLocal()),
-                      customerName: sale.customerName,
-                      customerPhone: sale.customerPhone,
-                      items: sale.items,
-                      subtotal: sale.subtotal,
-                      discount: sale.discount,
-                      total: sale.total,
-                      paid: sale.paid,
-                      due: sale.due,
-                      paymentMode: sale.paymentMode,
-                      footerMessage: shop.receiptFooter,
-                      quoteLine1: AiQuoteService.getQuoteForBillNo(sale.billNo).line1,
-                      quoteLine2: AiQuoteService.getQuoteForBillNo(sale.billNo).line2,
-                      upiId: shop.upiId,
+                if (currentSale.effectiveUpiPayable > 0.009)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.qr_code_scanner, size: 18, color: Colors.amber.shade900),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'UPI बकाया: ₹${currentSale.effectiveUpiPayable.toStringAsFixed(2)}',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00875A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            minimumSize: Size.zero,
+                          ),
+                          icon: isVerifying
+                              ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Icon(Icons.verified_outlined, size: 15),
+                          label: const Text('Verify Paid', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: isVerifying
+                              ? null
+                              : () async {
+                                  setModalState(() => isVerifying = true);
+                                  final pendingUpi = currentSale.effectiveUpiPayable;
+                                  final newPaid = PaymentQrHelper.round2(
+                                    (currentSale.paid + pendingUpi).clamp(0.0, currentSale.total),
+                                  );
+                                  final newDue = PaymentQrHelper.round2(
+                                    (currentSale.total - newPaid) > 0 ? (currentSale.total - newPaid) : 0.0,
+                                  );
+                                  final verifiedSale = currentSale.copyWith(
+                                    paid: newPaid,
+                                    due: newDue,
+                                    upiPaid: PaymentQrHelper.round2(currentSale.upiPaid + pendingUpi),
+                                    upiPayable: 0.0,
+                                    onlineVerified: true,
+                                    verificationSource: 'cashier_verified',
+                                    paymentStatus: newDue <= 0.009 ? 'completed' : 'pending',
+                                  );
+                                  await SupabaseService.instance.updateSale(verifiedSale);
+                                  SoundService.instance.playSuccess();
+                                  setModalState(() {
+                                    currentSale = verifiedSale;
+                                    isVerifying = false;
+                                  });
+                                  _loadSales();
+                                },
+                        ),
+                      ],
+                    ),
+                  ),
+                const Divider(height: 1),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Screenshot(
+                      controller: screenshotController,
+                      child: BillReceiptCard(
+                        shopName: shop.name,
+                        shopAddress: shop.address,
+                        shopPhone: shop.phone,
+                        shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
+                        gstin: shop.gstin,
+                        billNo: '${currentSale.billNo}',
+                        dateString: dateFormat.format(currentSale.createdAt.toLocal()),
+                        customerName: currentSale.customerName,
+                        customerPhone: currentSale.customerPhone,
+                        items: currentSale.items,
+                        subtotal: currentSale.subtotal,
+                        discount: currentSale.discount,
+                        total: currentSale.total,
+                        paid: currentSale.paid,
+                        due: currentSale.due,
+                        paymentMode: currentSale.paymentMode,
+                        paymentStatus: currentSale.paymentStatus,
+                        upiPayableAmount: currentSale.effectiveUpiPayable,
+                        onlineVerified: currentSale.onlineVerified,
+                        cashPaid: currentSale.cashPaid,
+                        upiPaid: currentSale.upiPaid,
+                        creditAmount: currentSale.creditAmount,
+                        footerMessage: shop.receiptFooter,
+                        quoteLine1: AiQuoteService.getQuoteForBillNo(currentSale.billNo).line1,
+                        quoteLine2: AiQuoteService.getQuoteForBillNo(currentSale.billNo).line2,
+                        upiId: shop.upiId,
+                        upiPayeeName: shop.upiPayeeName,
+                        googleReviewUrl: shop.googleReviewUrl,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const Divider(height: 1),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: Colors.grey.shade50,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: InkWell(
-                        onTap: () => Navigator.pop(ctx),
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: const Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.reply, color: Color(0xFF2563EB), size: 24),
-                              SizedBox(height: 4),
-                              Text('Back', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                            ],
+                const Divider(height: 1),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                  color: Colors.grey.shade50,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () => Navigator.pop(ctx),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.reply, color: Color(0xFF2563EB), size: 22),
+                                SizedBox(height: 3),
+                                Text('Back', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () async {
-                          try {
-                            final imageBytes = await screenshotController.capture(pixelRatio: 2.0);
-                            await ReceiptPrintService.shareReceipt(sale: sale, shop: shop, imageBytes: imageBytes);
-                          } catch (e) {
-                            if (ctx.mounted) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('शेयर एरर: $e')));
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            try {
+                              final imageBytes = await screenshotController.capture(pixelRatio: 2.0);
+                              await ReceiptPrintService.shareReceipt(sale: currentSale, shop: shop, imageBytes: imageBytes);
+                            } catch (e) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('शेयर एरर: $e')));
+                              }
                             }
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: const Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.share, color: Color(0xFF2563EB), size: 24),
-                              SizedBox(height: 4),
-                              Text('Share Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                            ],
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.share, color: Color(0xFF16A34A), size: 22),
+                                SizedBox(height: 3),
+                                Text('Share Bill', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () async {
-                          try {
-                            final imageBytes = await screenshotController.capture(pixelRatio: 2.0);
-                            await ReceiptPrintService.printReceipt(sale: sale, shop: shop, imageBytes: imageBytes);
-                          } catch (e) {
-                            if (ctx.mounted) {
-                              ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(backgroundColor: AppColors.error, content: Text('प्रिंट एरर: $e')));
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            try {
+                              final file = await ReceiptPrintService.downloadReceiptPdf(
+                                sale: currentSale,
+                                shop: shop,
+                                shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
+                              );
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  SnackBar(
+                                    backgroundColor: const Color(0xFF00875A),
+                                    content: Text('PDF सेव: ${file.uri.pathSegments.last}'),
+                                    action: SnackBarAction(
+                                      label: 'Save / Open',
+                                      textColor: Colors.white,
+                                      onPressed: () {
+                                        ReceiptPrintService.exportReceiptPdf(
+                                          sale: currentSale,
+                                          shop: shop,
+                                          shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                );
+                              }
+                            } catch (e) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(backgroundColor: AppColors.error, content: Text('डाउनलोड एरर: $e')));
+                              }
                             }
-                          }
-                        },
-                        borderRadius: BorderRadius.circular(8),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: const Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.print, color: Color(0xFF2563EB), size: 24),
-                              SizedBox(height: 4),
-                              Text('Print Bill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-                            ],
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.download_rounded, color: Color(0xFF0284C7), size: 22),
+                                SizedBox(height: 3),
+                                Text('Download', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              ],
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            try {
+                              final imageBytes = await screenshotController.capture(pixelRatio: 2.0);
+                              await ReceiptPrintService.printReceipt(sale: currentSale, shop: shop, imageBytes: imageBytes);
+                            } catch (e) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(backgroundColor: AppColors.error, content: Text('प्रिंट एरर: $e')));
+                              }
+                            }
+                          },
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: const Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.print, color: Color(0xFF2563EB), size: 22),
+                                SizedBox(height: 3),
+                                Text('Print Bill', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -725,15 +866,22 @@ class _BillsScreenState extends State<BillsScreen> {
                                 }
                               }
 
+                              final cappedPaid = paid > total ? total : paid;
+                              final newDue = (total - cappedPaid) > 0 ? (total - cappedPaid) : 0.0;
                               final updated = sale.copyWith(
                                 items: List.from(items),
                                 subtotal: subtotal,
                                 discount: discount,
                                 total: total,
-                                paid: paid > total ? total : paid,
-                                due: due,
+                                paid: cappedPaid,
+                                due: newDue,
                                 paymentMode: mode,
-                                paymentStatus: due == 0 ? 'completed' : 'pending',
+                                paymentStatus: newDue <= 0.009 ? 'completed' : 'pending',
+                                onlineVerified: mode == 'online' ? (newDue <= 0.009) : newDue <= 0.009,
+                                upiPaid: mode == 'online' && newDue <= 0.009 ? cappedPaid : 0.0,
+                                upiPayable: mode == 'online' && newDue > 0.009 ? newDue : 0.0,
+                                cashPaid: mode == 'cash' ? cappedPaid : 0.0,
+                                creditAmount: mode == 'credit' ? newDue : 0.0,
                               );
                               Navigator.pop(editCtx);
                               await SupabaseService.instance.updateSale(updated);
@@ -1054,7 +1202,12 @@ class _BillsScreenState extends State<BillsScreen> {
                                     CurrencyFormatter.format(sale.total),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                  if (sale.due > 0)
+                                  if (sale.effectiveUpiPayable > 0.009)
+                                    Text(
+                                      'UPI Pending: ${CurrencyFormatter.format(sale.effectiveUpiPayable)}',
+                                      style: TextStyle(color: Colors.amber.shade800, fontSize: 11, fontWeight: FontWeight.bold),
+                                    )
+                                  else if (sale.due > 0)
                                     Text(
                                       'Due: ${CurrencyFormatter.format(sale.due)}',
                                       style: const TextStyle(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.bold),

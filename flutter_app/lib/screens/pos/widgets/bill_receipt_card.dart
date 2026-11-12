@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../data/models/cart_item.dart';
 import '../../../../core/services/printer_settings_service.dart';
+import '../../../../core/utils/payment_qr_helper.dart';
 
 class DashedDivider extends StatelessWidget {
   final double height;
@@ -57,10 +58,18 @@ class BillReceiptCard extends StatelessWidget {
   final double paid;
   final double due;
   final String paymentMode;
+  final String? paymentStatus;
+  final double? upiPayableAmount;
+  final bool? onlineVerified;
+  final double cashPaid;
+  final double upiPaid;
+  final double creditAmount;
   final String? footerMessage;
   final String? quoteLine1;
   final String? quoteLine2;
   final String? upiId;
+  final String? upiPayeeName;
+  final String? googleReviewUrl;
 
   // Customizable overrides (if null, fetched from PrinterSettingsService)
   final double? fontScale;
@@ -94,10 +103,18 @@ class BillReceiptCard extends StatelessWidget {
     required this.paid,
     this.due = 0.0,
     required this.paymentMode,
+    this.paymentStatus,
+    this.upiPayableAmount,
+    this.onlineVerified,
+    this.cashPaid = 0.0,
+    this.upiPaid = 0.0,
+    this.creditAmount = 0.0,
     this.footerMessage,
     this.quoteLine1,
     this.quoteLine2,
     this.upiId,
+    this.upiPayeeName,
+    this.googleReviewUrl,
     this.fontScale,
     this.printWidth,
     this.showShopName,
@@ -145,11 +162,14 @@ class BillReceiptCard extends StatelessWidget {
 
     final cleanBillNo = billNo.replaceAll(RegExp(r'[^0-9A-Za-z]'), '');
 
-    return Container(
-      width: width,
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-      child: Column(
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.topCenter,
+      child: Container(
+        width: width,
+        color: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -245,14 +265,18 @@ class BillReceiptCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  dateString,
-                  style: TextStyle(
-                    fontSize: 13.0 * scale,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
+                Flexible(
+                  child: Text(
+                    dateString,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13.0 * scale,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 6),
                 Text(
                   'Invoice $cleanBillNo',
                   style: TextStyle(
@@ -428,12 +452,17 @@ class BillReceiptCard extends StatelessWidget {
                   color: Colors.black,
                 ),
               ),
-              Text(
-                'Sub Total : Rs ${subtotal.toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: 13.5 * scale,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Sub Total : Rs ${subtotal.toStringAsFixed(2)}',
+                  textAlign: TextAlign.right,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13.5 * scale,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                  ),
                 ),
               ),
             ],
@@ -505,10 +534,28 @@ class BillReceiptCard extends StatelessWidget {
                     color: Colors.black,
                   ),
                 ),
+                if (paymentMode.toLowerCase() == 'split' &&
+                    (cashPaid > 0 || upiPaid > 0 || (upiPayableAmount ?? 0) > 0 || creditAmount > 0)) ...[
+                  SizedBox(height: 2 * scale),
+                  Text(
+                    [
+                      if (cashPaid > 0) 'Cash: Rs ${cashPaid.toStringAsFixed(2)}',
+                      if (upiPaid > 0) 'UPI Paid: Rs ${upiPaid.toStringAsFixed(2)}',
+                      if ((upiPayableAmount ?? 0) > 0) 'UPI Due: Rs ${upiPayableAmount!.toStringAsFixed(2)}',
+                      if (creditAmount > 0) 'Credit: Rs ${creditAmount.toStringAsFixed(2)}',
+                    ].join(' | '),
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 10.5 * scale,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
                 if (due > 0) ...[
                   SizedBox(height: 3 * scale),
                   Text(
-                    'Due : Rs ${due.toStringAsFixed(2)}',
+                    'Due / शेष : Rs ${due.toStringAsFixed(2)}',
                     style: TextStyle(
                       fontSize: 14.5 * scale,
                       fontWeight: FontWeight.w900,
@@ -520,39 +567,164 @@ class BillReceiptCard extends StatelessWidget {
             ),
           ),
 
-          // Optional UPI QR Code
-          if (optQr && upiId != null && upiId!.trim().isNotEmpty && total > 0) ...[
-            const DashedDivider(),
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    'Scan & Pay (UPI)',
-                    style: TextStyle(
-                      fontSize: 12.0 * scale,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.black,
+          // Dynamic QR Code Section: UPI Payment QR (pending/unverified) OR Google Review QR (verified & paid)
+          Builder(
+            builder: (context) {
+              if (!optQr || total <= 0) return const SizedBox.shrink();
+
+              final effectiveStatus =
+                  paymentStatus ?? (due <= 0.009 ? 'completed' : 'pending');
+              final effectiveVerified = onlineVerified ??
+                  (paymentMode.toLowerCase() == 'online'
+                      ? (effectiveStatus == 'completed' && due <= 0.009)
+                      : due <= 0.009);
+              final effectiveUpiDue = upiPayableAmount ??
+                  (paymentMode.toLowerCase() == 'online' && !effectiveVerified
+                      ? (due > 0.009 ? due : total)
+                      : 0.0);
+
+              final decision = PaymentQrHelper.resolveBillQr(
+                total: total,
+                paid: paid,
+                due: due,
+                paymentMode: paymentMode,
+                paymentStatus: effectiveStatus,
+                onlineVerified: effectiveVerified,
+                upiPayableAmount: effectiveUpiDue,
+                upiId: upiId,
+                shopName: (upiPayeeName != null && upiPayeeName!.trim().isNotEmpty)
+                    ? upiPayeeName!.trim()
+                    : shopName,
+                googleReviewUrl: googleReviewUrl,
+                billNo: billNo,
+              );
+
+              if (decision.type == BillQrType.upiPayment && decision.qrData != null) {
+                return Column(
+                  children: [
+                    const DashedDivider(),
+                    Center(
+                      child: Column(
+                        children: [
+                          Text(
+                            decision.headline,
+                            style: TextStyle(
+                              fontSize: 12.5 * scale,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
+                            ),
+                          ),
+                          SizedBox(height: 2 * scale),
+                          Text(
+                            decision.instructionText,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11.0 * scale,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
+                          SizedBox(height: 6 * scale),
+                          Container(
+                            padding: EdgeInsets.all(6 * scale),
+                            color: Colors.white,
+                            child: QrImageView(
+                              data: decision.qrData!,
+                              version: QrVersions.auto,
+                              size: 132 * scale,
+                              backgroundColor: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 4 * scale),
+                          Text(
+                            'बकाया / Payable: Rs ${decision.amountToPay.toStringAsFixed(2)}',
+                            style: TextStyle(
+                              fontSize: 12.5 * scale,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black,
+                            ),
+                          ),
+                          if (decision.upiId != null && decision.upiId!.isNotEmpty)
+                            Text(
+                              decision.upiId!,
+                              style: TextStyle(
+                                fontSize: 10.5 * scale,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 4 * scale),
-                  QrImageView(
-                    data: 'upi://pay?pa=${upiId!.trim()}&pn=${Uri.encodeComponent(shopName)}&am=${total.toStringAsFixed(2)}&cu=INR',
-                    version: QrVersions.auto,
-                    size: 90 * scale,
-                  ),
-                  SizedBox(height: 2 * scale),
-                  Text(
-                    upiId!.trim(),
-                    style: TextStyle(
-                      fontSize: 10.5 * scale,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                  ],
+                );
+              }
+
+              if (decision.type == BillQrType.googleReview && decision.qrData != null) {
+                return Column(
+                  children: [
+                    const DashedDivider(),
+                    Center(
+                      child: Column(
+                        children: [
+                          Text(
+                            'Google Review',
+                            style: TextStyle(
+                              fontSize: 12.0 * scale,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.black,
+                            ),
+                          ),
+                          SizedBox(height: 6 * scale),
+                          Container(
+                            padding: EdgeInsets.all(6 * scale),
+                            color: Colors.white,
+                            child: QrImageView(
+                              data: decision.qrData!,
+                              version: QrVersions.auto,
+                              size: 120 * scale,
+                              backgroundColor: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 4 * scale),
+                          Text(
+                            decision.instructionText,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 11.0 * scale,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                  ],
+                );
+              }
+
+              if (decision.missingUpiConfig) {
+                return Column(
+                  children: [
+                    const DashedDivider(),
+                    Center(
+                      child: Text(
+                        '${decision.instructionText}\nPayable: Rs ${decision.amountToPay.toStringAsFixed(2)} (UPI ID Settings में सेट करें)',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 10.5 * scale,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              return const SizedBox.shrink();
+            },
+          ),
 
           const DashedDivider(),
 
@@ -613,6 +785,7 @@ class BillReceiptCard extends StatelessWidget {
           ),
           SizedBox(height: 6 * scale),
         ],
+        ),
       ),
     );
   }

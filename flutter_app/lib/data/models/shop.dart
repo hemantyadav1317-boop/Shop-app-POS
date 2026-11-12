@@ -12,6 +12,7 @@ class Shop {
   final String? qrImageUrl; // Custom Standee QR Image URL or path
   final String storeType; // 'vegetable', 'kirana', 'mix', 'other'
   final String? shareCode; // 6-digit unique shop sharing code (e.g. '749201')
+  final String? googleReviewUrl; // Real Google Maps Review URL for post-payment bill QR
 
   bool get isKiranaMode => storeType == 'kirana';
   bool get isVegetableMode => storeType == 'vegetable';
@@ -41,6 +42,7 @@ class Shop {
     this.qrImageUrl,
     this.storeType = 'vegetable',
     this.shareCode,
+    this.googleReviewUrl,
   });
 
   factory Shop.fromJson(Map<String, dynamic> json) {
@@ -58,6 +60,7 @@ class Shop {
       qrImageUrl: json['qr_image_url'] as String?,
       storeType: json['store_type'] as String? ?? 'vegetable',
       shareCode: (json['share_code'] ?? json['shareCode']) as String?,
+      googleReviewUrl: (json['google_review_url'] ?? json['googleReviewUrl']) as String?,
     );
   }
 
@@ -77,6 +80,7 @@ class Shop {
       if (qrImageUrl != null) 'qr_image_url': qrImageUrl,
       'store_type': storeType,
       if (shareCode != null) 'share_code': shareCode,
+      if (googleReviewUrl != null) 'google_review_url': googleReviewUrl,
     };
   }
 
@@ -101,6 +105,8 @@ class Shop {
     String? storeType,
     String? shareCode,
     bool clearShareCode = false,
+    String? googleReviewUrl,
+    bool clearGoogleReviewUrl = false,
   }) {
     return Shop(
       id: id ?? this.id,
@@ -116,6 +122,7 @@ class Shop {
       qrImageUrl: clearQrImageUrl ? null : (qrImageUrl ?? this.qrImageUrl),
       storeType: storeType ?? this.storeType,
       shareCode: clearShareCode ? null : (shareCode ?? this.shareCode),
+      googleReviewUrl: clearGoogleReviewUrl ? null : (googleReviewUrl ?? this.googleReviewUrl),
     );
   }
 }

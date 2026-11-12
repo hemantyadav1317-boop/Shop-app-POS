@@ -1,6 +1,11 @@
+import 'dart:convert';
+import 'dart:math' as math;
 import 'cart_item.dart';
+import '../../core/utils/payment_qr_helper.dart';
 
 class Sale {
+  static const String _metaPrefix = '__POS_META__';
+
   final String id;
   final String shopId;
   final int billNo;
@@ -15,6 +20,13 @@ class Sale {
   final double due;
   final String paymentMode; // 'cash', 'online', 'credit', 'split'
   final String paymentStatus; // 'completed', 'pending'
+  final double cashPaid;
+  final double upiPaid;
+  final double upiPayable;
+  final double creditAmount;
+  final bool onlineVerified;
+  final String? verificationSource;
+  final String? note;
   final DateTime createdAt;
   final String? clientRef;
 
@@ -33,9 +45,106 @@ class Sale {
     this.due = 0.0,
     required this.paymentMode,
     this.paymentStatus = 'completed',
+    double? cashPaid,
+    this.upiPaid = 0.0,
+    this.upiPayable = 0.0,
+    this.creditAmount = 0.0,
+    this.onlineVerified = false,
+    this.verificationSource,
+    this.note,
     required this.createdAt,
     this.clientRef,
-  });
+  }) : cashPaid = cashPaid ??
+            (paymentMode == 'cash' ? paid : 0.0);
+
+  /// Remaining UPI-only payable amount (strictly excludes Cash & Credit).
+  double get effectiveUpiPayable {
+    final mode = paymentMode.trim().toLowerCase();
+    if (mode == 'online') {
+      if (!onlineVerified || paymentStatus != 'completed' || due > 0.009) {
+        if (upiPayable > 0.009) return upiPayable;
+        return due > 0.009 ? due : total;
+      }
+      return 0.0;
+    }
+    if (mode == 'split') {
+      if (!onlineVerified && upiPayable > 0.009) {
+        return math.min(upiPayable, due > 0.009 ? due : upiPayable);
+      }
+      return 0.0;
+    }
+    return 0.0;
+  }
+
+  bool get isFullyPaidAndVerified =>
+      paymentStatus == 'completed' &&
+      due <= 0.009 &&
+      effectiveUpiPayable <= 0.009 &&
+      (paymentMode.trim().toLowerCase() != 'online' || onlineVerified);
+
+  BillQrDecision resolveQr({
+    required String? upiId,
+    required String shopName,
+    required String? googleReviewUrl,
+  }) {
+    return PaymentQrHelper.resolveBillQr(
+      total: total,
+      paid: paid,
+      due: due,
+      paymentMode: paymentMode,
+      paymentStatus: paymentStatus,
+      onlineVerified: onlineVerified,
+      upiPayableAmount: effectiveUpiPayable,
+      upiId: upiId,
+      shopName: shopName,
+      googleReviewUrl: googleReviewUrl,
+      billNo: billNo > 0 ? '$billNo' : id,
+    );
+  }
+
+  /// Structured payment metadata encoded into public.sales.note so existing
+  /// Supabase RPCs persist breakdown, verification & remaining UPI state cleanly.
+  String get encodedNote {
+    final meta = <String, dynamic>{
+      'ps': paymentStatus,
+      'cp': PaymentQrHelper.round2(cashPaid),
+      'up': PaymentQrHelper.round2(upiPaid),
+      'upb': PaymentQrHelper.round2(upiPayable),
+      'cr': PaymentQrHelper.round2(creditAmount),
+      'ov': onlineVerified,
+      if (verificationSource != null && verificationSource!.isNotEmpty)
+        'vs': verificationSource,
+      if (clientRef != null && clientRef!.isNotEmpty) 'cref': clientRef,
+    };
+    final metaJson = '$_metaPrefix${jsonEncode(meta)}';
+    final cleanNote = _stripMetaFromNote(note);
+    if (cleanNote != null && cleanNote.isNotEmpty) {
+      return '$cleanNote\n$metaJson';
+    }
+    return metaJson;
+  }
+
+  static String? _stripMetaFromNote(String? rawNote) {
+    if (rawNote == null) return null;
+    final idx = rawNote.indexOf(_metaPrefix);
+    if (idx == -1) return rawNote.trim();
+    final before = rawNote.substring(0, idx).trim();
+    return before.isEmpty ? null : before;
+  }
+
+  static Map<String, dynamic>? _parseMetaFromNote(String? rawNote) {
+    if (rawNote == null) return null;
+    final idx = rawNote.indexOf(_metaPrefix);
+    if (idx == -1) return null;
+    final jsonPart = rawNote.substring(idx + _metaPrefix.length).trim();
+    try {
+      final decoded = jsonDecode(jsonPart);
+      if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+    } catch (_) {}
+    return null;
+  }
 
   factory Sale.fromJson(Map<String, dynamic> json) {
     List<CartItem> parsedItems = [];
@@ -44,6 +153,73 @@ class Sale {
       parsedItems = rawItems
           .map((item) => CartItem.fromJson(Map<String, dynamic>.from(item as Map)))
           .toList();
+    }
+
+    final totalVal = (json['total'] as num?)?.toDouble() ?? 0.0;
+    final paidVal = (json['paid'] as num?)?.toDouble() ?? 0.0;
+    final dueVal = (json['due'] as num?)?.toDouble() ?? math.max(0.0, totalVal - paidVal);
+    final mode = (json['payment_mode'] as String? ?? 'cash').trim().toLowerCase();
+    final rawNote = json['note'] as String?;
+    final meta = _parseMetaFromNote(rawNote);
+    final cleanUserNote = _stripMetaFromNote(rawNote);
+
+    final String status = (json['payment_status'] as String?) ??
+        (meta?['ps'] as String?) ??
+        (dueVal <= 0.009 ? 'completed' : 'pending');
+
+    final bool hasExplicitBreak =
+        meta != null || json.containsKey('online_verified') || json.containsKey('upi_payable');
+
+    late final double cashPaid;
+    late final double upiPaid;
+    late final double upiPayable;
+    late final double creditAmount;
+    late final bool onlineVerified;
+    late final String? verificationSource;
+
+    if (hasExplicitBreak) {
+      cashPaid = ((json['cash_paid'] ?? meta?['cp']) as num?)?.toDouble() ??
+          (mode == 'cash' ? paidVal : 0.0);
+      upiPaid = ((json['upi_paid'] ?? meta?['up']) as num?)?.toDouble() ?? 0.0;
+      upiPayable = ((json['upi_payable'] ?? meta?['upb']) as num?)?.toDouble() ?? 0.0;
+      creditAmount = ((json['credit_amount'] ?? meta?['cr']) as num?)?.toDouble() ??
+          (mode == 'credit' ? dueVal : 0.0);
+      onlineVerified = (json['online_verified'] as bool?) ??
+          (meta?['ov'] as bool?) ??
+          (mode == 'online' && status == 'completed' && dueVal <= 0.009);
+      verificationSource = (json['verification_source'] ?? meta?['vs']) as String?;
+    } else {
+      // Legacy record compatibility (pre-v1.4.8 rows without __POS_META__)
+      if (mode == 'cash') {
+        cashPaid = paidVal;
+        upiPaid = 0.0;
+        upiPayable = 0.0;
+        creditAmount = dueVal;
+        onlineVerified = false;
+        verificationSource = 'cash_drawer';
+      } else if (mode == 'online') {
+        final legacyPaidFull = status == 'completed' && dueVal <= 0.009;
+        cashPaid = 0.0;
+        upiPaid = legacyPaidFull ? paidVal : 0.0;
+        upiPayable = legacyPaidFull ? 0.0 : (dueVal > 0.009 ? dueVal : totalVal);
+        creditAmount = 0.0;
+        onlineVerified = legacyPaidFull;
+        verificationSource = legacyPaidFull ? 'legacy_completed' : 'unverified';
+      } else if (mode == 'credit') {
+        cashPaid = paidVal;
+        upiPaid = 0.0;
+        upiPayable = 0.0;
+        creditAmount = dueVal > 0.009 ? dueVal : math.max(0.0, totalVal - paidVal);
+        onlineVerified = false;
+        verificationSource = 'khata_credit';
+      } else {
+        cashPaid = paidVal;
+        upiPaid = 0.0;
+        upiPayable = 0.0;
+        creditAmount = dueVal;
+        onlineVerified = dueVal <= 0.009;
+        verificationSource = 'legacy_split';
+      }
     }
 
     return Sale(
@@ -56,15 +232,22 @@ class Sale {
       items: parsedItems,
       subtotal: ((json['subtotal'] ?? json['sub_total']) as num?)?.toDouble() ?? 0.0,
       discount: (json['discount'] as num?)?.toDouble() ?? 0.0,
-      total: (json['total'] as num?)?.toDouble() ?? 0.0,
-      paid: (json['paid'] as num?)?.toDouble() ?? 0.0,
-      due: (json['due'] as num?)?.toDouble() ?? 0.0,
-      paymentMode: json['payment_mode'] as String? ?? 'cash',
-      paymentStatus: json['payment_status'] as String? ?? 'completed',
-      createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'] as String).toLocal() 
+      total: totalVal,
+      paid: paidVal,
+      due: dueVal,
+      paymentMode: mode,
+      paymentStatus: status,
+      cashPaid: cashPaid,
+      upiPaid: upiPaid,
+      upiPayable: upiPayable,
+      creditAmount: creditAmount,
+      onlineVerified: onlineVerified,
+      verificationSource: verificationSource,
+      note: cleanUserNote,
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'] as String).toLocal()
           : DateTime.now(),
-      clientRef: json['client_ref'] as String?,
+      clientRef: (json['client_ref'] ?? meta?['cref']) as String?,
     );
   }
 
@@ -84,6 +267,13 @@ class Sale {
       'due': due,
       'payment_mode': paymentMode,
       'payment_status': paymentStatus,
+      'cash_paid': cashPaid,
+      'upi_paid': upiPaid,
+      'upi_payable': upiPayable,
+      'credit_amount': creditAmount,
+      'online_verified': onlineVerified,
+      if (verificationSource != null) 'verification_source': verificationSource,
+      'note': encodedNote,
       'created_at': createdAt.toIso8601String(),
       'client_ref': clientRef,
     };
@@ -104,6 +294,13 @@ class Sale {
     double? due,
     String? paymentMode,
     String? paymentStatus,
+    double? cashPaid,
+    double? upiPaid,
+    double? upiPayable,
+    double? creditAmount,
+    bool? onlineVerified,
+    String? verificationSource,
+    String? note,
     DateTime? createdAt,
     String? clientRef,
   }) {
@@ -122,6 +319,13 @@ class Sale {
       due: due ?? this.due,
       paymentMode: paymentMode ?? this.paymentMode,
       paymentStatus: paymentStatus ?? this.paymentStatus,
+      cashPaid: cashPaid ?? this.cashPaid,
+      upiPaid: upiPaid ?? this.upiPaid,
+      upiPayable: upiPayable ?? this.upiPayable,
+      creditAmount: creditAmount ?? this.creditAmount,
+      onlineVerified: onlineVerified ?? this.onlineVerified,
+      verificationSource: verificationSource ?? this.verificationSource,
+      note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
       clientRef: clientRef ?? this.clientRef,
     );

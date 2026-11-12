@@ -7,6 +7,7 @@ import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
 import 'ai_quote_service.dart';
 import 'printer_settings_service.dart';
+import '../utils/payment_qr_helper.dart';
 
 class BluetoothPrinterService {
   static const String _prefMacKey = 'saved_bt_printer_mac';
@@ -171,9 +172,41 @@ class BluetoothPrinterService {
 
         bytes += generator.row([
           PosColumn(text: 'TOTAL', width: 6, styles: const PosStyles(bold: true, height: PosTextSize.size2)),
-          PosColumn(text: '₹${sale.total.toStringAsFixed(2)}', width: 6, styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size2)),
+          PosColumn(text: 'Rs ${sale.total.toStringAsFixed(2)}', width: 6, styles: const PosStyles(align: PosAlign.right, bold: true, height: PosTextSize.size2)),
         ]);
+        bytes += generator.text(
+          'Paid: Rs ${sale.paid.toStringAsFixed(2)}${sale.due > 0 ? ' | Due: Rs ${sale.due.toStringAsFixed(2)}' : ''}',
+          styles: const PosStyles(align: PosAlign.right),
+        );
         bytes += generator.hr();
+
+        final payeeName = (shop.upiPayeeName != null && shop.upiPayeeName!.trim().isNotEmpty)
+            ? shop.upiPayeeName!.trim()
+            : shop.name;
+        final qrDecision = sale.resolveQr(
+          upiId: shop.upiId,
+          shopName: payeeName,
+          googleReviewUrl: shop.googleReviewUrl,
+        );
+        if (ps.showQr && qrDecision.hasQr) {
+          bytes += generator.text(qrDecision.headline, styles: const PosStyles(align: PosAlign.center, bold: true));
+          bytes += generator.qrcode(qrDecision.qrData!, size: QRSize.size6);
+          if (qrDecision.type == BillQrType.upiPayment) {
+            bytes += generator.text(
+              'Payable: Rs ${qrDecision.amountToPay.toStringAsFixed(2)}',
+              styles: const PosStyles(align: PosAlign.center, bold: true),
+            );
+            if (qrDecision.upiId != null && qrDecision.upiId!.isNotEmpty) {
+              bytes += generator.text(qrDecision.upiId!, styles: const PosStyles(align: PosAlign.center));
+            }
+          } else {
+            bytes += generator.text(
+              'Liked our service? Review us on Google. Thank you!',
+              styles: const PosStyles(align: PosAlign.center),
+            );
+          }
+          bytes += generator.hr();
+        }
 
         if (ps.showQuote) {
           final quote = await AiQuoteService.getUniqueQuoteForBill();

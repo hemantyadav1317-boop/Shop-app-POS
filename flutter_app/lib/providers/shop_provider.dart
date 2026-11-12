@@ -250,6 +250,12 @@ class ShopProvider extends ChangeNotifier {
       await prefs.remove('shop_qr_image_url');
     }
 
+    if (updated.googleReviewUrl != null && updated.googleReviewUrl!.trim().isNotEmpty) {
+      await prefs.setString('shop_google_review_url', updated.googleReviewUrl!.trim());
+    } else {
+      await prefs.remove('shop_google_review_url');
+    }
+
     final synced = await SupabaseService.instance.updateShop(updated);
     if (synced.id != _shop.id) {
       _shop = synced;

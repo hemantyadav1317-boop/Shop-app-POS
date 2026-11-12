@@ -10,6 +10,8 @@ import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
 import 'bluetooth_printer_service.dart';
 import 'ai_quote_service.dart';
+import 'printer_settings_service.dart';
+import '../utils/payment_qr_helper.dart';
 
 class ReceiptPrintService {
   /// Generate PDF document for thermal receipt (58mm or 80mm) with Hindi Unicode support
@@ -26,6 +28,15 @@ class ReceiptPrintService {
 
     final dateFormat = DateFormat('dd-MM-yyyy hh:mm a');
     final formattedDate = dateFormat.format(sale.createdAt);
+    final payeeName = (shop.upiPayeeName != null && shop.upiPayeeName!.trim().isNotEmpty)
+        ? shop.upiPayeeName!.trim()
+        : shop.name;
+    final qrDecision = sale.resolveQr(
+      upiId: shop.upiId,
+      shopName: payeeName,
+      googleReviewUrl: shop.googleReviewUrl,
+    );
+    final showQr = PrinterSettingsService.instance.showQr;
 
     // Load Devanagari Hindi font so Indian characters and Hindi item names render properly
     pw.ThemeData? themeData;
@@ -194,10 +205,76 @@ class ReceiptPrintService {
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text('Balance (Udhar):', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('Balance (Due / शेष):', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                     pw.Text('₹${sale.due.toStringAsFixed(2)}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                   ],
                 ),
+              if (sale.paymentMode == 'split') ...[
+                pw.SizedBox(height: 2),
+                pw.Text(
+                  [
+                    if (sale.cashPaid > 0) 'Cash: ₹${sale.cashPaid.toStringAsFixed(2)}',
+                    if (sale.upiPaid > 0) 'UPI Paid: ₹${sale.upiPaid.toStringAsFixed(2)}',
+                    if (sale.effectiveUpiPayable > 0) 'UPI Due: ₹${sale.effectiveUpiPayable.toStringAsFixed(2)}',
+                    if (sale.creditAmount > 0) 'Credit: ₹${sale.creditAmount.toStringAsFixed(2)}',
+                  ].join(' | '),
+                  style: const pw.TextStyle(fontSize: 7),
+                ),
+              ],
+              pw.SizedBox(height: 3),
+              pw.Text(
+                sale.isFullyPaidAndVerified
+                    ? 'Status: PAID (Verified)'
+                    : (sale.effectiveUpiPayable > 0.009
+                        ? 'Status: PAYMENT PENDING (UPI ₹${sale.effectiveUpiPayable.toStringAsFixed(2)})'
+                        : 'Status: PENDING / UDHAR'),
+                style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+              ),
+
+              if (showQr && qrDecision.hasQr) ...[
+                pw.SizedBox(height: 4),
+                pw.Divider(thickness: 0.6),
+                pw.Center(
+                  child: pw.Column(
+                    children: [
+                      pw.Text(
+                        qrDecision.headline,
+                        style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                      ),
+                      if (qrDecision.type == BillQrType.upiPayment) ...[
+                        pw.SizedBox(height: 2),
+                        pw.Text(
+                          qrDecision.instructionText,
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                      ],
+                      pw.SizedBox(height: 4),
+                      pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: qrDecision.qrData!,
+                        width: is80mm ? 105 : 85,
+                        height: is80mm ? 105 : 85,
+                      ),
+                      pw.SizedBox(height: 4),
+                      if (qrDecision.type == BillQrType.upiPayment) ...[
+                        pw.Text(
+                          'बकाया / Payable: ₹${qrDecision.amountToPay.toStringAsFixed(2)}',
+                          style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                        if (qrDecision.upiId != null && qrDecision.upiId!.isNotEmpty)
+                          pw.Text(qrDecision.upiId!, style: const pw.TextStyle(fontSize: 7)),
+                      ] else ...[
+                        pw.Text(
+                          qrDecision.instructionText,
+                          textAlign: pw.TextAlign.center,
+                          style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
               pw.SizedBox(height: 6),
               pw.Divider(thickness: 0.8),
 
@@ -299,6 +376,69 @@ class ReceiptPrintService {
     return false;
   }
 
+  /// Build contextual share message matching verified vs pending payment state
+  static String buildShareCaption({required Sale sale, required Shop shop}) {
+    final payeeName = (shop.upiPayeeName != null && shop.upiPayeeName!.trim().isNotEmpty)
+        ? shop.upiPayeeName!.trim()
+        : shop.name;
+    final decision = sale.resolveQr(
+      upiId: shop.upiId,
+      shopName: payeeName,
+      googleReviewUrl: shop.googleReviewUrl,
+    );
+    if (decision.type == BillQrType.upiPayment) {
+      return 'बिल / Invoice #${sale.billNo} - ${shop.name}\n'
+          'कुल राशि: ₹${sale.total.toStringAsFixed(2)} | बकाया (UPI): ₹${decision.amountToPay.toStringAsFixed(2)}\n'
+          '${PaymentQrHelper.upiPaymentInstructionHindi}';
+    }
+    if (decision.type == BillQrType.googleReview) {
+      return 'बिल / Invoice #${sale.billNo} - ${shop.name}\n'
+          'भुगतान प्राप्त (₹${sale.paid.toStringAsFixed(2)}) ✓\n'
+          '${PaymentQrHelper.googleReviewInstructionHindi}';
+    }
+    return 'बिल / Invoice #${sale.billNo} - ${shop.name} (₹${sale.total.toStringAsFixed(2)})';
+  }
+
+  /// Download bill PDF (with embedded UPI Payment or Google Review QR) to local storage
+  static Future<File> downloadReceiptPdf({
+    required Sale sale,
+    required Shop shop,
+    String? shopEmail,
+  }) async {
+    final pdf = await generateReceiptDocument(
+      sale: sale,
+      shop: shop,
+      shopEmail: shopEmail,
+    );
+    final bytes = await pdf.save();
+    final baseDir = await getApplicationDocumentsDirectory();
+    final invoicesDir = Directory('${baseDir.path}/Invoices');
+    if (!await invoicesDir.exists()) {
+      await invoicesDir.create(recursive: true);
+    }
+    final file = File('${invoicesDir.path}/Invoice_${sale.billNo}.pdf');
+    await file.writeAsBytes(bytes, flush: true);
+    return file;
+  }
+
+  /// Export / Save Bill PDF via Android system share/save dialog
+  static Future<void> exportReceiptPdf({
+    required Sale sale,
+    required Shop shop,
+    String? shopEmail,
+  }) async {
+    final pdf = await generateReceiptDocument(
+      sale: sale,
+      shop: shop,
+      shopEmail: shopEmail,
+    );
+    final bytes = await pdf.save();
+    await Printing.sharePdf(
+      bytes: bytes,
+      filename: 'Invoice_${sale.billNo}.pdf',
+    );
+  }
+
   /// Share receipt image or PDF on WhatsApp or other apps
   static Future<void> shareReceipt({
     required Sale sale,
@@ -306,13 +446,14 @@ class ReceiptPrintService {
     Uint8List? imageBytes,
     String? shopEmail,
   }) async {
+    final caption = buildShareCaption(sale: sale, shop: shop);
     if (imageBytes != null) {
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/Invoice_${sale.billNo}.png');
       await file.writeAsBytes(imageBytes);
       await Share.shareXFiles(
         [XFile(file.path)],
-        text: 'बिल / Invoice #${sale.billNo} - ${shop.name}',
+        text: caption,
       );
       return;
     }

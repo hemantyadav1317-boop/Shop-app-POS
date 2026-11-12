@@ -54,11 +54,17 @@ void main() async {
       initialShop = Shop.fromJson(decoded);
       final localUpi = prefs.getString('shop_upi_id');
       final localQr = prefs.getString('shop_qr_image_url');
+      final localReviewUrl = prefs.getString('shop_google_review_url');
       if ((initialShop.upiId == null || initialShop.upiId!.isEmpty) && localUpi != null && localUpi.isNotEmpty) {
         initialShop = initialShop.copyWith(upiId: localUpi);
       }
       if ((initialShop.qrImageUrl == null || initialShop.qrImageUrl!.isEmpty) && localQr != null && localQr.isNotEmpty) {
         initialShop = initialShop.copyWith(qrImageUrl: localQr);
+      }
+      if ((initialShop.googleReviewUrl == null || initialShop.googleReviewUrl!.isEmpty) &&
+          localReviewUrl != null &&
+          localReviewUrl.isNotEmpty) {
+        initialShop = initialShop.copyWith(googleReviewUrl: localReviewUrl);
       }
       SupabaseService.instance.setLocalShop(initialShop);
       if (decoded['id'] != null) {
@@ -75,6 +81,7 @@ void main() async {
           upiId: prefs.getString('shop_upi_id'),
           upiPayeeName: prefs.getString('shop_upi_payee_name'),
           qrImageUrl: prefs.getString('shop_qr_image_url'),
+          googleReviewUrl: prefs.getString('shop_google_review_url'),
           storeType: prefs.getString('shop_store_type') ?? 'vegetable',
         );
         SupabaseService.instance.setLocalShop(initialShop);

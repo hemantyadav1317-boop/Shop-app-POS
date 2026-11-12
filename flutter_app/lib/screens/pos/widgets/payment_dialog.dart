@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -11,6 +12,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/sound_service.dart';
 import '../../../../core/services/receipt_print_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/payment_qr_helper.dart';
 import '../../../../data/models/sale.dart';
 import '../../../../data/models/shop.dart';
 import '../../../../data/services/supabase_service.dart';
@@ -34,10 +36,12 @@ class PaymentDialog extends StatefulWidget {
 class _PaymentDialogState extends State<PaymentDialog> {
   String _paymentMode = 'cash'; // 'cash', 'online', 'credit', 'split'
   late TextEditingController _paidController;
+  late TextEditingController _upiController;
   bool _isSaving = false;
   Sale? _completedSale;
   bool _onlinePaymentVerified = false;
   late int _billNo;
+  late final String _clientRef = const Uuid().v4();
   final ScreenshotController _screenshotController = ScreenshotController();
   BillQuote? _currentBillQuote;
 
@@ -46,6 +50,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     super.initState();
     final cart = context.read<CartProvider>();
     _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
+    _upiController = TextEditingController(text: '0.00');
     _billNo = DateTime.now().millisecondsSinceEpoch % 100000;
     _loadQuote();
   }
@@ -62,6 +67,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   @override
   void dispose() {
     _paidController.dispose();
+    _upiController.dispose();
     super.dispose();
   }
 
@@ -70,26 +76,47 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final cart = context.read<CartProvider>();
     setState(() {
       _paymentMode = mode;
+      _onlinePaymentVerified = false;
       if (mode == 'cash') {
         _paidController.text = cart.total.toStringAsFixed(2);
+        _upiController.text = '0.00';
       } else if (mode == 'online') {
-        _paidController.text = cart.total.toStringAsFixed(2);
+        _paidController.text = '0.00';
+        _upiController.text = cart.total.toStringAsFixed(2);
       } else if (mode == 'credit') {
         _paidController.text = '0.00';
+        _upiController.text = '0.00';
       } else if (mode == 'split') {
-        _paidController.text = (cart.total / 2).toStringAsFixed(2);
+        final halfCash = PaymentQrHelper.round2(cart.total / 2);
+        final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - halfCash));
+        _paidController.text = halfCash.toStringAsFixed(2);
+        _upiController.text = remUpi.toStringAsFixed(2);
       }
     });
+  }
+
+  PaymentBreakdown _computeBreakdown(CartProvider cart) {
+    final cashInput = double.tryParse(_paidController.text.trim()) ?? 0.0;
+    final upiInput = double.tryParse(_upiController.text.trim()) ?? 0.0;
+    return PaymentQrHelper.calculateBreakdown(
+      total: cart.total,
+      paymentMode: _paymentMode,
+      cashAmount: cashInput,
+      upiAmount: upiInput,
+      onlineVerified: _onlinePaymentVerified,
+      verificationSource: _paymentMode == 'online' || (_paymentMode == 'split' && upiInput > 0)
+          ? (_onlinePaymentVerified ? 'cashier_verified' : 'unverified')
+          : null,
+    );
   }
 
   Sale _buildCurrentSale(Shop shop, CartProvider cart) {
     if (_completedSale != null) return _completedSale!;
 
-    final paidAmount = double.tryParse(_paidController.text) ?? 0.0;
-    final dueAmount = (cart.total - paidAmount) > 0 ? (cart.total - paidAmount) : 0.0;
+    final breakdown = _computeBreakdown(cart);
 
     return Sale(
-      id: const Uuid().v4(),
+      id: _clientRef,
       shopId: shop.id,
       billNo: _billNo,
       customerId: cart.customer?.id,
@@ -99,12 +126,18 @@ class _PaymentDialogState extends State<PaymentDialog> {
       subtotal: cart.subtotal,
       discount: cart.discount,
       total: cart.total,
-      paid: paidAmount > cart.total ? cart.total : paidAmount,
-      due: dueAmount,
+      paid: breakdown.paid,
+      due: breakdown.due,
       paymentMode: _paymentMode,
-      paymentStatus: dueAmount == 0 ? 'completed' : 'pending',
+      paymentStatus: breakdown.paymentStatus,
+      cashPaid: breakdown.cashPaid,
+      upiPaid: breakdown.upiPaid,
+      upiPayable: breakdown.upiPayable,
+      creditAmount: breakdown.creditAmount,
+      onlineVerified: breakdown.onlineVerified,
+      verificationSource: breakdown.verificationSource,
       createdAt: DateTime.now(),
-      clientRef: const Uuid().v4(),
+      clientRef: _clientRef,
     );
   }
 
@@ -149,6 +182,22 @@ class _PaymentDialogState extends State<PaymentDialog> {
       return;
     }
 
+    if (_paymentMode == 'split') {
+      final splitErr = PaymentQrHelper.validateSplitAmounts(
+        total: cart.total,
+        cashAmount: double.tryParse(_paidController.text.trim()) ?? 0.0,
+        upiAmount: double.tryParse(_upiController.text.trim()) ?? 0.0,
+      );
+      if (splitErr != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(backgroundColor: AppColors.error, content: Text(splitErr)),
+        );
+        return;
+      }
+    }
+
+    final breakdown = _computeBreakdown(cart);
+
     if (_paymentMode == 'credit' && cart.customer == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -159,13 +208,23 @@ class _PaymentDialogState extends State<PaymentDialog> {
       return;
     }
 
-    final paidAmount = double.tryParse(_paidController.text) ?? 0.0;
-    final dueAmount = (cart.total - paidAmount) > 0 ? (cart.total - paidAmount) : 0.0;
+    if (_paymentMode == 'split' && breakdown.creditAmount > 0.009 && cart.customer == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('Split में उधार (Credit) राशि रखने के लिए ग्राहक (Customer) चुनें या Cash + UPI पूरा करें!'),
+        ),
+      );
+      return;
+    }
+
+    final dueAmount = breakdown.due;
 
     // 🛑 Check Customer Credit Limit
-    if ((_paymentMode == 'credit' || dueAmount > 0) && cart.customer != null) {
+    if ((_paymentMode == 'credit' || breakdown.creditAmount > 0.009) && cart.customer != null) {
+      final creditPortion = _paymentMode == 'credit' ? breakdown.due : breakdown.creditAmount;
       final cust = cart.customer!;
-      if (cust.creditLimit > 0 && (cust.balance + dueAmount) > cust.creditLimit) {
+      if (cust.creditLimit > 0 && (cust.balance + creditPortion) > cust.creditLimit) {
         final proceed = await showDialog<bool>(
           context: context,
           builder: (alertCtx) => AlertDialog(
@@ -271,12 +330,18 @@ class _PaymentDialogState extends State<PaymentDialog> {
         subtotal: cart.subtotal,
         discount: cart.discount,
         total: cart.total,
-        paid: paidAmount > cart.total ? cart.total : paidAmount,
-        due: dueAmount,
+        paid: breakdown.paid,
+        due: breakdown.due,
         paymentMode: _paymentMode,
-        paymentStatus: dueAmount == 0 ? 'completed' : 'pending',
+        paymentStatus: breakdown.paymentStatus,
+        cashPaid: breakdown.cashPaid,
+        upiPaid: breakdown.upiPaid,
+        upiPayable: breakdown.upiPayable,
+        creditAmount: breakdown.creditAmount,
+        onlineVerified: breakdown.onlineVerified,
+        verificationSource: breakdown.verificationSource,
         createdAt: DateTime.now(),
-        clientRef: const Uuid().v4(),
+        clientRef: _clientRef,
       );
 
       final saved = await SupabaseService.instance.createSale(sale);
@@ -326,6 +391,48 @@ class _PaymentDialogState extends State<PaymentDialog> {
     }
   }
 
+  Future<void> _handleDownload() async {
+    SoundService.instance.playButtonClick();
+    final shop = context.read<ShopProvider>().shop;
+    final cart = context.read<CartProvider>();
+    final sale = _completedSale ?? _buildCurrentSale(shop, cart);
+    final userEmail = SupabaseService.instance.client?.auth.currentUser?.email;
+
+    try {
+      final savedFile = await ReceiptPrintService.downloadReceiptPdf(
+        sale: sale,
+        shop: shop,
+        shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: const Color(0xFF00875A),
+            duration: const Duration(seconds: 4),
+            content: Text('बिल PDF सेव हो गया: ${savedFile.path.split(Platform.pathSeparator).last}'),
+            action: SnackBarAction(
+              label: 'Save / Open',
+              textColor: Colors.white,
+              onPressed: () {
+                ReceiptPrintService.exportReceiptPdf(
+                  sale: sale,
+                  shop: shop,
+                  shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
+                );
+              },
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(backgroundColor: AppColors.error, content: Text('डाउनलोड एरर: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _handleShare() async {
     SoundService.instance.playButtonClick();
     final shop = context.read<ShopProvider>().shop;
@@ -354,44 +461,57 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final shop = context.watch<ShopProvider>().shop;
     final userEmail = SupabaseService.instance.client?.auth.currentUser?.email;
 
-    final paidAmount = double.tryParse(_paidController.text) ?? 0.0;
-    final changeDue = (paidAmount - cart.total) > 0 ? (paidAmount - cart.total) : 0.0;
-    final remainingUdhar = (cart.total - paidAmount) > 0 ? (cart.total - paidAmount) : 0.0;
+    final cashInput = double.tryParse(_paidController.text.trim()) ?? 0.0;
+    final changeDue = (_paymentMode == 'cash' && cashInput > cart.total)
+        ? (cashInput - cart.total)
+        : 0.0;
+    final breakdown = _computeBreakdown(cart);
 
-    final hasValidUpi = shop.upiId != null && shop.upiId!.trim().isNotEmpty && shop.upiId!.contains('@');
-    final upiUri = hasValidUpi
+    final checkoutUpiAmount = _paymentMode == 'online'
+        ? cart.total
+        : (_paymentMode == 'split' ? breakdown.upiDeclared : 0.0);
+
+    final hasValidUpi = PaymentQrHelper.isValidUpiId(shop.upiId);
+    final upiUri = (hasValidUpi && checkoutUpiAmount > 0.009)
         ? UpiService.generateUpiUri(
             upiId: shop.upiId!.trim(),
             payeeName: (shop.upiPayeeName != null && shop.upiPayeeName!.trim().isNotEmpty)
                 ? shop.upiPayeeName!.trim()
                 : shop.name,
-            amount: _paymentMode == 'split' ? remainingUdhar : cart.total,
+            amount: checkoutUpiAmount,
             note: 'Bill #$_billNo',
+            billNo: '$_billNo',
           )
         : null;
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SafeArea(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 720),
-          child: _completedSale == null
-              ? _buildCheckoutStep(
-                  context: context,
-                  cart: cart,
-                  shop: shop,
-                  userEmail: userEmail,
-                  paidAmount: paidAmount,
-                  changeDue: changeDue,
-                  remainingUdhar: remainingUdhar,
-                  upiUri: upiUri,
-                )
-              : _buildCompletedReceiptStep(
-                  context: context,
-                  shop: shop,
-                  userEmail: userEmail,
-                ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isTablet = constraints.maxWidth >= 520;
+            final maxDialogWidth = isTablet ? 520.0 : 440.0;
+            return Container(
+              constraints: BoxConstraints(maxWidth: maxDialogWidth, maxHeight: 760),
+              child: _completedSale == null
+                  ? _buildCheckoutStep(
+                      context: context,
+                      cart: cart,
+                      shop: shop,
+                      userEmail: userEmail,
+                      breakdown: breakdown,
+                      changeDue: changeDue,
+                      checkoutUpiAmount: checkoutUpiAmount,
+                      upiUri: upiUri,
+                    )
+                  : _buildCompletedReceiptStep(
+                      context: context,
+                      shop: shop,
+                      userEmail: userEmail,
+                    ),
+            );
+          },
         ),
       ),
     );
@@ -403,9 +523,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
     required CartProvider cart,
     required Shop shop,
     required String? userEmail,
-    required double paidAmount,
+    required PaymentBreakdown breakdown,
     required double changeDue,
-    required double remainingUdhar,
+    required double checkoutUpiAmount,
     required String? upiUri,
   }) {
     return Column(
@@ -528,85 +648,166 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 const SizedBox(height: 14),
 
                 // Mode Specific Views:
-                // 1. Online UPI QR
-                if (_paymentMode == 'online' || (_paymentMode == 'split' && remainingUdhar > 0)) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.shade200),
-                    ),
-                    child: Column(
-                      children: [
-                        const Text('UPI QR कोड स्कैन करें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.blue)),
-                        const SizedBox(height: 8),
-                        Center(
-                          child: (shop.qrImageUrl != null && shop.qrImageUrl!.trim().isNotEmpty)
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: shop.qrImageUrl!.startsWith('data:image')
-                                      ? Image.memory(
-                                          base64Decode(shop.qrImageUrl!.split(',').last),
-                                          width: 150,
-                                          height: 150,
-                                          fit: BoxFit.contain,
-                                          errorBuilder: (context, error, stackTrace) => (upiUri != null)
-                                              ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
-                                              : _buildNoUpiWarning(),
-                                        )
-                                      : shop.qrImageUrl!.startsWith('http')
-                                          ? Image.network(
-                                              shop.qrImageUrl!,
-                                              width: 150,
-                                              height: 150,
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (context, error, stackTrace) => (upiUri != null)
-                                                  ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
-                                                  : _buildNoUpiWarning(),
-                                            )
-                                          : (!kIsWeb
-                                              ? Image.file(
-                                                  File(shop.qrImageUrl!),
-                                                  width: 150,
-                                                  height: 150,
-                                                  fit: BoxFit.contain,
-                                                  errorBuilder: (context, error, stackTrace) => (upiUri != null)
-                                                      ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
-                                                      : _buildNoUpiWarning(),
-                                                )
-                                              : (upiUri != null
-                                                  ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
-                                                  : _buildNoUpiWarning())),
-                                )
-                              : (upiUri != null
-                                  ? QrImageView(data: upiUri, size: 140.0, backgroundColor: Colors.white)
-                                  : _buildNoUpiWarning()),
+                // 1. Online / Split UPI QR (Enlarged 1.5x-2x Responsive + Quiet Zone + Verified Toggle)
+                if (_paymentMode == 'online' || (_paymentMode == 'split' && checkoutUpiAmount > 0.009)) ...[
+                  LayoutBuilder(
+                    builder: (context, qrConstraints) {
+                      final qrSize = (qrConstraints.maxWidth * 0.68).clamp(210.0, 260.0);
+                      final hasStandeeFallback = upiUri == null &&
+                          shop.qrImageUrl != null &&
+                          shop.qrImageUrl!.trim().isNotEmpty;
+
+                      Widget renderQrVisual() {
+                        // Always prioritize live Dynamic Amount UPI QR when valid UPI ID is set
+                        if (upiUri != null && upiUri.isNotEmpty) {
+                          return QrImageView(
+                            data: upiUri,
+                            version: QrVersions.auto,
+                            size: qrSize,
+                            backgroundColor: Colors.white,
+                          );
+                        }
+                        if (hasStandeeFallback) {
+                          final imgUrl = shop.qrImageUrl!.trim();
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: imgUrl.startsWith('data:image')
+                                ? Image.memory(
+                                    base64Decode(imgUrl.split(',').last),
+                                    width: qrSize,
+                                    height: qrSize,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (context, error, stackTrace) => _buildNoUpiWarning(),
+                                  )
+                                : imgUrl.startsWith('http')
+                                    ? Image.network(
+                                        imgUrl,
+                                        width: qrSize,
+                                        height: qrSize,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) => _buildNoUpiWarning(),
+                                      )
+                                    : (!kIsWeb
+                                        ? Image.file(
+                                            File(imgUrl),
+                                            width: qrSize,
+                                            height: qrSize,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (context, error, stackTrace) => _buildNoUpiWarning(),
+                                          )
+                                        : _buildNoUpiWarning()),
+                          );
+                        }
+                        return _buildNoUpiWarning();
+                      }
+
+                      return Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: _onlinePaymentVerified ? Colors.green.shade400 : Colors.blue.shade200,
+                            width: 1.4,
+                          ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          CurrencyFormatter.format(_paymentMode == 'split' ? remainingUdhar : cart.total),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text(
+                              _paymentMode == 'split'
+                                  ? 'Split UPI QR कोड स्कैन करें (केवल UPI हिस्सा)'
+                                  : 'UPI QR कोड स्कैन करें',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue),
+                            ),
+                            const SizedBox(height: 12),
+                            // Center QR with generous Quiet Zone (16px white padding)
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: Colors.grey.shade200),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: 0.06),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: renderQrVisual(),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'Payable: ${CurrencyFormatter.format(checkoutUpiAmount)}',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 20,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            if (shop.upiId != null && shop.upiId!.trim().isNotEmpty)
+                              Text(
+                                'UPI ID: ${shop.upiId!.trim()}',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF1E293B),
+                                ),
+                              )
+                            else
+                              const Text(
+                                'UPI ID: सेट नहीं है (Settings में जोड़ें)',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.w600),
+                              ),
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: _onlinePaymentVerified ? Colors.green.shade50 : Colors.amber.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: _onlinePaymentVerified ? Colors.green.shade300 : Colors.amber.shade300,
+                                ),
+                              ),
+                              child: CheckboxListTile(
+                                title: const Text(
+                                  'Payment प्राप्त हो गया (Verified)',
+                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: Text(
+                                  _onlinePaymentVerified
+                                      ? 'भुगतान सत्यापित ✓ — बिल में Google Review QR दिखेगा'
+                                      : 'असत्यापित (Pending) — बिल में UPI Payment QR दिखेगा',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: _onlinePaymentVerified ? Colors.green.shade800 : Colors.amber.shade900,
+                                  ),
+                                ),
+                                value: _onlinePaymentVerified,
+                                onChanged: (val) {
+                                  setState(() {
+                                    _onlinePaymentVerified = val ?? false;
+                                  });
+                                },
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                controlAffinity: ListTileControlAffinity.leading,
+                              ),
+                            ),
+                          ],
                         ),
-                        if (shop.upiId != null && shop.upiId!.trim().isNotEmpty)
-                          Text('UPI ID: ${shop.upiId!.trim()}', style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary))
-                        else
-                          const Text('UPI ID: सेट नहीं है (Settings में जोड़ें)', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w500)),
-                        const SizedBox(height: 6),
-                        CheckboxListTile(
-                          title: const Text('Payment प्राप्त हो गया (Verified)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          value: _onlinePaymentVerified,
-                          onChanged: (val) {
-                            setState(() {
-                              _onlinePaymentVerified = val ?? false;
-                            });
-                          },
-                          dense: true,
-                          contentPadding: EdgeInsets.zero,
-                          controlAffinity: ListTileControlAffinity.leading,
-                        ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -671,9 +872,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   const SizedBox(height: 12),
                 ],
 
-                // 3. Cash Inputs
+                // 3. Cash & Split Inputs
                 if (_paymentMode == 'cash' || _paymentMode == 'split') ...[
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
                         child: Column(
@@ -697,6 +899,31 @@ class _PaymentDialogState extends State<PaymentDialog> {
                           ],
                         ),
                       ),
+                      if (_paymentMode == 'split') ...[
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'UPI राशि (₹)',
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                              ),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: _upiController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                decoration: const InputDecoration(
+                                  prefixText: '₹ ',
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                ),
+                                onChanged: (_) => setState(() {}),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       if (_paymentMode == 'cash' && changeDue > 0) ...[
                         const SizedBox(width: 10),
                         Expanded(
@@ -719,6 +946,36 @@ class _PaymentDialogState extends State<PaymentDialog> {
                       ],
                     ],
                   ),
+                  if (_paymentMode == 'split') ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: breakdown.creditAmount > 0 ? Colors.amber.shade50 : Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: breakdown.creditAmount > 0 ? Colors.amber.shade300 : Colors.green.shade200,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Cash: ₹${breakdown.cashPaid.toStringAsFixed(0)} · UPI: ₹${breakdown.upiDeclared.toStringAsFixed(0)} (${_onlinePaymentVerified ? 'Paid ✓' : 'Pending'})',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                          ),
+                          Text(
+                            'उधार: ₹${breakdown.creditAmount.toStringAsFixed(0)}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: breakdown.creditAmount > 0 ? Colors.red.shade700 : Colors.green.shade800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                 ],
 
@@ -755,10 +1012,19 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   subtotal: cart.subtotal,
                   discount: cart.discount,
                   total: cart.total,
-                  paid: paidAmount > cart.total ? cart.total : paidAmount,
-                  due: (cart.total - paidAmount) > 0 ? (cart.total - paidAmount) : 0.0,
+                  paid: breakdown.paid,
+                  due: breakdown.due,
                   paymentMode: _paymentMode,
+                  paymentStatus: breakdown.paymentStatus,
+                  upiPayableAmount: breakdown.upiPayable,
+                  onlineVerified: breakdown.onlineVerified,
+                  cashPaid: breakdown.cashPaid,
+                  upiPaid: breakdown.upiPaid,
+                  creditAmount: breakdown.creditAmount,
                   footerMessage: shop.receiptFooter,
+                  upiId: shop.upiId,
+                  upiPayeeName: shop.upiPayeeName,
+                  googleReviewUrl: shop.googleReviewUrl,
                 ),
                 const SizedBox(height: 12),
               ],
@@ -818,25 +1084,38 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
     return Column(
       children: [
-        // 1. Header Bar with Success Badge
+        // 1. Header Bar with Accurate Status Badge
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 10, 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 22),
-                  const SizedBox(width: 8),
-                  Text(
-                    'बिल पूरा हो गया (Invoice #${sale.billNo})',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E293B),
+              Expanded(
+                child: Row(
+                  children: [
+                    Icon(
+                      sale.isFullyPaidAndVerified ? Icons.check_circle : Icons.pending_actions_rounded,
+                      color: sale.isFullyPaidAndVerified ? Colors.green : Colors.amber.shade700,
+                      size: 22,
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        sale.isFullyPaidAndVerified
+                            ? 'बिल पूरा हो गया (Paid · #${sale.billNo})'
+                            : (sale.effectiveUpiPayable > 0.009
+                                ? 'Payment Pending · #${sale.billNo}'
+                                : 'बिल सेव (उधार बाकी · #${sale.billNo})'),
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               IconButton(
                 icon: const Icon(Icons.close, size: 20, color: Color(0xFF64748B)),
@@ -873,10 +1152,18 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 paid: sale.paid,
                 due: sale.due,
                 paymentMode: sale.paymentMode,
+                paymentStatus: sale.paymentStatus,
+                upiPayableAmount: sale.effectiveUpiPayable,
+                onlineVerified: sale.onlineVerified,
+                cashPaid: sale.cashPaid,
+                upiPaid: sale.upiPaid,
+                creditAmount: sale.creditAmount,
                 footerMessage: shop.receiptFooter,
                 quoteLine1: _currentBillQuote?.line1,
                 quoteLine2: _currentBillQuote?.line2,
                 upiId: shop.upiId,
+                upiPayeeName: shop.upiPayeeName,
+                googleReviewUrl: shop.googleReviewUrl,
               ),
             ),
           ),
@@ -884,13 +1171,12 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
         const Divider(height: 1),
 
-        // 3. Bottom 3 Action Buttons (Only shown AFTER bill is completed!)
+        // 3. Bottom Action Buttons (Back / Share / Download / Print)
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
           color: Colors.grey.shade50,
           child: Row(
             children: [
-              // Back / New Sale Button (Closes dialog and readies next cart)
               Expanded(
                 child: InkWell(
                   onTap: () {
@@ -904,24 +1190,18 @@ class _PaymentDialogState extends State<PaymentDialog> {
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.arrow_back, color: Color(0xFF2563EB), size: 24),
-                        SizedBox(height: 4),
+                        Icon(Icons.arrow_back, color: Color(0xFF2563EB), size: 22),
+                        SizedBox(height: 3),
                         Text(
-                          'वापस / नया बिल',
+                          'नया बिल',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                          ),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-
-              // Share Bill Button
               Expanded(
                 child: InkWell(
                   onTap: () {
@@ -934,24 +1214,39 @@ class _PaymentDialogState extends State<PaymentDialog> {
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.share, color: Color(0xFF2563EB), size: 24),
-                        SizedBox(height: 4),
+                        Icon(Icons.share, color: Color(0xFF16A34A), size: 22),
+                        SizedBox(height: 3),
                         Text(
-                          'शेयर (Share Bill)',
+                          'Share Bill',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                          ),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-
-              // Print Bill Button
+              Expanded(
+                child: InkWell(
+                  onTap: _handleDownload,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.download_rounded, color: Color(0xFF0284C7), size: 22),
+                        SizedBox(height: 3),
+                        Text(
+                          'Download',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
               Expanded(
                 child: InkWell(
                   onTap: () {
@@ -964,16 +1259,12 @@ class _PaymentDialogState extends State<PaymentDialog> {
                     child: const Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.print, color: Color(0xFF2563EB), size: 24),
-                        SizedBox(height: 4),
+                        Icon(Icons.print, color: Color(0xFF2563EB), size: 22),
+                        SizedBox(height: 3),
                         Text(
-                          'प्रिंट (Print Bill)',
+                          'Print Bill',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1E293B),
-                          ),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                         ),
                       ],
                     ),
