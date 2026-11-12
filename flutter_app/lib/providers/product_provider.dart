@@ -35,6 +35,7 @@ class ProductProvider extends ChangeNotifier {
   final List<String> _customCategories = [];
   final Set<String> _deletedCategories = {};
   final Map<String, String> _categoryImages = {};
+  String _activeShopId = 'demo-shop-101';
   bool _isLoading = false;
   String _selectedCategory = 'All';
   String _searchQuery = '';
@@ -43,6 +44,53 @@ class ProductProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String get selectedCategory => _selectedCategory;
   String get searchQuery => _searchQuery;
+
+  Map<String, dynamic> exportCategoriesConfig() => {
+        'custom_categories': List<String>.from(_customCategories),
+        'deleted_categories': _deletedCategories.toList(),
+        'category_images': Map<String, String>.from(_categoryImages),
+      };
+
+  Future<void> _syncCategoriesToDoubleLayer([String? shopId]) async {
+    final targetId = shopId ??
+        (_activeShopId != 'demo-shop-101'
+            ? _activeShopId
+            : SupabaseService.instance.currentShop.id);
+    await SupabaseService.instance
+        .saveCategoriesConfig(targetId, exportCategoriesConfig());
+  }
+
+  Future<void> restoreCategoriesConfig(Map<String, dynamic> config) async {
+    final custom = (config['custom_categories'] as List?)
+            ?.map((e) => e.toString().trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        [];
+    final deleted = (config['deleted_categories'] as List?)
+            ?.map((e) => e.toString().trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toSet() ??
+        {};
+    final images = (config['category_images'] as Map?)
+            ?.map((k, v) => MapEntry(k.toString().toUpperCase(), v.toString())) ??
+        {};
+
+    _customCategories
+      ..clear()
+      ..addAll(custom);
+    _deletedCategories
+      ..clear()
+      ..addAll(deleted);
+    _categoryImages
+      ..clear()
+      ..addAll(images);
+
+    await _saveCustomCategories();
+    await _saveDeletedCategories();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('pos_category_images', jsonEncode(_categoryImages));
+    notifyListeners();
+  }
 
   ProductProvider() {
     _loadCustomCategories();
@@ -66,6 +114,7 @@ class ProductProvider extends ChangeNotifier {
       _categoryImages[upper] = imageUrl.trim();
     }
     await _saveCategoryImages();
+    await _syncCategoriesToDoubleLayer();
     notifyListeners();
   }
 
@@ -194,9 +243,57 @@ class ProductProvider extends ChangeNotifier {
 
   Future<void> loadProducts(String shopId) async {
     _isLoading = true;
+    _activeShopId = shopId;
     notifyListeners();
 
-    _products = await SupabaseService.instance.getProducts(shopId);
+    // Load & merge cloud/SQLite categories config FIRST so deleted categories stay suppressed
+    try {
+      final remoteCfg = await SupabaseService.instance.getCategoriesConfig(shopId);
+      if (remoteCfg.isNotEmpty) {
+        final remoteDeleted = (remoteCfg['deleted_categories'] as List?)
+                ?.map((e) => e.toString().trim().toUpperCase())
+                .where((e) => e.isNotEmpty)
+                .toSet() ??
+            {};
+        final remoteCustom = (remoteCfg['custom_categories'] as List?)
+                ?.map((e) => e.toString().trim().toUpperCase())
+                .where((e) => e.isNotEmpty)
+                .toList() ??
+            [];
+        final remoteImages = (remoteCfg['category_images'] as Map?)
+                ?.map((k, v) => MapEntry(k.toString().toUpperCase(), v.toString())) ??
+            {};
+
+        for (final dc in remoteDeleted) {
+          _deletedCategories.add(dc);
+          _customCategories.remove(dc);
+        }
+        for (final cc in remoteCustom) {
+          if (!_deletedCategories.contains(cc) && !_customCategories.contains(cc)) {
+            _customCategories.add(cc);
+          }
+        }
+        for (final entry in remoteImages.entries) {
+          if (entry.value.isNotEmpty) {
+            _categoryImages[entry.key] = entry.value;
+          }
+        }
+        await _saveCustomCategories();
+        await _saveDeletedCategories();
+      }
+    } catch (_) {}
+
+    final loaded = await SupabaseService.instance.getProducts(shopId);
+    // Double-guard: any product belonging to a deleted category stays soft-deleted & hidden
+    final strayInDeletedCat = loaded
+        .where((p) => _deletedCategories.contains(p.category.trim().toUpperCase()))
+        .toList();
+    for (final p in strayInDeletedCat) {
+      await SupabaseService.instance.deleteProduct(p.id, shopId: shopId);
+    }
+    _products = loaded
+        .where((p) => !_deletedCategories.contains(p.category.trim().toUpperCase()))
+        .toList();
     _isLoading = false;
     notifyListeners();
   }
@@ -220,6 +317,7 @@ class ProductProvider extends ChangeNotifier {
       _customCategories.add(name);
       await _saveCustomCategories();
     }
+    await _syncCategoriesToDoubleLayer();
     notifyListeners();
   }
 
@@ -227,28 +325,36 @@ class ProductProvider extends ChangeNotifier {
     final name = categoryName.trim().toUpperCase();
     _customCategories.remove(name);
     _deletedCategories.add(name);
+    _categoryImages.remove(name);
     await _saveCustomCategories();
     await _saveDeletedCategories();
 
-    // Cascade Delete: Delete all products in this category from Cloud Supabase & Local Cache
+    // Cascade Delete: Soft-delete all products in this category in Cloud Supabase + Local SQLite
     final toDelete = _products.where((p) => p.category.trim().toUpperCase() == name).toList();
-    for (final p in toDelete) {
-      try {
-        await SupabaseService.instance.deleteProduct(p.id);
-      } catch (e) {
-        debugPrint("Error deleting product ${p.name} on category delete: $e");
-      }
-    }
     _products.removeWhere((p) => p.category.trim().toUpperCase() == name);
-
     if (_selectedCategory.toUpperCase() == name) {
       _selectedCategory = 'All';
     }
     notifyListeners();
+
+    for (final p in toDelete) {
+      try {
+        await SupabaseService.instance.deleteProduct(p.id, shopId: _activeShopId);
+      } catch (e) {
+        debugPrint("Error deleting product ${p.name} on category delete: $e");
+      }
+    }
+    await _syncCategoriesToDoubleLayer();
   }
 
   Future<void> addProduct(Product p) async {
+    final catUpper = p.category.trim().toUpperCase();
+    if (_deletedCategories.remove(catUpper)) {
+      await _saveDeletedCategories();
+      await _syncCategoriesToDoubleLayer();
+    }
     final created = await SupabaseService.instance.addProduct(p);
+    _products.removeWhere((prod) => prod.id == created.id);
     _products.add(created);
     notifyListeners();
   }
@@ -275,7 +381,7 @@ class ProductProvider extends ChangeNotifier {
   Future<void> deleteProduct(String productId) async {
     _products.removeWhere((p) => p.id == productId);
     notifyListeners();
-    await SupabaseService.instance.deleteProduct(productId);
+    await SupabaseService.instance.deleteProduct(productId, shopId: _activeShopId);
   }
 
   Product? findByBarcode(String barcode) {
@@ -312,5 +418,41 @@ class ProductProvider extends ChangeNotifier {
     if (changed) {
       notifyListeners();
     }
+  }
+
+  /// Adjust in-memory stock when an existing bill is edited (delta = newQty - oldQty)
+  void applyStockDiff(List<CartItem> oldItems, List<CartItem> newItems) {
+    final oldQty = <String, double>{};
+    for (final it in oldItems) {
+      if (it.productId != null && it.productId!.isNotEmpty) {
+        oldQty[it.productId!] = (oldQty[it.productId!] ?? 0.0) + it.qty;
+      }
+    }
+    final newQty = <String, double>{};
+    for (final it in newItems) {
+      if (it.productId != null && it.productId!.isNotEmpty) {
+        newQty[it.productId!] = (newQty[it.productId!] ?? 0.0) + it.qty;
+      }
+    }
+    final touched = <String>{...oldQty.keys, ...newQty.keys};
+    bool changed = false;
+    for (final pid in touched) {
+      final deltaSold = (newQty[pid] ?? 0.0) - (oldQty[pid] ?? 0.0);
+      if (deltaSold.abs() < 0.0001) continue;
+      final idx = _products.indexWhere((p) => p.id == pid);
+      if (idx != -1) {
+        final current = _products[idx];
+        _products[idx] = current.copyWith(stock: current.stock - deltaSold);
+        changed = true;
+      }
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
+  void replaceProductsLocal(List<Product> list) {
+    _products = List<Product>.from(list);
+    notifyListeners();
   }
 }

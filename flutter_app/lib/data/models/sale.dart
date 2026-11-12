@@ -29,6 +29,8 @@ class Sale {
   final String? note;
   final DateTime createdAt;
   final String? clientRef;
+  final int editCount;
+  final DateTime? lastEditedAt;
 
   Sale({
     required this.id,
@@ -54,8 +56,13 @@ class Sale {
     this.note,
     required this.createdAt,
     this.clientRef,
+    this.editCount = 0,
+    this.lastEditedAt,
   }) : cashPaid = cashPaid ??
             (paymentMode == 'cash' ? paid : 0.0);
+
+  bool get isEdited => editCount > 0;
+  String get editedTagText => editCount > 0 ? 'Edited ($editCount)' : '';
 
   /// Remaining UPI-only payable amount (strictly excludes Cash & Credit).
   double get effectiveUpiPayable {
@@ -115,6 +122,8 @@ class Sale {
       if (verificationSource != null && verificationSource!.isNotEmpty)
         'vs': verificationSource,
       if (clientRef != null && clientRef!.isNotEmpty) 'cref': clientRef,
+      if (editCount > 0) 'ec': editCount,
+      if (lastEditedAt != null) 'lea': lastEditedAt!.toIso8601String(),
     };
     final metaJson = '$_metaPrefix${jsonEncode(meta)}';
     final cleanNote = _stripMetaFromNote(note);
@@ -222,6 +231,7 @@ class Sale {
       }
     }
 
+    final rawEditedAt = (json['last_edited_at'] ?? meta?['lea']) as String?;
     return Sale(
       id: json['id'] as String,
       shopId: json['shop_id'] as String? ?? '',
@@ -248,6 +258,11 @@ class Sale {
           ? DateTime.parse(json['created_at'] as String).toLocal()
           : DateTime.now(),
       clientRef: (json['client_ref'] ?? meta?['cref']) as String?,
+      editCount: (json['edit_count'] as num?)?.toInt() ??
+          (meta?['ec'] as num?)?.toInt() ??
+          0,
+      lastEditedAt:
+          rawEditedAt != null ? DateTime.tryParse(rawEditedAt)?.toLocal() : null,
     );
   }
 
@@ -276,6 +291,9 @@ class Sale {
       'note': encodedNote,
       'created_at': createdAt.toIso8601String(),
       'client_ref': clientRef,
+      'edit_count': editCount,
+      if (lastEditedAt != null)
+        'last_edited_at': lastEditedAt!.toIso8601String(),
     };
   }
 
@@ -303,6 +321,8 @@ class Sale {
     String? note,
     DateTime? createdAt,
     String? clientRef,
+    int? editCount,
+    DateTime? lastEditedAt,
   }) {
     return Sale(
       id: id ?? this.id,
@@ -328,6 +348,8 @@ class Sale {
       note: note ?? this.note,
       createdAt: createdAt ?? this.createdAt,
       clientRef: clientRef ?? this.clientRef,
+      editCount: editCount ?? this.editCount,
+      lastEditedAt: lastEditedAt ?? this.lastEditedAt,
     );
   }
 }

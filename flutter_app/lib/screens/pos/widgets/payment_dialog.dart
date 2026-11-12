@@ -10,6 +10,7 @@ import 'package:screenshot/screenshot.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/sound_service.dart';
+import '../../../../core/services/backup_service.dart';
 import '../../../../core/services/receipt_print_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/payment_qr_helper.dart';
@@ -19,6 +20,7 @@ import '../../../../data/services/supabase_service.dart';
 import '../../../../data/services/upi_service.dart';
 import '../../../../providers/auth_provider.dart';
 import '../../../../providers/cart_provider.dart';
+import '../../../../providers/customer_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import '../../../../providers/product_provider.dart';
 import 'bill_receipt_card.dart';
@@ -49,9 +51,34 @@ class _PaymentDialogState extends State<PaymentDialog> {
   void initState() {
     super.initState();
     final cart = context.read<CartProvider>();
-    _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
-    _upiController = TextEditingController(text: '0.00');
-    _billNo = DateTime.now().millisecondsSinceEpoch % 100000;
+    final editing = cart.editingSale;
+    if (editing != null) {
+      _billNo = editing.billNo;
+      _paymentMode = ['cash', 'online', 'credit', 'split'].contains(editing.paymentMode)
+          ? editing.paymentMode
+          : 'cash';
+      _onlinePaymentVerified = editing.onlineVerified;
+
+      if (_paymentMode == 'cash') {
+        _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
+        _upiController = TextEditingController(text: '0.00');
+      } else if (_paymentMode == 'online') {
+        _paidController = TextEditingController(text: '0.00');
+        _upiController = TextEditingController(text: cart.total.toStringAsFixed(2));
+      } else if (_paymentMode == 'credit') {
+        _paidController = TextEditingController(text: '0.00');
+        _upiController = TextEditingController(text: '0.00');
+      } else {
+        final initialCash = editing.cashPaid.clamp(0.0, cart.total);
+        final remUpi = math.max(0.0, cart.total - initialCash);
+        _paidController = TextEditingController(text: initialCash.toStringAsFixed(2));
+        _upiController = TextEditingController(text: remUpi.toStringAsFixed(2));
+      }
+    } else {
+      _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
+      _upiController = TextEditingController(text: '0.00');
+      _billNo = DateTime.now().millisecondsSinceEpoch % 100000;
+    }
     _loadQuote();
   }
 
@@ -114,9 +141,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
     if (_completedSale != null) return _completedSale!;
 
     final breakdown = _computeBreakdown(cart);
+    final editing = cart.editingSale;
 
     return Sale(
-      id: _clientRef,
+      id: editing?.id ?? _clientRef,
       shopId: shop.id,
       billNo: _billNo,
       customerId: cart.customer?.id,
@@ -136,8 +164,11 @@ class _PaymentDialogState extends State<PaymentDialog> {
       creditAmount: breakdown.creditAmount,
       onlineVerified: breakdown.onlineVerified,
       verificationSource: breakdown.verificationSource,
-      createdAt: DateTime.now(),
-      clientRef: _clientRef,
+      note: editing?.note,
+      createdAt: editing?.createdAt ?? DateTime.now(),
+      clientRef: editing?.clientRef ?? _clientRef,
+      editCount: editing != null ? editing.editCount + 1 : 0,
+      lastEditedAt: editing != null ? DateTime.now() : null,
     );
   }
 
@@ -145,6 +176,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final cart = context.read<CartProvider>();
     final shop = context.read<ShopProvider>().shop;
     final productProv = context.read<ProductProvider>();
+    final editing = cart.editingSale;
 
     if (cart.lines.isEmpty) return;
 
@@ -153,15 +185,21 @@ class _PaymentDialogState extends State<PaymentDialog> {
       for (final item in cart.lines) {
         if (item.productId != null) {
           final prod = productProv.getProductById(item.productId);
-          if (prod != null && prod.stock < item.qty) {
+          final oldQtyInEditedBill = editing == null
+              ? 0.0
+              : editing.items
+                  .where((e) => e.productId == item.productId)
+                  .fold<double>(0.0, (s, e) => s + e.qty);
+          if (prod != null && (prod.stock + oldQtyInEditedBill) < item.qty) {
+            final available = prod.stock + oldQtyInEditedBill;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 backgroundColor: AppColors.error,
                 duration: const Duration(seconds: 4),
                 content: Text(
-                  prod.stock <= 0
+                  available <= 0
                       ? '⚠️ \'${item.name}\' का स्टॉक खत्म है (0 उपलब्ध)! बिल नहीं काटा जा सकता।'
-                      : '⚠️ \'${item.name}\' का स्टॉक केवल ${prod.stock} ${item.unit} उपलब्ध है (मांग: ${item.qty})!',
+                      : '⚠️ \'${item.name}\' का स्टॉक केवल $available ${item.unit} उपलब्ध है (मांग: ${item.qty})!',
                 ),
               ),
             );
@@ -314,40 +352,85 @@ class _PaymentDialogState extends State<PaymentDialog> {
       }
     }
 
+    final custProv = context.read<CustomerProvider>();
     setState(() {
       _isSaving = true;
     });
 
     try {
-      final sale = Sale(
-        id: const Uuid().v4(),
-        shopId: shop.id,
-        billNo: _billNo,
-        customerId: cart.customer?.id,
-        customerName: cart.customer?.name,
-        customerPhone: cart.customer?.phone,
-        items: List.from(cart.lines),
-        subtotal: cart.subtotal,
-        discount: cart.discount,
-        total: cart.total,
-        paid: breakdown.paid,
-        due: breakdown.due,
-        paymentMode: _paymentMode,
-        paymentStatus: breakdown.paymentStatus,
-        cashPaid: breakdown.cashPaid,
-        upiPaid: breakdown.upiPaid,
-        upiPayable: breakdown.upiPayable,
-        creditAmount: breakdown.creditAmount,
-        onlineVerified: breakdown.onlineVerified,
-        verificationSource: breakdown.verificationSource,
-        createdAt: DateTime.now(),
-        clientRef: _clientRef,
+      final Sale saved;
+      if (editing != null) {
+        final updatedSale = Sale(
+          id: editing.id,
+          shopId: shop.id,
+          billNo: editing.billNo,
+          customerId: cart.customer?.id,
+          customerName: cart.customer?.name,
+          customerPhone: cart.customer?.phone,
+          items: List.from(cart.lines),
+          subtotal: cart.subtotal,
+          discount: cart.discount,
+          total: cart.total,
+          paid: breakdown.paid,
+          due: breakdown.due,
+          paymentMode: _paymentMode,
+          paymentStatus: breakdown.paymentStatus,
+          cashPaid: breakdown.cashPaid,
+          upiPaid: breakdown.upiPaid,
+          upiPayable: breakdown.upiPayable,
+          creditAmount: breakdown.creditAmount,
+          onlineVerified: breakdown.onlineVerified,
+          verificationSource: breakdown.verificationSource,
+          note: editing.note,
+          createdAt: editing.createdAt,
+          clientRef: editing.clientRef ?? _clientRef,
+          editCount: editing.editCount + 1,
+          lastEditedAt: DateTime.now(),
+        );
+        saved = await SupabaseService.instance.updateSale(
+          updatedSale,
+          previousSale: editing,
+        );
+        productProv.applyStockDiff(editing.items, saved.items);
+        if (saved.due != editing.due || saved.customerId != editing.customerId) {
+          custProv.loadCustomers(shop.id);
+        }
+      } else {
+        final sale = Sale(
+          id: const Uuid().v4(),
+          shopId: shop.id,
+          billNo: _billNo,
+          customerId: cart.customer?.id,
+          customerName: cart.customer?.name,
+          customerPhone: cart.customer?.phone,
+          items: List.from(cart.lines),
+          subtotal: cart.subtotal,
+          discount: cart.discount,
+          total: cart.total,
+          paid: breakdown.paid,
+          due: breakdown.due,
+          paymentMode: _paymentMode,
+          paymentStatus: breakdown.paymentStatus,
+          cashPaid: breakdown.cashPaid,
+          upiPaid: breakdown.upiPaid,
+          upiPayable: breakdown.upiPayable,
+          creditAmount: breakdown.creditAmount,
+          onlineVerified: breakdown.onlineVerified,
+          verificationSource: breakdown.verificationSource,
+          createdAt: DateTime.now(),
+          clientRef: _clientRef,
+        );
+
+        saved = await SupabaseService.instance.createSale(sale);
+        // Immediately deduct in UI memory so stock decreases right away on screen
+        productProv.deductStock(sale.items);
+      }
+
+      // Trigger quiet phone auto-backup in background if enabled
+      BackupService.runAutoBackupIfEnabled(
+        shop: shop,
+        categoriesConfig: productProv.exportCategoriesConfig(),
       );
-
-      final saved = await SupabaseService.instance.createSale(sale);
-
-      // Immediately deduct in UI memory so stock decreases right away on screen
-      productProv.deductStock(sale.items);
 
       setState(() {
         _completedSale = saved;
@@ -1025,6 +1108,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   upiId: shop.upiId,
                   upiPayeeName: shop.upiPayeeName,
                   googleReviewUrl: shop.googleReviewUrl,
+                  editCount: cart.isEditingBill ? (cart.editingSale!.editCount + 1) : 0,
                 ),
                 const SizedBox(height: 12),
               ],
@@ -1052,7 +1136,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
               Expanded(
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: cart.isEditingBill ? Colors.amber.shade800 : AppColors.primary,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     elevation: 1,
@@ -1061,7 +1145,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   child: _isSaving
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : Text(
-                          'बिल पूरा करें · ${CurrencyFormatter.format(cart.total)}',
+                          cart.isEditingBill
+                              ? 'बिल अपडेट करें · ${CurrencyFormatter.format(cart.total)}'
+                              : 'बिल पूरा करें · ${CurrencyFormatter.format(cart.total)}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
                         ),
                 ),
@@ -1164,6 +1250,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 upiId: shop.upiId,
                 upiPayeeName: shop.upiPayeeName,
                 googleReviewUrl: shop.googleReviewUrl,
+                editCount: sale.editCount,
               ),
             ),
           ),

@@ -274,11 +274,76 @@ class _CartPanelState extends State<CartPanel> {
           _discountController.clear();
         }
       });
+    } else if (cart.isEditingBill &&
+        cart.discount > 0 &&
+        _discountController.text.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && cart.isEditingBill && cart.discount > 0) {
+          _discountController.text = cart.discount.toStringAsFixed(0);
+        }
+      });
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (cart.isEditingBill)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade50,
+              border: Border(
+                bottom: BorderSide(color: Colors.amber.shade300),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.edit_note_rounded,
+                    size: 18, color: Colors.amber.shade900),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'बिल #${cart.editingSale!.billNo} एडिट हो रहा है',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.amber.shade900,
+                        ),
+                      ),
+                      Text(
+                        cart.editingSale!.isEdited
+                            ? 'पहले ${cart.editingSale!.editCount} बार एडिट किया गया • सेव करने के लिए Checkout दबाएँ'
+                            : 'आइटम जोड़ें/हटाएँ और सेव करने के लिए Checkout दबाएँ',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.amber.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    SoundService.instance.playButtonClick();
+                    cart.cancelEditing();
+                    _discountController.clear();
+                    widget.onCompleted?.call();
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.error,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('रद्द करें',
+                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
         // Top Customer Header
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

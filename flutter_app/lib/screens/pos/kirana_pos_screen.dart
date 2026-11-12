@@ -379,11 +379,14 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
             ),
 
             // Bottom Sticky Checkout Bar
-            if (cart.lines.isNotEmpty)
+            if (cart.lines.isNotEmpty || cart.isEditingBill)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  border: cart.isEditingBill
+                      ? Border(top: BorderSide(color: Colors.amber.shade600, width: 2))
+                      : null,
                   boxShadow: const [
                     BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3)),
                   ],
@@ -395,6 +398,18 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          if (cart.isEditingBill)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: Text(
+                                '✏️ Editing Bill #${cart.editingSale!.billNo}',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: Colors.amber.shade800,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
                           Text(
                             '${cart.itemCount} Items (${cart.totalQty.toStringAsFixed(cart.totalQty.truncateToDouble() == cart.totalQty ? 0 : 2)} Qty)',
                             style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
@@ -413,14 +428,19 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
                     ElevatedButton(
                       onPressed: () => _showCartSheet(context),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F2038),
+                        backgroundColor: cart.isEditingBill
+                            ? Colors.amber.shade700
+                            : const Color(0xFF0F2038),
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: Row(
-                        children: const [
-                          Text('Checkout Bill →', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        children: [
+                          Text(
+                            cart.isEditingBill ? 'Update Bill →' : 'Checkout Bill →',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
                         ],
                       ),
                     ),

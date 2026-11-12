@@ -9,6 +9,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/update_service.dart';
+import '../../core/services/backup_service.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/services/bluetooth_printer_service.dart';
@@ -2260,6 +2261,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 12),
 
+            // Double-Layer Storage & Phone Backup Card
+            const _DoubleLayerBackupCard(),
+            const SizedBox(height: 12),
+
             // App Update Card
             Card(
               child: Padding(
@@ -2319,13 +2324,364 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                onPressed: () {
-                  SoundService.instance.playButtonClick();
-                  _saveSettings();
-                },
-                child: const Text('Save All Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              onPressed: () {
+                SoundService.instance.playButtonClick();
+                _saveSettings();
+              },
+              child: const Text('Save All Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
+  }
+}
+
+class _DoubleLayerBackupCard extends StatefulWidget {
+  const _DoubleLayerBackupCard();
+
+  @override
+  State<_DoubleLayerBackupCard> createState() => _DoubleLayerBackupCardState();
+}
+
+class _DoubleLayerBackupCardState extends State<_DoubleLayerBackupCard> {
+  bool _autoBackup = true;
+  bool _busy = false;
+  String? _lastBackupAt;
+  Map<String, dynamic> _stats = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshStatus();
+  }
+
+  Future<void> _refreshStatus() async {
+    final shopId = mounted
+        ? context.read<ShopProvider>().shop.id
+        : SupabaseService.instance.currentShop.id;
+    final auto = await BackupService.isAutoBackupEnabled();
+    final info = await BackupService.getLastBackupInfo();
+    final stats = await SupabaseService.instance.getLocalStorageStats(shopId);
+    if (!mounted) return;
+    setState(() {
+      _autoBackup = auto;
+      _lastBackupAt = info['lastAt'];
+      _stats = stats;
+    });
+  }
+
+  Future<void> _syncNow() async {
+    final shopId = context.read<ShopProvider>().shop.id;
+    final productProv = context.read<ProductProvider>();
+    final customerProv = context.read<CustomerProvider>();
+    setState(() => _busy = true);
+    try {
+      final flushed = await SupabaseService.instance.flushSyncOutbox(shopId);
+      await productProv.loadProducts(shopId);
+      await customerProv.loadCustomers(shopId);
+      await _refreshStatus();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.primary,
+          content: Text(
+            flushed > 0
+                ? 'क्लाउड सिंक पूरा हुआ ($flushed बदलाव अपलोड किए गए) ✓'
+                : 'लोकल SQLite और क्लाउड दोनों डेटा पूरी तरह सिंक हैं ✓',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sync error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _exportBackup() async {
+    setState(() => _busy = true);
+    try {
+      final shopProv = context.read<ShopProvider>();
+      final prodProv = context.read<ProductProvider>();
+      final custProv = context.read<CustomerProvider>();
+
+      // Ensure latest sales are read from Local SQLite / Cloud
+      final sales = await SupabaseService.instance.getSales(shopProv.shop.id);
+      final result = await BackupService.exportBackupToPhone(
+        shop: shopProv.shop,
+        products: prodProv.products,
+        customers: custProv.customers,
+        sales: sales,
+        categoriesConfig: prodProv.exportCategoriesConfig(),
+      );
+      await _refreshStatus();
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.check_circle, color: AppColors.primary),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('बैकअप फ़ोन में सेव हो गया!',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '• आइटम्स: ${result.productsCount}\n'
+                '• ग्राहक (Khata): ${result.customersCount}\n'
+                '• कुल बिल: ${result.salesCount}',
+                style: const TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  result.path,
+                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('ठीक है'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.share, size: 16),
+              label: const Text('Drive / WhatsApp पर भेजें'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.pop(ctx);
+                BackupService.shareBackupFile(result.file);
+              },
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text('बैकअप सेव करने में त्रुटि: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _restoreBackup() async {
+    setState(() => _busy = true);
+    try {
+      final snapshot = await BackupService.pickBackupFile();
+      if (snapshot == null || !mounted) {
+        setState(() => _busy = false);
+        return;
+      }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('बैकअप रीस्टोर करें?'),
+          content: Text(
+            'क्या आप इस बैकअप को रीस्टोर करना चाहते हैं?\n\n'
+            '• दुकान: ${snapshot.shop?.name ?? "-"}\n'
+            '• आइटम्स: ${snapshot.products.length}\n'
+            '• ग्राहक: ${snapshot.customers.length}\n'
+            '• बिल: ${snapshot.sales.length}',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('रद्द करें'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('रीस्टोर करें'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) {
+        setState(() => _busy = false);
+        return;
+      }
+
+      await BackupService.applyBackupSnapshot(snapshot);
+      if (!mounted) return;
+      final shopProv = context.read<ShopProvider>();
+      final prodProv = context.read<ProductProvider>();
+      final custProv = context.read<CustomerProvider>();
+
+      if (snapshot.shop != null) {
+        await shopProv.updateShop(snapshot.shop!.copyWith(id: shopProv.shop.id));
+      }
+      if (snapshot.categoriesConfig.isNotEmpty) {
+        await prodProv.restoreCategoriesConfig(snapshot.categoriesConfig);
+      }
+      await prodProv.loadProducts(shopProv.shop.id);
+      await custProv.loadCustomers(shopProv.shop.id);
+      await _refreshStatus();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: AppColors.primary,
+            content: Text('बैकअप सफलतापूर्वक रीस्टोर और सिंक हो गया ✓'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text('रीस्टोर त्रुटि: $e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pending = (_stats['pendingSyncCount'] as int?) ?? 0;
+    final billsCount = (_stats['salesCount'] as int?) ?? 0;
+    final prodsCount = (_stats['productsCount'] as int?) ?? 0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.storage_rounded, color: AppColors.primary),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'डबल-लेयर स्टोरेज & फोन बैकअप',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primarySurface,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    pending > 0 ? '$pending Sync Pending' : 'SQLite + Cloud ✓',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: pending > 0 ? Colors.orange.shade800 : AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'आपका सारा डेटा फ़ोन की स्थायी SQLite मेमोरी ($prodsCount आइटम, $billsCount बिल) और Cloud दोनों में सुरक्षित रहता है।',
+              style: const TextStyle(fontSize: 11.5, color: AppColors.lightTextSecondary),
+            ),
+            if (_lastBackupAt != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'आखिरी फोन बैकअप: ${_lastBackupAt!.split(".").first.replaceAll("T", " ")}',
+                style: const TextStyle(fontSize: 10.5, color: AppColors.lightTextSecondary),
+              ),
+            ],
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: const Text('ऑटो फोन बैकअप (Auto-Backup)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              subtitle: const Text('हर बिल या बदलाव पर फ़ोन में सुरक्षित कॉपी अपडेट करें',
+                  style: TextStyle(fontSize: 11)),
+              value: _autoBackup,
+              onChanged: (v) async {
+                await BackupService.setAutoBackupEnabled(v);
+                if (mounted) setState(() => _autoBackup = v);
+              },
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _busy ? null : _exportBackup,
+                    icon: const Icon(Icons.save_alt, size: 16),
+                    label: const Text('बैकअप सेव करें', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : _restoreBackup,
+                    icon: const Icon(Icons.restore, size: 16),
+                    label: const Text('फ़ाइल से रीस्टोर', style: TextStyle(fontSize: 12)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _busy ? null : _syncNow,
+              icon: _busy
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_sync, size: 16),
+              label: Text(
+                pending > 0
+                    ? 'अभी क्लाउड सिंक करें ($pending बाकी)'
+                    : 'क्लाउड & लोकल सिंक जांचें (Sync Now)',
+                style: const TextStyle(fontSize: 12),
+              ),
+              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(38)),
+            ),
           ],
         ),
       ),

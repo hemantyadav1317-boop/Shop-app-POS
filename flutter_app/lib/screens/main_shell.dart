@@ -127,13 +127,13 @@ class _MainShellState extends State<MainShell> {
     }
   }
 
-  final List<Widget> _screens = const [
-    PosScreen(),
-    BillsScreen(),
-    CustomersScreen(),
-    InventoryScreen(),
-    DaybookScreen(),
-    SettingsScreen(),
+  late final List<Widget> _screens = [
+    const PosScreen(),
+    BillsScreen(onSwitchToBilling: () => _onNavigationChanged(0)),
+    const CustomersScreen(),
+    const InventoryScreen(),
+    const DaybookScreen(),
+    const SettingsScreen(),
   ];
 
   @override

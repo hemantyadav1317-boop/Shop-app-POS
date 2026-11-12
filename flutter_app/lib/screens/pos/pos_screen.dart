@@ -519,7 +519,7 @@ class _PosScreenState extends State<PosScreen> {
         activeView,
 
         // Floating Cart Bar for Mobile
-        if (cart.lines.isNotEmpty)
+        if (cart.lines.isNotEmpty || cart.isEditingBill)
           Positioned(
             left: 14,
             right: 14,
@@ -543,15 +543,22 @@ class _PosScreenState extends State<PosScreen> {
                     ),
                   ],
                   border: Border.all(
-                    color: const Color(0xFF00875A).withValues(alpha: 0.5),
-                    width: 1.2,
+                    color: (cart.isEditingBill
+                            ? Colors.amber
+                            : const Color(0xFF00875A))
+                        .withValues(alpha: 0.65),
+                    width: 1.4,
                   ),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.shopping_cart_outlined,
-                      color: Color(0xFF4ADE80),
+                    Icon(
+                      cart.isEditingBill
+                          ? Icons.edit_note_rounded
+                          : Icons.shopping_cart_outlined,
+                      color: cart.isEditingBill
+                          ? Colors.amber.shade300
+                          : const Color(0xFF4ADE80),
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -559,6 +566,15 @@ class _PosScreenState extends State<PosScreen> {
                       child: RichText(
                         text: TextSpan(
                           children: [
+                            if (cart.isEditingBill)
+                              TextSpan(
+                                text: 'Edit #${cart.editingSale!.billNo} · ',
+                                style: TextStyle(
+                                  color: Colors.amber.shade300,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             TextSpan(
                               text: '${cart.itemCount} Items  |  ',
                               style: const TextStyle(
@@ -581,7 +597,9 @@ class _PosScreenState extends State<PosScreen> {
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF00875A),
+                        backgroundColor: cart.isEditingBill
+                            ? Colors.amber.shade700
+                            : const Color(0xFF00875A),
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -589,9 +607,9 @@ class _PosScreenState extends State<PosScreen> {
                           borderRadius: BorderRadius.circular(22),
                         ),
                       ),
-                      icon: const Text(
-                        'बिल बनाएं',
-                        style: TextStyle(
+                      icon: Text(
+                        cart.isEditingBill ? 'अपडेट बिल' : 'बिल बनाएं',
+                        style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),

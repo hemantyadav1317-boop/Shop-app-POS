@@ -152,6 +152,12 @@ class BluetoothPrinterService {
         if (ps.showGstin && shop.gstin != null && shop.gstin!.isNotEmpty) {
           bytes += generator.text('GSTIN: ${shop.gstin!}', styles: const PosStyles(align: PosAlign.center));
         }
+        if (ps.showInvoiceNo) {
+          bytes += generator.text(
+            'Bill #${sale.billNo}${sale.isEdited ? ' [${sale.editedTagText}]' : ''}',
+            styles: const PosStyles(align: PosAlign.left, bold: true),
+          );
+        }
         bytes += generator.hr();
 
         bytes += generator.row([

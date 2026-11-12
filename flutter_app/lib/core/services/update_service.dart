@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -22,7 +23,7 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '1.4.8';
+  static const String currentVersion = '1.4.9';
 
   // GitHub repository for auto updates
   static String githubRepo = 'hemantyadav1317-boop/Shop-app-POS';
@@ -116,100 +117,40 @@ class UpdateService {
     return null;
   }
 
+  /// Optional override for tests to inject mock OTA progress events
+  @visibleForTesting
+  static Stream<OtaEvent> Function(String apkUrl, String destinationFilename)?
+      otaStreamFactory;
+
+  static bool _isOtaDownloadActive = false;
+
+  /// Whether an in-app APK download is currently running
+  @visibleForTesting
+  static bool get isOtaDownloadActive => _isOtaDownloadActive;
+
+  /// Resets static download state (primarily for tests)
+  @visibleForTesting
+  static void resetOtaState() {
+    _isOtaDownloadActive = false;
+  }
+
   /// Starts downloading the APK directly inside the app with a live progress dialog
   static void startInAppDownload(BuildContext context, String apkUrl) {
+    if (_isOtaDownloadActive) return;
+    _isOtaDownloadActive = true;
+
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogCtx) {
-        double progress = 0.0;
-        String statusText = 'डाउनलोड शुरू हो रहा है...';
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            // Trigger OTA update execution
-            try {
-              OtaUpdate()
-                  .execute(
-                apkUrl,
-                destinationFilename: 'ShopPOS-Update.apk',
-              )
-                  .listen((OtaEvent event) {
-                if (event.status == OtaStatus.DOWNLOADING) {
-                  final percent = double.tryParse(event.value ?? '0') ?? 0;
-                  setDialogState(() {
-                    progress = percent / 100.0;
-                    statusText = 'डाउनलोड हो रहा है: ${percent.toInt()}%';
-                  });
-                } else if (event.status == OtaStatus.INSTALLING) {
-                  setDialogState(() {
-                    progress = 1.0;
-                    statusText = 'इंस्टॉल हो रहा है... 🚀';
-                  });
-                  Future.delayed(const Duration(seconds: 1), () {
-                    if (dialogCtx.mounted) {
-                      Navigator.pop(dialogCtx);
-                    }
-                  });
-                } else {
-                  // Fallback to browser download on permission error or other issue
-                  if (dialogCtx.mounted) {
-                    Navigator.pop(dialogCtx);
-                  }
-                  final uri = Uri.parse(apkUrl);
-                  launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              }, onError: (e) {
-                debugPrint("OTA Error: $e");
-                if (dialogCtx.mounted) {
-                  Navigator.pop(dialogCtx);
-                }
-                final uri = Uri.parse(apkUrl);
-                launchUrl(uri, mode: LaunchMode.externalApplication);
-              });
-            } catch (e) {
-              debugPrint("OTA Execute error: $e");
-              if (dialogCtx.mounted) {
-                Navigator.pop(dialogCtx);
-              }
-              final uri = Uri.parse(apkUrl);
-              launchUrl(uri, mode: LaunchMode.externalApplication);
-            }
-
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: Row(
-                children: const [
-                  Icon(Icons.downloading, color: AppColors.primary),
-                  SizedBox(width: 10),
-                  Text('अपडेट डाउनलोड हो रहा है', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(statusText, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppColors.primary)),
-                  const SizedBox(height: 14),
-                  LinearProgressIndicator(
-                    value: progress > 0 ? progress : null,
-                    minHeight: 8,
-                    borderRadius: BorderRadius.circular(4),
-                    backgroundColor: AppColors.primarySurface,
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'डाउनलोड पूरा होते ही यह अपने आप इंस्टॉल हो जाएगा। कृपया ऐप बंद न करें।',
-                    style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
+      builder: (dialogCtx) => _OtaDownloadDialog(
+        apkUrl: apkUrl,
+        onFinished: () {
+          _isOtaDownloadActive = false;
+        },
+      ),
+    ).then((_) {
+      _isOtaDownloadActive = false;
+    });
   }
 
   /// Displays the update dialog ONLY when a new version is available
@@ -317,6 +258,170 @@ class UpdateService {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _OtaDownloadDialog extends StatefulWidget {
+  final String apkUrl;
+  final VoidCallback onFinished;
+
+  const _OtaDownloadDialog({
+    required this.apkUrl,
+    required this.onFinished,
+  });
+
+  @override
+  State<_OtaDownloadDialog> createState() => _OtaDownloadDialogState();
+}
+
+class _OtaDownloadDialogState extends State<_OtaDownloadDialog> {
+  double _progress = 0.0;
+  String _statusText = 'डाउनलोड शुरू हो रहा है...';
+  bool _hasStarted = false;
+  bool _isClosing = false;
+  StreamSubscription<OtaEvent>? _subscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _startDownloadOnce();
+  }
+
+  void _startDownloadOnce() {
+    if (_hasStarted) return;
+    _hasStarted = true;
+
+    try {
+      final stream = UpdateService.otaStreamFactory != null
+          ? UpdateService.otaStreamFactory!(
+              widget.apkUrl,
+              'ShopPOS-Update.apk',
+            )
+          : OtaUpdate().execute(
+              widget.apkUrl,
+              destinationFilename: 'ShopPOS-Update.apk',
+            );
+
+      _subscription = stream.listen(
+        (OtaEvent event) {
+          if (!mounted || _isClosing) return;
+
+          if (event.status == OtaStatus.DOWNLOADING) {
+            final percent = (double.tryParse(event.value ?? '0') ?? 0)
+                .clamp(0.0, 100.0);
+            setState(() {
+              _progress = percent / 100.0;
+              _statusText = 'डाउनलोड हो रहा है: ${percent.toInt()}%';
+            });
+          } else if (event.status == OtaStatus.INSTALLING) {
+            _isClosing = true;
+            setState(() {
+              _progress = 1.0;
+              _statusText = 'इंस्टॉल हो रहा है... 🚀';
+            });
+            Future.delayed(const Duration(seconds: 1), () {
+              if (mounted) {
+                Navigator.of(context).pop();
+              }
+              widget.onFinished();
+            });
+          } else if (event.status == OtaStatus.ALREADY_RUNNING_ERROR) {
+            setState(() {
+              _statusText = 'डाउनलोड पहले से चल रहा है...';
+            });
+          } else {
+            _fallbackToBrowser('OTA status: ${event.status}');
+          }
+        },
+        onError: (Object error) {
+          _fallbackToBrowser('OTA stream error: $error');
+        },
+      );
+    } catch (e) {
+      _fallbackToBrowser('OTA execute error: $e');
+    }
+  }
+
+  void _fallbackToBrowser(String reason) {
+    if (_isClosing) return;
+    _isClosing = true;
+    debugPrint(reason);
+    _subscription?.cancel();
+    _subscription = null;
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+    widget.onFinished();
+
+    final uri = Uri.tryParse(widget.apkUrl);
+    if (uri != null) {
+      launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    _subscription = null;
+    widget.onFinished();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: const Row(
+        children: [
+          Icon(Icons.downloading, color: AppColors.primary),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'अपडेट डाउनलोड हो रहा है',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ),
+        ],
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            _statusText,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(height: 14),
+          LinearProgressIndicator(
+            value: _progress > 0 ? _progress : null,
+            minHeight: 8,
+            borderRadius: BorderRadius.circular(4),
+            backgroundColor: AppColors.primarySurface,
+            valueColor:
+                const AlwaysStoppedAnimation<Color>(AppColors.primary),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'डाउनलोड पूरा होते ही यह अपने आप इंस्टॉल हो जाएगा। कृपया ऐप बंद न करें।',
+            style: TextStyle(
+              fontSize: 11,
+              color: AppColors.lightTextSecondary,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => _fallbackToBrowser('User chose browser download'),
+          child: const Text('Browser से डाउनलोड करें'),
+        ),
+      ],
     );
   }
 }

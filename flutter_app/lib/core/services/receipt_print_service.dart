@@ -106,7 +106,26 @@ class ReceiptPrintService {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('Bill No: #${sale.billNo}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                  pw.Row(
+                    mainAxisSize: pw.MainAxisSize.min,
+                    children: [
+                      pw.Text('Bill No: #${sale.billNo}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                      if (sale.isEdited) ...[
+                        pw.SizedBox(width: 4),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                          decoration: pw.BoxDecoration(
+                            border: pw.Border.all(width: 0.6),
+                            borderRadius: pw.BorderRadius.circular(2),
+                          ),
+                          child: pw.Text(
+                            sale.editedTagText,
+                            style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                   pw.Text(formattedDate, style: const pw.TextStyle(fontSize: 7)),
                 ],
               ),
@@ -386,17 +405,18 @@ class ReceiptPrintService {
       shopName: payeeName,
       googleReviewUrl: shop.googleReviewUrl,
     );
+    final editSuffix = sale.isEdited ? ' [${sale.editedTagText}]' : '';
     if (decision.type == BillQrType.upiPayment) {
-      return 'बिल / Invoice #${sale.billNo} - ${shop.name}\n'
+      return 'बिल / Invoice #${sale.billNo}$editSuffix - ${shop.name}\n'
           'कुल राशि: ₹${sale.total.toStringAsFixed(2)} | बकाया (UPI): ₹${decision.amountToPay.toStringAsFixed(2)}\n'
           '${PaymentQrHelper.upiPaymentInstructionHindi}';
     }
     if (decision.type == BillQrType.googleReview) {
-      return 'बिल / Invoice #${sale.billNo} - ${shop.name}\n'
+      return 'बिल / Invoice #${sale.billNo}$editSuffix - ${shop.name}\n'
           'भुगतान प्राप्त (₹${sale.paid.toStringAsFixed(2)}) ✓\n'
           '${PaymentQrHelper.googleReviewInstructionHindi}';
     }
-    return 'बिल / Invoice #${sale.billNo} - ${shop.name} (₹${sale.total.toStringAsFixed(2)})';
+    return 'बिल / Invoice #${sale.billNo}$editSuffix - ${shop.name} (₹${sale.total.toStringAsFixed(2)})';
   }
 
   /// Download bill PDF (with embedded UPI Payment or Google Review QR) to local storage

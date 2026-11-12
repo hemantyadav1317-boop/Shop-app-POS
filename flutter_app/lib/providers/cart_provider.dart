@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import '../data/models/cart_item.dart';
 import '../data/models/customer.dart';
+import '../data/models/sale.dart';
 import '../data/services/supabase_service.dart';
 import '../core/services/sound_service.dart';
 
@@ -95,6 +96,7 @@ class CartProvider extends ChangeNotifier {
   final List<SavedCart> _savedCarts = [];
   bool _isLoadingSaved = false;
   bool _resumeLock = false;
+  Sale? _editingSale;
 
   List<CartItem> get lines => List.unmodifiable(_lines);
   Customer? get customer => _customer;
@@ -102,6 +104,8 @@ class CartProvider extends ChangeNotifier {
   List<SavedCart> get savedCarts => List.unmodifiable(_savedCarts);
   bool get isLoadingSaved => _isLoadingSaved;
   bool get isResumeBusy => _resumeLock;
+  Sale? get editingSale => _editingSale;
+  bool get isEditingBill => _editingSale != null;
 
   int get itemCount => _lines.length;
 
@@ -215,7 +219,41 @@ class CartProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Loads an existing saved bill directly into the live Cart interface for editing.
+  void startEditingSale(Sale sale, {Customer? resolvedCustomer}) {
+    _editingSale = sale;
+    _lines
+      ..clear()
+      ..addAll(sale.items.map((item) => item.copyWith()));
+    _discount = sale.discount < 0 ? 0.0 : sale.discount;
+
+    if (resolvedCustomer != null) {
+      _customer = resolvedCustomer;
+    } else if (sale.customerName != null && sale.customerName!.trim().isNotEmpty) {
+      _customer = Customer(
+        id: sale.customerId ?? '',
+        shopId: sale.shopId,
+        name: sale.customerName!.trim(),
+        phone: sale.customerPhone,
+        createdAt: sale.createdAt,
+      );
+    } else {
+      _customer = null;
+    }
+    notifyListeners();
+  }
+
+  /// Exits bill editing mode and clears the cart.
+  void cancelEditing() {
+    _editingSale = null;
+    _lines.clear();
+    _customer = null;
+    _discount = 0.0;
+    notifyListeners();
+  }
+
   void clear() {
+    _editingSale = null;
     _lines.clear();
     _customer = null;
     _discount = 0.0;

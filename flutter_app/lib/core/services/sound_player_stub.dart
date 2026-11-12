@@ -12,9 +12,10 @@ class SoundPlayerImpl implements SoundPlayerPlatform {
   AudioPlayer? _getPlayer() {
     if (_fallbackPlayer == null) {
       try {
-        _fallbackPlayer = AudioPlayer()
-          ..setPlayerMode(PlayerMode.lowLatency)
-          ..setReleaseMode(ReleaseMode.stop);
+        final player = AudioPlayer();
+        player.setPlayerMode(PlayerMode.lowLatency).catchError((_) {});
+        player.setReleaseMode(ReleaseMode.stop).catchError((_) {});
+        _fallbackPlayer = player;
       } catch (_) {}
     }
     return _fallbackPlayer;

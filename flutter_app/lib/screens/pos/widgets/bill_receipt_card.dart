@@ -70,6 +70,7 @@ class BillReceiptCard extends StatelessWidget {
   final String? upiId;
   final String? upiPayeeName;
   final String? googleReviewUrl;
+  final int editCount;
 
   // Customizable overrides (if null, fetched from PrinterSettingsService)
   final double? fontScale;
@@ -115,6 +116,7 @@ class BillReceiptCard extends StatelessWidget {
     this.upiId,
     this.upiPayeeName,
     this.googleReviewUrl,
+    this.editCount = 0,
     this.fontScale,
     this.printWidth,
     this.showShopName,
@@ -277,13 +279,39 @@ class BillReceiptCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 6),
-                Text(
-                  'Invoice $cleanBillNo',
-                  style: TextStyle(
-                    fontSize: 13.0 * scale,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Invoice $cleanBillNo',
+                      style: TextStyle(
+                        fontSize: 13.0 * scale,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
+                      ),
+                    ),
+                    if (editCount > 0) ...[
+                      SizedBox(width: 4 * scale),
+                      Container(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 4 * scale,
+                          vertical: 1.5 * scale,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black, width: 1),
+                          borderRadius: BorderRadius.circular(3 * scale),
+                        ),
+                        child: Text(
+                          'Edited ($editCount)',
+                          style: TextStyle(
+                            fontSize: 9.5 * scale,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
