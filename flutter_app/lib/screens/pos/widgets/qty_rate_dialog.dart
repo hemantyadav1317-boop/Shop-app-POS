@@ -258,10 +258,12 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // ⚖️ Live Scale Indicator & Sync Action
+                    // ⚖️ Live Scale Indicator & Sync Action (Only for kg/g weighable items)
                     Consumer<WeighingScaleProvider>(
                       builder: (context, scale, _) {
-                        if (!scale.isConnected) return const SizedBox.shrink();
+                        final u = widget.product.unit.trim().toLowerCase();
+                        final isWeighable = u == 'kg' || u == 'g' || u == 'gram' || u == 'kilo';
+                        if (!scale.isConnected || !isWeighable) return const SizedBox.shrink();
                         return Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),

@@ -371,7 +371,15 @@ class _BillsScreenState extends State<BillsScreen> {
                           onTap: () async {
                             try {
                               final imageBytes = await screenshotController.capture(pixelRatio: 2.0);
-                              await ReceiptPrintService.shareReceipt(sale: currentSale, shop: shop, imageBytes: imageBytes);
+                              if (ctx.mounted) {
+                                await ReceiptPrintService.showWhatsAppShareDialog(
+                                  ctx,
+                                  sale: currentSale,
+                                  shop: shop,
+                                  imageBytes: imageBytes,
+                                  shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
+                                );
+                              }
                             } catch (e) {
                               if (ctx.mounted) {
                                 ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('शेयर एरर: $e')));

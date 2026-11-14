@@ -86,7 +86,7 @@ class BackupService {
     final payload = {
       'app': 'ShopPOS',
       'schema_version': 1,
-      'app_version': '1.5.0',
+      'app_version': '1.5.1',
       'exported_at': DateTime.now().toIso8601String(),
       'shop': shop.toJson(),
       'categories': categoriesConfig ?? {},

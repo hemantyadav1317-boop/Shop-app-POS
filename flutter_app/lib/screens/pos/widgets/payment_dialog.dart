@@ -540,11 +540,14 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
     try {
       final imageBytes = await _screenshotController.capture(pixelRatio: 2.0);
-      await ReceiptPrintService.shareReceipt(
-        sale: sale,
-        shop: shop,
-        imageBytes: imageBytes,
-      );
+      if (mounted) {
+        await ReceiptPrintService.showWhatsAppShareDialog(
+          context,
+          sale: sale,
+          shop: shop,
+          imageBytes: imageBytes,
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

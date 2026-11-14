@@ -1,16 +1,19 @@
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
 import 'bluetooth_printer_service.dart';
 import 'ai_quote_service.dart';
 import 'printer_settings_service.dart';
+import 'sound_service.dart';
 import '../utils/payment_qr_helper.dart';
 
 class ReceiptPrintService {
@@ -484,6 +487,227 @@ class ReceiptPrintService {
     await Printing.sharePdf(
       bytes: bytes,
       filename: 'Invoice_${sale.billNo}.pdf',
+    );
+  }
+
+  /// Builds a complete, professionally formatted WhatsApp invoice text
+  static String buildDetailedWhatsAppInvoice({
+    required Sale sale,
+    required Shop shop,
+  }) {
+    final sb = StringBuffer();
+    sb.writeln('🧾 *${shop.name}*');
+    if (shop.phone != null && shop.phone!.isNotEmpty) sb.writeln('📞 Phone: ${shop.phone}');
+    if (shop.address != null && shop.address!.isNotEmpty) sb.writeln('📍 ${shop.address}');
+    sb.writeln('--------------------------------');
+    sb.writeln('📄 *Invoice #${sale.billNo}* ${sale.isEdited ? "(${sale.editedTagText})" : ""}');
+    sb.writeln('📅 ${DateFormat('dd-MM-yyyy hh:mm a').format(sale.createdAt.toLocal())}');
+    if (sale.customerName != null && sale.customerName!.isNotEmpty) {
+      sb.writeln('👤 Customer: ${sale.customerName}');
+    }
+    sb.writeln('--------------------------------');
+    sb.writeln('*आइटम्स (Items):*');
+    for (int i = 0; i < sale.items.length; i++) {
+      final it = sale.items[i];
+      sb.writeln('${i + 1}. ${it.name} - ${it.qty} ${it.unit} x ₹${it.price.toStringAsFixed(0)} = ₹${it.total.toStringAsFixed(0)}');
+    }
+    sb.writeln('--------------------------------');
+    sb.writeln('कुल राशि (Subtotal): ₹${sale.subtotal.toStringAsFixed(2)}');
+    if (sale.discount > 0) {
+      sb.writeln('छूट (Discount): -₹${sale.discount.toStringAsFixed(2)}');
+    }
+    sb.writeln('💰 *कुल देय (Total): ₹${sale.total.toStringAsFixed(2)}*');
+    sb.writeln('भुगतान (Paid): ₹${sale.paid.toStringAsFixed(2)} (${sale.paymentMode.toUpperCase()})');
+    if (sale.due > 0) {
+      sb.writeln('⚠️ *बकाया (Due): ₹${sale.due.toStringAsFixed(2)}*');
+    }
+
+    if (shop.upiId != null && shop.upiId!.isNotEmpty && sale.effectiveUpiPayable > 0.009) {
+      final upiUri = 'upi://pay?pa=${shop.upiId}&pn=${Uri.encodeComponent(shop.upiPayeeName ?? shop.name)}&am=${sale.effectiveUpiPayable.toStringAsFixed(2)}&cu=INR&tn=${Uri.encodeComponent("Bill ${sale.billNo} ${shop.name}")}';
+      sb.writeln('\n⚡ *1-क्लिक UPI भुगतान लिंक:*');
+      sb.writeln(upiUri);
+    }
+    if (shop.receiptFooter != null && shop.receiptFooter!.isNotEmpty) {
+      sb.writeln('\n${shop.receiptFooter}');
+    } else {
+      sb.writeln('\nधन्यवाद! फिर पधारें 🙏');
+    }
+    return sb.toString();
+  }
+
+  /// Displays a direct WhatsApp Share dialog where entering the customer's phone number
+  /// directly opens WhatsApp for that customer with the bill invoice!
+  static Future<void> showWhatsAppShareDialog(
+    BuildContext context, {
+    required Sale sale,
+    required Shop shop,
+    Uint8List? imageBytes,
+    String? shopEmail,
+  }) async {
+    final phoneCtrl = TextEditingController(text: sale.customerPhone ?? '');
+    File? cachedImageFile;
+
+    if (imageBytes != null) {
+      try {
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/Invoice_${sale.billNo}.png');
+        await file.writeAsBytes(imageBytes);
+        cachedImageFile = file;
+      } catch (e) {
+        debugPrint("Error saving bill screenshot: $e");
+      }
+    }
+
+    if (!context.mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final phoneText = phoneCtrl.text.trim();
+          final cleanPhone = phoneText.replaceAll(RegExp(r'[^0-9]'), '');
+          final isValidPhone = cleanPhone.length >= 10;
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
+            contentPadding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
+            title: Row(
+              children: const [
+                Icon(Icons.chat_bubble_rounded, color: Color(0xFF25D366), size: 26),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'WhatsApp पर बिल भेजें',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+                  ),
+                ),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF25D366).withValues(alpha: 0.25)),
+                    ),
+                    child: Text(
+                      'बिल #${sale.billNo} • कुल: ₹${sale.total.toStringAsFixed(0)} • ${sale.items.length} आइटम्स',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF16A34A)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'ग्राहक का मोबाइल नंबर दर्ज करें (WhatsApp Number):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    autofocus: phoneCtrl.text.isEmpty,
+                    decoration: InputDecoration(
+                      hintText: 'उदा. 9876543210',
+                      prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF25D366)),
+                      suffixIcon: phoneCtrl.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                phoneCtrl.clear();
+                                setDialogState(() {});
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    ),
+                    onChanged: (_) => setDialogState(() {}),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // 1. Primary Action: Direct WhatsApp Chat
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                    ),
+                    icon: const Icon(Icons.send_rounded, size: 20),
+                    label: Text(
+                      isValidPhone ? 'सीधे WhatsApp पर भेजें' : 'WhatsApp पर भेजें',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    onPressed: () async {
+                      String clean = phoneCtrl.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+                      if (clean.length == 10) clean = '91$clean';
+
+                      if (clean.length < 10) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(
+                            backgroundColor: Color(0xFFDC2626),
+                            content: Text('कृपया सही 10-अंकों का मोबाइल नंबर दर्ज करें!'),
+                          ),
+                        );
+                        return;
+                      }
+
+                      Navigator.pop(ctx);
+                      SoundService.instance.playSuccess();
+
+                      final detailedText = buildDetailedWhatsAppInvoice(sale: sale, shop: shop);
+                      final uri = Uri.parse('https://wa.me/$clean?text=${Uri.encodeComponent(detailedText)}');
+
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+
+                      // Also share receipt image via Share sheet if available
+                      if (cachedImageFile != null) {
+                        await Share.shareXFiles(
+                          [XFile(cachedImageFile.path)],
+                          text: buildShareCaption(sale: sale, shop: shop),
+                        );
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // 2. Secondary Action: Share Image on Any App
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      side: BorderSide(color: Colors.grey.shade400),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    icon: const Icon(Icons.share_outlined, size: 18, color: Colors.blueGrey),
+                    label: const Text(
+                      'अन्य ऐप्स पर शेयर करें (Share Sheet)',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await shareReceipt(
+                        sale: sale,
+                        shop: shop,
+                        imageBytes: imageBytes,
+                        shopEmail: shopEmail,
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

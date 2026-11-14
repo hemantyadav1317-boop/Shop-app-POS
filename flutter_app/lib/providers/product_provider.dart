@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import '../data/models/category.dart';
 import '../data/models/product.dart';
 import '../data/models/cart_item.dart';
+import '../data/models/sale.dart';
 import '../data/services/local_db_service.dart';
 import '../data/services/supabase_service.dart';
 import '../core/constants/aliases.dart';
@@ -29,6 +30,8 @@ class ProductProvider extends ChangeNotifier {
   final List<String> _customCategories = [];
   final Set<String> _deletedCategories = {};
   final Map<String, String> _categoryImages = {};
+  final Map<String, double> _productSalesQty = {};
+  final Map<String, double> _categorySalesQty = {};
   String _activeShopId = 'demo-shop-101';
   bool _isLoading = false;
   String _selectedCategory = 'All';
@@ -187,6 +190,7 @@ class ProductProvider extends ChangeNotifier {
   }
 
   /// List of all categories without 'All' (used in product add/edit dropdown & category management)
+  /// Sorted by most selling / popularity first, then alphabetical
   List<String> get allCategories {
     final set = <String>{};
     for (final c in _normalizedCategories) {
@@ -209,7 +213,16 @@ class ProductProvider extends ChangeNotifier {
         }
       }
     }
-    return set.toList();
+    final list = set.toList();
+    list.sort((a, b) {
+      final qtyA = _categorySalesQty[a] ?? 0.0;
+      final qtyB = _categorySalesQty[b] ?? 0.0;
+      if (qtyB != qtyA) {
+        return qtyB.compareTo(qtyA); // Most sold category first
+      }
+      return a.compareTo(b); // Alphabetical tie-breaker
+    });
+    return list;
   }
 
   /// List of categories with 'All' at the start (used in billing & filters)
@@ -223,12 +236,23 @@ class ProductProvider extends ChangeNotifier {
   }
 
   List<Product> get filteredProducts {
-    return _products.where((p) {
+    final list = _products.where((p) {
       final matchesCat = _selectedCategory == 'All' ||
           p.category.trim().toUpperCase() == _selectedCategory.trim().toUpperCase();
       final matchesSearch = ProductAliases.matches(p.name, p.category, p.barcode, _searchQuery);
       return matchesCat && matchesSearch;
     }).toList();
+
+    // Sort by sales popularity: most sold products appear first, then alphabetical
+    list.sort((a, b) {
+      final qtyA = _productSalesQty[a.id] ?? 0.0;
+      final qtyB = _productSalesQty[b.id] ?? 0.0;
+      if (qtyB != qtyA) {
+        return qtyB.compareTo(qtyA); // Descending popularity
+      }
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase()); // Alphabetical tie-breaker
+    });
+    return list;
   }
 
   Future<void> loadProducts(String shopId) async {
@@ -291,8 +315,36 @@ class ProductProvider extends ChangeNotifier {
     _products = loaded
         .where((p) => !_deletedCategories.contains(p.category.trim().toUpperCase()))
         .toList();
+
+    // Recompute product and category popularity / sales count from local sales history
+    try {
+      final sales = await LocalDbService.instance.getSales(shopId);
+      recomputeSalesStats(sales);
+    } catch (e) {
+      debugPrint("Error loading sales for popularity sorting: $e");
+    }
+
     _isLoading = false;
     notifyListeners();
+  }
+
+  /// Recomputes product and category sales frequency / total units sold
+  void recomputeSalesStats(List<Sale> sales) {
+    _productSalesQty.clear();
+    _categorySalesQty.clear();
+    for (final sale in sales) {
+      for (final item in sale.items) {
+        final qty = item.qty;
+        if (item.productId != null && item.productId!.isNotEmpty) {
+          _productSalesQty[item.productId!] = (_productSalesQty[item.productId!] ?? 0.0) + qty;
+        }
+        final prod = getProductById(item.productId);
+        final cat = prod?.category.trim().toUpperCase() ?? '';
+        if (cat.isNotEmpty && cat != 'ALL') {
+          _categorySalesQty[cat] = (_categorySalesQty[cat] ?? 0.0) + qty;
+        }
+      }
+    }
   }
 
   void selectCategory(String cat) {
@@ -412,7 +464,7 @@ class ProductProvider extends ChangeNotifier {
     }
   }
 
-  /// Deduct stock in-memory upon sale completion so UI updates immediately
+  /// Deduct stock in-memory upon sale completion and update popularity counters so UI updates immediately
   void deductStock(List<CartItem> items) {
     bool changed = false;
     for (final item in items) {
@@ -423,6 +475,13 @@ class ProductProvider extends ChangeNotifier {
           final newStock = current.stock - item.qty;
           _products[idx] = current.copyWith(stock: newStock);
           changed = true;
+
+          // Increment real-time sales popularity counters
+          _productSalesQty[current.id] = (_productSalesQty[current.id] ?? 0.0) + item.qty;
+          final cat = current.category.trim().toUpperCase();
+          if (cat.isNotEmpty && cat != 'ALL') {
+            _categorySalesQty[cat] = (_categorySalesQty[cat] ?? 0.0) + item.qty;
+          }
         }
       }
     }
@@ -454,6 +513,11 @@ class ProductProvider extends ChangeNotifier {
       if (idx != -1) {
         final current = _products[idx];
         _products[idx] = current.copyWith(stock: current.stock - deltaSold);
+        _productSalesQty[current.id] = (_productSalesQty[current.id] ?? 0.0) + deltaSold;
+        final cat = current.category.trim().toUpperCase();
+        if (cat.isNotEmpty && cat != 'ALL') {
+          _categorySalesQty[cat] = (_categorySalesQty[cat] ?? 0.0) + deltaSold;
+        }
         changed = true;
       }
     }

@@ -531,17 +531,19 @@ class _ProductGridState extends State<ProductGrid> {
           borderRadius: BorderRadius.circular(isMobile ? 10 : 12),
           onTap: () {
             SoundService.instance.playProductAdd();
-            final shop = context.read<ShopProvider>();
-            final isPackaged = product.unit == 'pc' ||
-                product.unit == 'pkt' ||
-                product.unit == 'packet' ||
-                product.unit == 'bottle' ||
-                product.unit == 'pack';
+            final unitLower = product.unit.trim().toLowerCase();
+            final isWeighable = unitLower == 'kg' ||
+                unitLower == 'g' ||
+                unitLower == 'gram' ||
+                unitLower == 'grams' ||
+                unitLower == 'kilo' ||
+                unitLower == 'kilogram';
 
             final scale = context.read<WeighingScaleProvider>();
 
-            if ((shop.isKiranaMode && isPackaged) || (shop.isMixMode && isPackaged)) {
-              // ⚡ 1-Tap Fast Add for Kirana Packaged Goods (Billiz / Vyapar fast flow)
+            if (!isWeighable) {
+              // ⚡ All Piece / Packaged Goods: Always 1-Tap Fast Add / Increment Qty=1!
+              // NEVER take weight from Bluetooth Scale for piece/packet items!
               cart.incrementOrAdd(product);
             } else if (scale.isConnected && scale.autoAddOnStable && scale.liveWeight > 0) {
               // ⚡ Zero-Touch Mandi Mode: Produce on scale -> 1 tap instant add!
@@ -586,8 +588,15 @@ class _ProductGridState extends State<ProductGrid> {
           },
           onLongPress: () {
             SoundService.instance.playButtonClick();
+            final unitLower = product.unit.trim().toLowerCase();
+            final isWeighable = unitLower == 'kg' ||
+                unitLower == 'g' ||
+                unitLower == 'gram' ||
+                unitLower == 'grams' ||
+                unitLower == 'kilo' ||
+                unitLower == 'kilogram';
             final scale = context.read<WeighingScaleProvider>();
-            final double defaultQty = (scale.isConnected && scale.autoFillDialog && scale.liveWeight > 0)
+            final double defaultQty = (isWeighable && scale.isConnected && scale.autoFillDialog && scale.liveWeight > 0)
                 ? scale.liveWeight
                 : (inCartQty > 0 ? inCartQty : 1.0);
             showDialog(
