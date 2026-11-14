@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path/path.dart' as p;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import '../models/category.dart';
 import '../models/customer.dart';
@@ -847,30 +849,48 @@ class LocalDbService {
 
   // ===================== ATOMIC BILL COUNTERS =====================
 
+  /// Peeks the upcoming bill number without incrementing
   Future<int> peekNextBillNo(String shopId) async {
     final db = await _ensureDb();
-    if (db == null) return 1;
+    if (db == null) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        return (prefs.getInt('shop_last_bill_no_$shopId') ?? 0) + 1;
+      } catch (_) {
+        return 1;
+      }
+    }
     final rows = await db.query(
       'shop_bill_counters',
       where: 'shop_id = ?',
       whereArgs: [shopId],
     );
-    if (rows.isNotEmpty) {
-      final current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
-      return current + 1;
-    }
     final sRows = await db.rawQuery(
       'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ?',
       [shopId],
     );
     final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
-    return maxSales + 1;
+    int current = 0;
+    if (rows.isNotEmpty) {
+      current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
+    }
+    return math.max(current, maxSales) + 1;
   }
 
+  /// Atomically allocates and increments the next sequential bill number.
+  /// Strictly ensures bill number continues monotonically past all historical sales.
   Future<int> getNextBillNo(String shopId) async {
     final db = await _ensureDb();
     if (db == null) {
-      return DateTime.now().millisecondsSinceEpoch % 100000;
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final last = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
+        final next = last + 1;
+        await prefs.setInt('shop_last_bill_no_$shopId', next);
+        return next;
+      } catch (_) {
+        return 1;
+      }
     }
     return await db.transaction((txn) async {
       final rows = await txn.query(
@@ -878,30 +898,30 @@ class LocalDbService {
         where: 'shop_id = ?',
         whereArgs: [shopId],
       );
-      int nextNo = 1;
-      final now = DateTime.now().toIso8601String();
+      final sRows = await txn.rawQuery(
+        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ?',
+        [shopId],
+      );
+      final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
+      int current = 0;
       if (rows.isNotEmpty) {
-        final current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
-        nextNo = current + 1;
-        await txn.update(
-          'shop_bill_counters',
-          {'last_bill_no': nextNo, 'updated_at': now},
-          where: 'shop_id = ?',
-          whereArgs: [shopId],
-        );
-      } else {
-        final sRows = await txn.rawQuery(
-          'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ?',
-          [shopId],
-        );
-        final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
-        nextNo = maxSales + 1;
-        await txn.insert(
-          'shop_bill_counters',
-          {'shop_id': shopId, 'last_bill_no': nextNo, 'updated_at': now},
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
       }
+      final highestSoFar = math.max(current, maxSales);
+      final nextNo = highestSoFar + 1;
+      final now = DateTime.now().toIso8601String();
+
+      await txn.insert(
+        'shop_bill_counters',
+        {'shop_id': shopId, 'last_bill_no': nextNo, 'updated_at': now},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('shop_last_bill_no_$shopId', nextNo);
+      } catch (_) {}
+
       return nextNo;
     });
   }

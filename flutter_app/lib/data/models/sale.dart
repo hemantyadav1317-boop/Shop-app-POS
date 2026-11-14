@@ -232,6 +232,26 @@ class Sale {
     }
 
     final rawEditedAt = (json['last_edited_at'] ?? meta?['lea']) as String?;
+    DateTime parsedDate;
+    if (json['created_at'] != null) {
+      try {
+        final rawStr = json['created_at'] as String;
+        final parsed = DateTime.parse(rawStr).toLocal();
+        final now = DateTime.now();
+        // Auto-heal timezone bug: if a timestamp was saved with UTC shift causing it
+        // to appear in the future (>5 mins ahead), correct the 5.5-hour IST offset!
+        if (parsed.isAfter(now.add(const Duration(minutes: 5)))) {
+          parsedDate = parsed.subtract(const Duration(hours: 5, minutes: 30));
+        } else {
+          parsedDate = parsed;
+        }
+      } catch (_) {
+        parsedDate = DateTime.now();
+      }
+    } else {
+      parsedDate = DateTime.now();
+    }
+
     return Sale(
       id: json['id'] as String,
       shopId: json['shop_id'] as String? ?? '',
@@ -254,9 +274,7 @@ class Sale {
       onlineVerified: onlineVerified,
       verificationSource: verificationSource,
       note: cleanUserNote,
-      createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String).toLocal()
-          : DateTime.now(),
+      createdAt: parsedDate,
       clientRef: (json['client_ref'] ?? meta?['cref']) as String?,
       editCount: (json['edit_count'] as num?)?.toInt() ??
           (meta?['ec'] as num?)?.toInt() ??
@@ -289,11 +307,11 @@ class Sale {
       'online_verified': onlineVerified,
       if (verificationSource != null) 'verification_source': verificationSource,
       'note': encodedNote,
-      'created_at': createdAt.toIso8601String(),
+      'created_at': createdAt.toUtc().toIso8601String(),
       'client_ref': clientRef,
       'edit_count': editCount,
       if (lastEditedAt != null)
-        'last_edited_at': lastEditedAt!.toIso8601String(),
+        'last_edited_at': lastEditedAt!.toUtc().toIso8601String(),
     };
   }
 

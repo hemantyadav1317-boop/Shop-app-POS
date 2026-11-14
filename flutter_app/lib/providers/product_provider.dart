@@ -256,18 +256,30 @@ class ProductProvider extends ChangeNotifier {
   }
 
   Future<void> loadProducts(String shopId) async {
-    _isLoading = true;
     _activeShopId = shopId;
-    notifyListeners();
 
-    // Load & merge cloud/SQLite categories config FIRST so deleted categories stay suppressed
+    // ⚡ 1. INSTANT LOCAL LOAD: Load products and categories from local SQLite in <50ms!
     try {
+      final localProds = await LocalDbService.instance.getProducts(shopId);
       final localCats = await LocalDbService.instance.getCategories(shopId);
-      _normalizedCategories
-        ..clear()
-        ..addAll(localCats);
+      if (localCats.isNotEmpty) {
+        _normalizedCategories
+          ..clear()
+          ..addAll(localCats);
+      }
+      if (localProds.isNotEmpty) {
+        _products = localProds;
+        _isLoading = false;
+        notifyListeners();
+      }
     } catch (_) {}
 
+    if (_products.isEmpty) {
+      _isLoading = true;
+      notifyListeners();
+    }
+
+    // 2. Load & merge cloud categories config
     try {
       final remoteCfg = await SupabaseService.instance.getCategoriesConfig(shopId);
       if (remoteCfg.isNotEmpty) {
@@ -304,17 +316,9 @@ class ProductProvider extends ChangeNotifier {
       }
     } catch (_) {}
 
+    // 3. Fetch fresh products from Supabase (NEVER auto-delete user products!)
     final loaded = await SupabaseService.instance.getProducts(shopId);
-    // Double-guard: any product belonging to a deleted category stays soft-deleted & hidden
-    final strayInDeletedCat = loaded
-        .where((p) => _deletedCategories.contains(p.category.trim().toUpperCase()))
-        .toList();
-    for (final p in strayInDeletedCat) {
-      await SupabaseService.instance.deleteProduct(p.id, shopId: shopId);
-    }
-    _products = loaded
-        .where((p) => !_deletedCategories.contains(p.category.trim().toUpperCase()))
-        .toList();
+    _products = loaded;
 
     // Recompute product and category popularity / sales count from local sales history
     try {

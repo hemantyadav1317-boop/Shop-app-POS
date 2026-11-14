@@ -86,7 +86,7 @@ class BackupService {
     final payload = {
       'app': 'BillZo POS',
       'schema_version': 1,
-      'app_version': '1.5.2',
+      'app_version': '1.5.3',
       'exported_at': DateTime.now().toIso8601String(),
       'shop': shop.toJson(),
       'categories': categoriesConfig ?? {},

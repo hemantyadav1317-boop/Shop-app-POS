@@ -1002,7 +1002,7 @@ class SupabaseService {
   }
 
   // --- SALES & BILLING (CREATE, READ, UPDATE, DELETE) ---
-  Future<List<Sale>> getSales(String shopId) async {
+  Future<List<Sale>> getSales(String shopId, {int? limit}) async {
     final validShopId = await _ensureValidShopId(shopId);
     // Double-Layer Local Load: SQLite first (unlimited bills), then SharedPreferences fallback
     if (_localSales.isEmpty) {
@@ -1059,12 +1059,12 @@ class SupabaseService {
       }
 
       try {
-        final response = await client!
+        var query = client!
             .from('sales')
             .select('*, sale_items(*)')
             .eq('shop_id', validShopId)
-            .order('created_at', ascending: false)
-            .limit(500);
+            .order('created_at', ascending: false);
+        final response = limit != null ? await query.limit(limit) : await query;
         final rawCloudList = (response as List).map((e) => Sale.fromJson(e)).toList();
 
         // Deduplicate consecutive identical sales created within 15 seconds of each other

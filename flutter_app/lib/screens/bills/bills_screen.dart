@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -9,6 +10,7 @@ import '../../core/utils/payment_qr_helper.dart';
 import '../../data/models/sale.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/customer_provider.dart';
+import '../../data/services/local_db_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
@@ -33,6 +35,7 @@ class _BillsScreenState extends State<BillsScreen> {
   DateTime? _customSelectedDate;
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
+  int _visibleCount = 50;
 
   @override
   void initState() {
@@ -84,13 +87,38 @@ class _BillsScreenState extends State<BillsScreen> {
   }
 
   Future<void> _loadSales() async {
-    setState(() => _isLoading = true);
     final shop = context.read<ShopProvider>().shop;
-    final list = await SupabaseService.instance.getSales(shop.id);
-    setState(() {
-      _sales = list;
-      _isLoading = false;
-    });
+
+    // ⚡ 1. INSTANT LOCAL LOAD: Read local SQLite in <50ms!
+    try {
+      final localSales = await LocalDbService.instance.getSales(shop.id);
+      if (localSales.isNotEmpty && mounted) {
+        setState(() {
+          _sales = localSales;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {}
+
+    if (_sales.isEmpty && mounted) {
+      setState(() => _isLoading = true);
+    }
+
+    // 🌐 2. BACKGROUND CLOUD SYNC: Silently sync without blocking the UI
+    try {
+      final cloudSales = await SupabaseService.instance.getSales(shop.id);
+      if (mounted) {
+        setState(() {
+          _sales = cloudSales;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Bills background sync error: $e");
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   List<Sale> get _filteredSales {
@@ -178,9 +206,26 @@ class _BillsScreenState extends State<BillsScreen> {
                               spacing: 6,
                               children: [
                                 Text(
-                                  'Invoice #${currentSale.billNo}',
+                                  'Invoice #${currentSale.billNo} • ${currentSale.customerName?.isNotEmpty == true ? currentSale.customerName! : "Walk-in Customer"}',
                                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                                 ),
+                                if (currentSale.customerPhone != null && currentSale.customerPhone!.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.blue.shade300),
+                                    ),
+                                    child: Text(
+                                      '📞 ${currentSale.customerPhone!}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.blue.shade900,
+                                      ),
+                                    ),
+                                  ),
                                 if (currentSale.isEdited)
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -735,124 +780,198 @@ class _BillsScreenState extends State<BillsScreen> {
                               ),
                             ],
                           )
-                        : ListView.builder(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-                            itemCount: filtered.length,
-                            itemBuilder: (context, i) {
-                              final sale = filtered[i];
-                              final isFirstItem = i == 0;
-                              final isNewDay = isFirstItem ||
-                                  !_isSameDay(
-                                    filtered[i - 1].createdAt.toLocal(),
-                                    sale.createdAt.toLocal(),
-                                  );
+                        : Builder(
+                            builder: (context) {
+                              final totalCount = filtered.length;
+                              final displayedCount = math.min(_visibleCount, totalCount);
+                              final hasMore = totalCount > displayedCount;
+                              final itemCount = hasMore ? displayedCount + 1 : displayedCount;
 
-                              Widget? dateHeaderWidget;
-                              if (isNewDay) {
-                                final dayDate = sale.createdAt.toLocal();
-                                final daySales = filtered
-                                    .where((s) => _isSameDay(s.createdAt.toLocal(), dayDate))
-                                    .toList();
-                                final dayTotal = daySales.fold<double>(0.0, (sum, s) => sum + s.total);
-                                dateHeaderWidget = _buildDateHeader(dayDate, daySales.length, dayTotal);
-                              }
-
-                              final billCard = Card(
-                                margin: const EdgeInsets.symmetric(vertical: 4),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: sale.due > 0 ? AppColors.error.withValues(alpha: 0.15) : AppColors.primarySurface,
-                                    child: Icon(
-                                      sale.due > 0 ? Icons.book : Icons.receipt,
-                                      color: sale.due > 0 ? AppColors.error : AppColors.primary,
-                                    ),
-                                  ),
-                                  title: Row(
-                                    children: [
-                                      Text('#${sale.billNo}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                      if (sale.isEdited) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.amber.shade100,
-                                            borderRadius: BorderRadius.circular(8),
-                                            border: Border.all(color: Colors.amber.shade600, width: 0.8),
-                                          ),
-                                          child: Text(
-                                            sale.editedTagText,
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w800,
-                                              color: Colors.amber.shade900,
+                              return ListView.builder(
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                                itemCount: itemCount,
+                                itemBuilder: (context, i) {
+                                  if (i == displayedCount) {
+                                    return Card(
+                                      color: AppColors.primarySurface.withValues(alpha: 0.5),
+                                      margin: const EdgeInsets.symmetric(vertical: 8),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                        child: Column(
+                                          children: [
+                                            Text(
+                                              'दिखाए जा रहे हैं: $displayedCount में से $totalCount कुल बिल',
+                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.lightTextPrimary),
                                             ),
-                                          ),
-                                        ),
-                                      ],
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          sale.customerName ?? 'Walk-in Customer',
-                                          style: const TextStyle(fontSize: 13),
-                                          overflow: TextOverflow.ellipsis,
+                                            const SizedBox(height: 8),
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                ElevatedButton.icon(
+                                                  icon: const Icon(Icons.expand_more, size: 18),
+                                                  label: const Text('+50 और लोड करें'),
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _visibleCount += 50;
+                                                    });
+                                                  },
+                                                ),
+                                                const SizedBox(width: 12),
+                                                OutlinedButton(
+                                                  child: const Text('सभी बिल लोड करें (All)'),
+                                                  onPressed: () {
+                                                    setState(() {
+                                                      _visibleCount = totalCount;
+                                                    });
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  subtitle: Text(
-                                    '${sale.items.length} items · ${dateFormat.format(sale.createdAt.toLocal())} · ${sale.paymentMode.toUpperCase()}',
-                                    style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                                  ),
-                                  trailing: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                    );
+                                  }
+
+                                  final sale = filtered[i];
+                                  final isFirstItem = i == 0;
+                                  final isNewDay = isFirstItem ||
+                                      !_isSameDay(
+                                        filtered[i - 1].createdAt.toLocal(),
+                                        sale.createdAt.toLocal(),
+                                      );
+
+                                  Widget? dateHeaderWidget;
+                                  if (isNewDay) {
+                                    final dayDate = sale.createdAt.toLocal();
+                                    final daySales = filtered
+                                        .where((s) => _isSameDay(s.createdAt.toLocal(), dayDate))
+                                        .toList();
+                                    final dayTotal = daySales.fold<double>(0.0, (sum, s) => sum + s.total);
+                                    dateHeaderWidget = _buildDateHeader(dayDate, daySales.length, dayTotal);
+                                  }
+
+                                  final hasCustName = sale.customerName != null && sale.customerName!.trim().isNotEmpty;
+                                  final displayName = hasCustName ? sale.customerName!.trim() : 'Walk-in Customer (नकद)';
+
+                                  final billCard = Card(
+                                    margin: const EdgeInsets.symmetric(vertical: 4),
+                                    child: ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: sale.due > 0 ? AppColors.error.withValues(alpha: 0.15) : AppColors.primarySurface,
+                                        child: Icon(
+                                          sale.due > 0 ? Icons.book : Icons.receipt,
+                                          color: sale.due > 0 ? AppColors.error : AppColors.primary,
+                                        ),
+                                      ),
+                                      title: Row(
                                         children: [
-                                          Text(
-                                            CurrencyFormatter.format(sale.total),
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                          ),
-                                          if (sale.effectiveUpiPayable > 0.009)
-                                            Text(
-                                              'UPI Pending: ${CurrencyFormatter.format(sale.effectiveUpiPayable)}',
-                                              style: TextStyle(color: Colors.amber.shade800, fontSize: 11, fontWeight: FontWeight.bold),
-                                            )
-                                          else if (sale.due > 0)
-                                            Text(
-                                              'Due: ${CurrencyFormatter.format(sale.due)}',
-                                              style: const TextStyle(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.bold),
+                                          Text('#${sale.billNo}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                          if (sale.isEdited) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: Colors.amber.shade100,
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.amber.shade600, width: 0.8),
+                                              ),
+                                              child: Text(
+                                                sale.editedTagText,
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w800,
+                                                  color: Colors.amber.shade900,
+                                                ),
+                                              ),
                                             ),
+                                          ],
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              displayName,
+                                              style: TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: hasCustName ? FontWeight.bold : FontWeight.w500,
+                                                color: hasCustName ? AppColors.lightTextPrimary : AppColors.lightTextSecondary,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
                                         ],
                                       ),
-                                      if (!context.read<AuthProvider>().isStaffSession) ...[
-                                        const SizedBox(width: 4),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
-                                          tooltip: 'Cart में एडिट करें',
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                          onPressed: () => _editBillInCart(sale),
+                                      subtitle: Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            if (sale.customerPhone != null && sale.customerPhone!.trim().isNotEmpty)
+                                              Padding(
+                                                padding: const EdgeInsets.only(bottom: 2),
+                                                child: Text(
+                                                  '📞 ${sale.customerPhone}',
+                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                                ),
+                                              ),
+                                            Text(
+                                              '${sale.items.length} items · ${dateFormat.format(sale.createdAt.toLocal())} · ${sale.paymentMode.toUpperCase()}',
+                                              style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                                            ),
+                                          ],
                                         ),
-                                      ],
-                                    ],
-                                  ),
-                                  onTap: () => _showBillDetails(sale),
-                                ),
-                              );
+                                      ),
+                                      trailing: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            crossAxisAlignment: CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                CurrencyFormatter.format(sale.total),
+                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                              ),
+                                              if (sale.effectiveUpiPayable > 0.009)
+                                                Text(
+                                                  'UPI Pending: ${CurrencyFormatter.format(sale.effectiveUpiPayable)}',
+                                                  style: TextStyle(color: Colors.amber.shade800, fontSize: 11, fontWeight: FontWeight.bold),
+                                                )
+                                              else if (sale.due > 0)
+                                                Text(
+                                                  'Due: ${CurrencyFormatter.format(sale.due)}',
+                                                  style: const TextStyle(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.bold),
+                                                ),
+                                            ],
+                                          ),
+                                          if (!context.read<AuthProvider>().isStaffSession) ...[
+                                            const SizedBox(width: 4),
+                                            IconButton(
+                                              icon: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
+                                              tooltip: 'Cart में एडिट करें',
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                              onPressed: () => _editBillInCart(sale),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                      onTap: () => _showBillDetails(sale),
+                                    ),
+                                  );
 
-                              if (dateHeaderWidget != null) {
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    dateHeaderWidget,
-                                    billCard,
-                                  ],
-                                );
-                              }
-                              return billCard;
+                                  if (dateHeaderWidget != null) {
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        dateHeaderWidget,
+                                        billCard,
+                                      ],
+                                    );
+                                  }
+                                  return billCard;
+                                },
+                              );
                             },
                           ),
                   ),
