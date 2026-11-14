@@ -881,8 +881,9 @@ class LocalDbService {
       where: 'shop_id = ?',
       whereArgs: [shopId],
     );
+    // Ignore 5-digit millisecond timestamps (> 50,000) that were created by old random fallback bug
     final sRows = await db.rawQuery(
-      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ?',
+      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 50000',
       [shopId],
     );
     final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
@@ -890,11 +891,22 @@ class LocalDbService {
     if (rows.isNotEmpty) {
       current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
     }
-    return math.max(current, maxSales) + 1;
+    int peekNo = (current > 0) ? (current + 1) : (maxSales + 1);
+
+    // Guarantee candidate number has no collisions with existing sales
+    while (true) {
+      final existing = await db.rawQuery(
+        'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? LIMIT 1',
+        [shopId, peekNo],
+      );
+      if (existing.isEmpty) break;
+      peekNo++;
+    }
+    return peekNo;
   }
 
   /// Atomically allocates and increments the next sequential bill number.
-  /// Strictly ensures bill number continues monotonically past all historical sales.
+  /// Strictly ensures bill number continues monotonically past all legitimate historical sales.
   Future<int> getNextBillNo(String shopId) async {
     final db = await _ensureDb();
     if (db == null) {
@@ -914,8 +926,9 @@ class LocalDbService {
         where: 'shop_id = ?',
         whereArgs: [shopId],
       );
+      // Ignore 5-digit millisecond timestamps (> 50,000) from old fallback bug
       final sRows = await txn.rawQuery(
-        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ?',
+        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 50000',
         [shopId],
       );
       final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
@@ -923,10 +936,19 @@ class LocalDbService {
       if (rows.isNotEmpty) {
         current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
       }
-      final highestSoFar = math.max(current, maxSales);
-      final nextNo = highestSoFar + 1;
-      final now = DateTime.now().toIso8601String();
+      int nextNo = (current > 0) ? (current + 1) : (maxSales + 1);
 
+      // Guarantee candidate number has no collisions with existing sales
+      while (true) {
+        final existing = await txn.rawQuery(
+          'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? LIMIT 1',
+          [shopId, nextNo],
+        );
+        if (existing.isEmpty) break;
+        nextNo++;
+      }
+
+      final now = DateTime.now().toIso8601String();
       await txn.insert(
         'shop_bill_counters',
         {'shop_id': shopId, 'last_bill_no': nextNo, 'updated_at': now},
