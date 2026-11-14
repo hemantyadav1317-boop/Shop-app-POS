@@ -1,6 +1,6 @@
 {
-  "name": "Shop POS — Billing & Shop Management",
-  "short_name": "Shop POS",
+  "name": "BillZo POS — Billing & Shop Management",
+  "short_name": "BillZo POS",
   "description": "Fast billing, inventory, customers and reports for your shop.",
   "start_url": "/pos",
   "scope": "/",

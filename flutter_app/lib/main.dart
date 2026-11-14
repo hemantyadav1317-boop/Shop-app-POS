@@ -115,7 +115,7 @@ class ShopPosApp extends StatelessWidget {
     final shopProvider = context.watch<ShopProvider>();
 
     return MaterialApp(
-      title: 'Shop POS — Billing, Stock & Khata',
+      title: 'BillZo POS — Billing, Stock & Khata',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,

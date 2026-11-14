@@ -1,6 +1,6 @@
 {
-    "name": "shop_pos",
-    "short_name": "shop_pos",
+    "name": "BillZo POS — Billing, Stock & Khata",
+    "short_name": "BillZo POS",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

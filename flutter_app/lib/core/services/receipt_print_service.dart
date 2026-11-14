@@ -328,7 +328,7 @@ class ReceiptPrintService {
               pw.SizedBox(height: 2),
               pw.Center(
                 child: pw.Text(
-                  'Powered by Shop POS',
+                  'Powered by BillZo POS',
                   textAlign: pw.TextAlign.center,
                   style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700),
                 ),

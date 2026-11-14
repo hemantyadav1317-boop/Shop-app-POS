@@ -84,9 +84,9 @@ class BackupService {
     Map<String, dynamic>? categoriesConfig,
   }) {
     final payload = {
-      'app': 'ShopPOS',
+      'app': 'BillZo POS',
       'schema_version': 1,
-      'app_version': '1.5.1',
+      'app_version': '1.5.2',
       'exported_at': DateTime.now().toIso8601String(),
       'shop': shop.toJson(),
       'categories': categoriesConfig ?? {},
@@ -105,7 +105,7 @@ class BackupService {
     }
     final map = Map<String, dynamic>.from(decoded);
     if (!map.containsKey('products') && !map.containsKey('sales') && !map.containsKey('shop')) {
-      throw const FormatException('यह Shop POS की मान्य बैकअप फ़ाइल नहीं है।');
+      throw const FormatException('यह BillZo POS की मान्य बैकअप फ़ाइल नहीं है।');
     }
 
     Shop? shop;
@@ -271,8 +271,8 @@ class BackupService {
     await SharePlus.instance.share(
       ShareParams(
         files: [XFile(file.path)],
-        subject: 'Shop POS Store Backup',
-        text: 'Shop POS Data Backup (${p.basename(file.path)})',
+        subject: 'BillZo POS Store Backup',
+        text: 'BillZo POS Data Backup (${p.basename(file.path)})',
       ),
     );
   }

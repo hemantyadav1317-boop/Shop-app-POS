@@ -1,4 +1,4 @@
-# Shop POS Perfect
+# BillZo POS
 
 Mujhe meri shop ke liye pos app chahie. Jo phone aur tablet mode dono pe perfectly kam kre
 

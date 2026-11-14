@@ -215,42 +215,26 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         );
                       },
                       child: Container(
-                        width: 100,
-                        height: 100,
+                        width: 108,
+                        height: 108,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(28),
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFF2563EB), // Royal Blue
-                              Color(0xFF1D4ED8),
-                              Color(0xFF06B6D4), // Cyan
-                            ],
-                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF2563EB).withValues(alpha: 0.45),
+                              color: const Color(0xFF10B981).withValues(alpha: 0.35),
                               blurRadius: 30,
                               spreadRadius: 4,
                               offset: const Offset(0, 10),
                             ),
-                            BoxShadow(
-                              color: const Color(0xFF06B6D4).withValues(alpha: 0.25),
-                              blurRadius: 20,
-                              offset: const Offset(0, -4),
-                            ),
                           ],
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.25),
-                            width: 1.5,
-                          ),
                         ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.point_of_sale_rounded,
-                            size: 52,
-                            color: Colors.white,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(28),
+                          child: Image.asset(
+                            'assets/icons/app_icon.png',
+                            width: 108,
+                            height: 108,
+                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -261,7 +245,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
                   // Brand Title
                   Text(
-                    'SHOP POS',
+                    'BILLZO POS',
                     style: GoogleFonts.outfit(
                       fontSize: 32,
                       fontWeight: FontWeight.w800,

@@ -252,7 +252,7 @@ class BluetoothPrinterService {
         styles: const PosStyles(align: PosAlign.center, bold: true, height: PosTextSize.size2, width: PosTextSize.size2),
       );
       bytes += generator.text('Bluetooth Printer Test OK!', styles: const PosStyles(align: PosAlign.center));
-      bytes += generator.text('Shop POS System', styles: const PosStyles(align: PosAlign.center));
+      bytes += generator.text('BillZo POS System', styles: const PosStyles(align: PosAlign.center));
       bytes += generator.feed(1);
       bytes += generator.hr();
       bytes += generator.text('Paper: ${shop.printPaperSize}', styles: const PosStyles(align: PosAlign.center));

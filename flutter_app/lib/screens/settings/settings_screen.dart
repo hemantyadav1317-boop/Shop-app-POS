@@ -694,7 +694,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     final currentShop = context.read<ShopProvider>().shop;
     final updated = currentShop.copyWith(
-      name: _nameCtrl.text.trim().isEmpty ? 'Shop POS' : _nameCtrl.text.trim(),
+      name: _nameCtrl.text.trim().isEmpty ? 'BillZo POS' : _nameCtrl.text.trim(),
       phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
       clearPhone: _phoneCtrl.text.trim().isEmpty,
       address: _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),

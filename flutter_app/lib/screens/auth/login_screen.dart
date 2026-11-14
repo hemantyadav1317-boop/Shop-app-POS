@@ -650,7 +650,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             text: const TextSpan(
               children: [
                 TextSpan(
-                  text: 'shop',
+                  text: 'Bill',
                   style: TextStyle(
                     color: Color(0xFF0F172A),
                     fontWeight: FontWeight.w900,
@@ -658,9 +658,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                   ),
                 ),
                 TextSpan(
-                  text: 'pos',
+                  text: 'Zo',
                   style: TextStyle(
-                    color: Color(0xFFF59E0B),
+                    color: Color(0xFF10B981),
                     fontWeight: FontWeight.w900,
                     fontSize: 14,
                   ),
@@ -671,7 +671,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         ),
         const SizedBox(width: 10),
         const Text(
-          'Smart POS',
+          'BillZo POS',
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w800,
