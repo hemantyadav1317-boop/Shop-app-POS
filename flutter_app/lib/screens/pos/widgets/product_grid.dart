@@ -452,7 +452,11 @@ class _ProductGridState extends State<ProductGrid> {
                       const Icon(Icons.inventory_2_outlined, size: 54, color: Colors.grey),
                       const SizedBox(height: 10),
                       Text(
-                        'No products found for "${productProvider.searchQuery}"',
+                        productProvider.searchQuery.isNotEmpty
+                            ? 'No products found for "${productProvider.searchQuery}"'
+                            : (productProvider.products.isEmpty
+                                ? 'दुकान में कोई सामान नहीं है\n(स्टॉक सेक्शन में जाकर सामान जोड़ें)'
+                                : 'इस कैटेगरी में कोई सामान नहीं है'),
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.grey, fontSize: 13),
                       ),

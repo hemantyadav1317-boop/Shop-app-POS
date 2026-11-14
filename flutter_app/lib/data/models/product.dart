@@ -5,6 +5,7 @@ class Product {
   final String? nameEn;
   final String? nameHi;
   final String category;
+  final String? categoryId;
   final String unit; // 'kg', 'pc', 'g', 'litre', 'packet'
   final double price; // Selling price
   final double? purchasePrice;
@@ -25,6 +26,7 @@ class Product {
     this.nameEn,
     this.nameHi,
     required this.category,
+    this.categoryId,
     required this.unit,
     required this.price,
     this.purchasePrice,
@@ -58,6 +60,7 @@ class Product {
       nameEn: json['name_en'] as String?,
       nameHi: json['name_hi'] as String?,
       category: json['category'] as String? ?? 'General',
+      categoryId: json['category_id'] as String?,
       unit: json['unit'] as String? ?? 'pc',
       price: (json['price'] as num?)?.toDouble() ?? (json['selling_price'] as num?)?.toDouble() ?? 0.0,
       purchasePrice: (json['cost_price'] as num?)?.toDouble() ?? (json['purchase_price'] as num?)?.toDouble(),
@@ -81,6 +84,7 @@ class Product {
       'name_en': nameEn,
       'name_hi': nameHi,
       'category': category,
+      if (categoryId != null && categoryId!.isNotEmpty) 'category_id': categoryId,
       'unit': unit,
       'price': price,
       'cost_price': purchasePrice,
@@ -112,6 +116,7 @@ class Product {
       if (nameEn != null && nameEn!.isNotEmpty) 'name_en': nameEn,
       if (nameHi != null && nameHi!.isNotEmpty) 'name_hi': nameHi,
       'category': category,
+      if (categoryId != null && categoryId!.isNotEmpty) 'category_id': categoryId,
       'unit': (unit == 'kg') ? 'kg' : 'pc',
       'price': price,
       if (purchasePrice != null) 'cost_price': purchasePrice,
@@ -131,6 +136,7 @@ class Product {
     String? nameEn,
     String? nameHi,
     String? category,
+    String? categoryId,
     String? unit,
     double? price,
     double? purchasePrice,
@@ -151,6 +157,7 @@ class Product {
       nameEn: nameEn ?? this.nameEn,
       nameHi: nameHi ?? this.nameHi,
       category: category ?? this.category,
+      categoryId: categoryId ?? this.categoryId,
       unit: unit ?? this.unit,
       price: price ?? this.price,
       purchasePrice: purchasePrice ?? this.purchasePrice,

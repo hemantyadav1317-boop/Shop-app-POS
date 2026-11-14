@@ -323,12 +323,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     final productProvider = context.read<ProductProvider>();
     List<String> availableCats = List.from(productProvider.allCategories);
-    String selectedCategory = existing != null
+    String? selectedCategory = existing != null
         ? existing.category.toUpperCase()
         : (preselectedCategory != null && preselectedCategory.trim().isNotEmpty
             ? preselectedCategory.trim().toUpperCase()
-            : (availableCats.isNotEmpty ? availableCats.first : 'GENERAL'));
-    if (!availableCats.contains(selectedCategory)) {
+            : (availableCats.isNotEmpty ? availableCats.first : null));
+    if (selectedCategory != null && !availableCats.contains(selectedCategory)) {
       availableCats.insert(0, selectedCategory);
     }
 
@@ -586,6 +586,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 flex: 3,
                                 child: DropdownButtonFormField<String>(
                                   value: selectedCategory,
+                                  hint: const Text('कैटेगरी चुनें *', style: TextStyle(fontSize: 13)),
                                   decoration: InputDecoration(
                                     labelText: 'कैटेगरी *',
                                     prefixIcon: const Icon(Icons.category_outlined, color: Color(0xFF00875A)),
@@ -983,6 +984,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               return;
                             }
 
+                            if (selectedCategory == null || selectedCategory!.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  backgroundColor: AppColors.error,
+                                  content: Text('कृपया सामान की कैटेगरी चुनें या + नई बनाएं!'),
+                                ),
+                              );
+                              return;
+                            }
+
                             final shop = context.read<ShopProvider>().shop;
                             final existingId = existing?.id;
                             final hasValidUuid = existingId != null &&
@@ -992,7 +1003,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               id: hasValidUuid ? existingId : const Uuid().v4(),
                               shopId: shop.id,
                               name: name,
-                              category: selectedCategory.trim().toUpperCase(),
+                              category: selectedCategory!.trim().toUpperCase(),
                               unit: unit,
                               price: price,
                               mrp: double.tryParse(mrpCtrl.text),

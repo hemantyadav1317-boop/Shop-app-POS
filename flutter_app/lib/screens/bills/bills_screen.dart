@@ -29,11 +29,58 @@ class _BillsScreenState extends State<BillsScreen> {
   List<Sale> _sales = [];
   bool _isLoading = true;
   String _filter = 'all'; // 'all', 'credit', 'online', 'cash'
+  String _dateFilter = 'all'; // 'all', 'today', 'yesterday', 'this_week', 'custom'
+  DateTime? _customSelectedDate;
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
     _loadSales();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  static bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  String _getDateHeaderTitle(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final d = DateTime(date.year, date.month, date.day);
+
+    if (d == today) {
+      return '📅 आज (Today) · ${DateFormat('dd MMM yyyy').format(date)}';
+    } else if (d == yesterday) {
+      return '📅 कल (Yesterday) · ${DateFormat('dd MMM yyyy').format(date)}';
+    } else {
+      return '📅 ${DateFormat('dd MMM yyyy (EEEE)').format(date)}';
+    }
+  }
+
+  Future<void> _pickCustomDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _customSelectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'तारीख के बिल देखें (Select Date)',
+      confirmText: 'चुनें (Select)',
+      cancelText: 'रद्द करें (Cancel)',
+    );
+    if (picked != null) {
+      setState(() {
+        _customSelectedDate = picked;
+        _dateFilter = 'custom';
+      });
+    }
   }
 
   Future<void> _loadSales() async {
@@ -55,14 +102,49 @@ class _BillsScreenState extends State<BillsScreen> {
         unique.add(s);
       }
     }
+
+    // 1. Sort strictly date-wise: newest bills first
+    unique.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+
+    List<Sale> list = unique;
+
+    // 2. Filter by payment mode
     if (_filter == 'credit') {
-      return unique.where((s) => s.due > 0).toList();
+      list = list.where((s) => s.due > 0).toList();
     } else if (_filter == 'online') {
-      return unique.where((s) => s.paymentMode == 'online').toList();
+      list = list.where((s) => s.paymentMode == 'online').toList();
     } else if (_filter == 'cash') {
-      return unique.where((s) => s.paymentMode == 'cash').toList();
+      list = list.where((s) => s.paymentMode == 'cash').toList();
     }
-    return unique;
+
+    // 3. Filter by date
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    final weekAgo = today.subtract(const Duration(days: 7));
+
+    if (_dateFilter == 'today') {
+      list = list.where((s) => _isSameDay(s.createdAt.toLocal(), today)).toList();
+    } else if (_dateFilter == 'yesterday') {
+      list = list.where((s) => _isSameDay(s.createdAt.toLocal(), yesterday)).toList();
+    } else if (_dateFilter == 'this_week') {
+      list = list.where((s) => s.createdAt.toLocal().isAfter(weekAgo)).toList();
+    } else if (_dateFilter == 'custom' && _customSelectedDate != null) {
+      list = list.where((s) => _isSameDay(s.createdAt.toLocal(), _customSelectedDate!)).toList();
+    }
+
+    // 4. Filter by search query (invoice number, customer name, customer phone)
+    if (_searchQuery.trim().isNotEmpty) {
+      final q = _searchQuery.trim().toLowerCase();
+      list = list.where((s) {
+        final matchBill = '${s.billNo}'.contains(q);
+        final matchCust = (s.customerName ?? '').toLowerCase().contains(q);
+        final matchPhone = (s.customerPhone ?? '').contains(q);
+        return matchBill || matchCust || matchPhone;
+      }).toList();
+    }
+
+    return list;
   }
 
   void _showBillDetails(Sale sale) {
@@ -503,6 +585,7 @@ class _BillsScreenState extends State<BillsScreen> {
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM, hh:mm a');
+    final filtered = _filteredSales;
 
     return Scaffold(
       appBar: AppBar(
@@ -510,36 +593,124 @@ class _BillsScreenState extends State<BillsScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
+            tooltip: 'रिफ्रेश करें',
             onPressed: _loadSales,
           ),
         ],
       ),
       body: Column(
         children: [
-          // Filter Chips
+          // 1. Search Bar (Search by Bill #, Customer Name, Customer Phone)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'बिल नंबर या ग्राहक का नाम / फोन खोजें...',
+                hintStyle: const TextStyle(fontSize: 12.5),
+                prefixIcon: const Icon(Icons.search, size: 20),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.grey.shade100,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide(color: Colors.grey.shade300),
+                ),
+              ),
+              onChanged: (val) => setState(() => _searchQuery = val.trim()),
+            ),
+          ),
+
+          // 2. Date Quick Filters Row (All, Today, Yesterday, This Week, Pick Date)
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
             child: Row(
               children: [
-                _buildFilterChip('all', 'All Bills (${_sales.length})'),
-                const SizedBox(width: 8),
+                _buildDateChip('all', 'सभी दिन (All)'),
+                const SizedBox(width: 6),
+                _buildDateChip('today', 'आज (Today)'),
+                const SizedBox(width: 6),
+                _buildDateChip('yesterday', 'कल (Yesterday)'),
+                const SizedBox(width: 6),
+                _buildDateChip('this_week', 'इस हफ्ते (This Week)'),
+                const SizedBox(width: 6),
+                ActionChip(
+                  avatar: Icon(
+                    Icons.calendar_month_rounded,
+                    size: 15,
+                    color: _dateFilter == 'custom' ? Colors.white : AppColors.primary,
+                  ),
+                  label: Text(
+                    _dateFilter == 'custom' && _customSelectedDate != null
+                        ? DateFormat('dd MMM yyyy').format(_customSelectedDate!)
+                        : '📅 तारीख चुनें',
+                  ),
+                  backgroundColor: _dateFilter == 'custom' ? AppColors.primary : Colors.grey.shade100,
+                  labelStyle: TextStyle(
+                    color: _dateFilter == 'custom' ? Colors.white : AppColors.primaryDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11.5,
+                  ),
+                  onPressed: _pickCustomDate,
+                ),
+                if (_dateFilter == 'custom') ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 16, color: Colors.grey),
+                    tooltip: 'तारीख फिल्टर हटाएं',
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                    onPressed: () {
+                      setState(() {
+                        _dateFilter = 'all';
+                        _customSelectedDate = null;
+                      });
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // 3. Payment Mode Filter Chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+            child: Row(
+              children: [
+                _buildFilterChip('all', 'All Bills (${filtered.length})'),
+                const SizedBox(width: 6),
                 _buildFilterChip('cash', 'Cash'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _buildFilterChip('online', 'UPI Online'),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _buildFilterChip('credit', 'उधार (Credit)'),
               ],
             ),
           ),
 
-          // Sales List
+          // 4. Sales List with Date Section Headers
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : RefreshIndicator(
                     onRefresh: _loadSales,
-                    child: _filteredSales.isEmpty
+                    child: filtered.isEmpty
                         ? ListView(
                             physics: const AlwaysScrollableScrollPhysics(),
                             children: const [
@@ -550,109 +721,195 @@ class _BillsScreenState extends State<BillsScreen> {
                                   children: [
                                     Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.lightTextSecondary),
                                     SizedBox(height: 8),
-                                    Text('कोई बिल नहीं मिला (No bills yet)', style: TextStyle(color: AppColors.lightTextSecondary)),
+                                    Text('कोई बिल नहीं मिला (No bills found)', style: TextStyle(color: AppColors.lightTextSecondary)),
                                   ],
                                 ),
                               ),
                             ],
                           )
-                        : ListView.separated(
+                        : ListView.builder(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.all(12),
-                            itemCount: _filteredSales.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
+                            padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                            itemCount: filtered.length,
                             itemBuilder: (context, i) {
-                          final sale = _filteredSales[i];
+                              final sale = filtered[i];
+                              final isFirstItem = i == 0;
+                              final isNewDay = isFirstItem ||
+                                  !_isSameDay(
+                                    filtered[i - 1].createdAt.toLocal(),
+                                    sale.createdAt.toLocal(),
+                                  );
 
-                          return Card(
-                            child: ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: sale.due > 0 ? AppColors.error.withOpacity(0.15) : AppColors.primarySurface,
-                                child: Icon(
-                                  sale.due > 0 ? Icons.book : Icons.receipt,
-                                  color: sale.due > 0 ? AppColors.error : AppColors.primary,
-                                ),
-                              ),
-                              title: Row(
-                                children: [
-                                  Text('#${sale.billNo}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                  if (sale.isEdited) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.amber.shade100,
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(color: Colors.amber.shade600, width: 0.8),
-                                      ),
-                                      child: Text(
-                                        sale.editedTagText,
-                                        style: TextStyle(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.amber.shade900,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      sale.customerName ?? 'Walk-in Customer',
-                                      style: const TextStyle(fontSize: 13),
-                                      overflow: TextOverflow.ellipsis,
+                              Widget? dateHeaderWidget;
+                              if (isNewDay) {
+                                final dayDate = sale.createdAt.toLocal();
+                                final daySales = filtered
+                                    .where((s) => _isSameDay(s.createdAt.toLocal(), dayDate))
+                                    .toList();
+                                final dayTotal = daySales.fold<double>(0.0, (sum, s) => sum + s.total);
+                                dateHeaderWidget = _buildDateHeader(dayDate, daySales.length, dayTotal);
+                              }
+
+                              final billCard = Card(
+                                margin: const EdgeInsets.symmetric(vertical: 4),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: sale.due > 0 ? AppColors.error.withValues(alpha: 0.15) : AppColors.primarySurface,
+                                    child: Icon(
+                                      sale.due > 0 ? Icons.book : Icons.receipt,
+                                      color: sale.due > 0 ? AppColors.error : AppColors.primary,
                                     ),
                                   ),
-                                ],
-                              ),
-                              subtitle: Text(
-                                '${sale.items.length} items · ${dateFormat.format(sale.createdAt.toLocal())} · ${sale.paymentMode.toUpperCase()}',
-                                style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                  title: Row(
                                     children: [
-                                      Text(
-                                        CurrencyFormatter.format(sale.total),
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                      ),
-                                      if (sale.effectiveUpiPayable > 0.009)
-                                        Text(
-                                          'UPI Pending: ${CurrencyFormatter.format(sale.effectiveUpiPayable)}',
-                                          style: TextStyle(color: Colors.amber.shade800, fontSize: 11, fontWeight: FontWeight.bold),
-                                        )
-                                      else if (sale.due > 0)
-                                        Text(
-                                          'Due: ${CurrencyFormatter.format(sale.due)}',
-                                          style: const TextStyle(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.bold),
+                                      Text('#${sale.billNo}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      if (sale.isEdited) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.amber.shade100,
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: Colors.amber.shade600, width: 0.8),
+                                          ),
+                                          child: Text(
+                                            sale.editedTagText,
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.amber.shade900,
+                                            ),
+                                          ),
                                         ),
+                                      ],
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          sale.customerName ?? 'Walk-in Customer',
+                                          style: const TextStyle(fontSize: 13),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
                                     ],
                                   ),
-                                  if (!context.read<AuthProvider>().isStaffSession) ...[
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
-                                      tooltip: 'Cart में एडिट करें',
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                      onPressed: () => _editBillInCart(sale),
-                                    ),
+                                  subtitle: Text(
+                                    '${sale.items.length} items · ${dateFormat.format(sale.createdAt.toLocal())} · ${sale.paymentMode.toUpperCase()}',
+                                    style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                                  ),
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            CurrencyFormatter.format(sale.total),
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          ),
+                                          if (sale.effectiveUpiPayable > 0.009)
+                                            Text(
+                                              'UPI Pending: ${CurrencyFormatter.format(sale.effectiveUpiPayable)}',
+                                              style: TextStyle(color: Colors.amber.shade800, fontSize: 11, fontWeight: FontWeight.bold),
+                                            )
+                                          else if (sale.due > 0)
+                                            Text(
+                                              'Due: ${CurrencyFormatter.format(sale.due)}',
+                                              style: const TextStyle(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.bold),
+                                            ),
+                                        ],
+                                      ),
+                                      if (!context.read<AuthProvider>().isStaffSession) ...[
+                                        const SizedBox(width: 4),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
+                                          tooltip: 'Cart में एडिट करें',
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                          onPressed: () => _editBillInCart(sale),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  onTap: () => _showBillDetails(sale),
+                                ),
+                              );
+
+                              if (dateHeaderWidget != null) {
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    dateHeaderWidget,
+                                    billCard,
                                   ],
-                                ],
-                              ),
-                              onTap: () => _showBillDetails(sale),
-                            ),
-                          );
-                        },
-                      ),
+                                );
+                              }
+                              return billCard;
+                            },
+                          ),
                   ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDateHeader(DateTime date, int count, double total) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(2, 10, 2, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.primarySurface.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.primary),
+              const SizedBox(width: 6),
+              Text(
+                _getDateHeaderTitle(date),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primaryDark,
+                ),
+              ),
+            ],
+          ),
+          Text(
+            '$count बिल  •  ${CurrencyFormatter.format(total)}',
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateChip(String key, String label) {
+    final isSelected = _dateFilter == key;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: AppColors.primarySurface,
+      labelStyle: TextStyle(
+        color: isSelected ? AppColors.primary : AppColors.lightTextSecondary,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 11.5,
+      ),
+      onSelected: (_) {
+        setState(() {
+          _dateFilter = key;
+          if (key != 'custom') _customSelectedDate = null;
+        });
+      },
     );
   }
 
@@ -665,7 +922,7 @@ class _BillsScreenState extends State<BillsScreen> {
       labelStyle: TextStyle(
         color: isSelected ? AppColors.primary : AppColors.lightTextSecondary,
         fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 12,
+        fontSize: 11.5,
       ),
       onSelected: (_) {
         setState(() => _filter = key);

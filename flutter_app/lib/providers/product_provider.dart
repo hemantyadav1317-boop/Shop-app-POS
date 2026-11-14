@@ -1,23 +1,16 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+import '../data/models/category.dart';
 import '../data/models/product.dart';
 import '../data/models/cart_item.dart';
+import '../data/services/local_db_service.dart';
 import '../data/services/supabase_service.dart';
 import '../core/constants/aliases.dart';
 
 class ProductProvider extends ChangeNotifier {
-  static const List<String> defaultCategories = [
-    'VEGETABLES',
-    'FRUITS',
-    'DAIRY',
-    'GRAINS',
-    'SNACKS',
-    'BEVERAGES',
-    'SPICES',
-    'PERSONAL CARE',
-    'GENERAL',
-  ];
+  static const List<String> defaultCategories = [];
 
   static const Map<String, String> defaultCategoryImages = {
     'VEGETABLES': 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=120&q=80',
@@ -32,6 +25,7 @@ class ProductProvider extends ChangeNotifier {
   };
 
   List<Product> _products = [];
+  final List<Category> _normalizedCategories = [];
   final List<String> _customCategories = [];
   final Set<String> _deletedCategories = {};
   final Map<String, String> _categoryImages = {};
@@ -195,6 +189,12 @@ class ProductProvider extends ChangeNotifier {
   /// List of all categories without 'All' (used in product add/edit dropdown & category management)
   List<String> get allCategories {
     final set = <String>{};
+    for (final c in _normalizedCategories) {
+      final upper = c.name.trim().toUpperCase();
+      if (c.isActive && upper.isNotEmpty && upper != 'ALL' && !_deletedCategories.contains(upper)) {
+        set.add(upper);
+      }
+    }
     for (final c in _customCategories) {
       final upper = c.toUpperCase();
       if (!_deletedCategories.contains(upper)) {
@@ -205,16 +205,6 @@ class ProductProvider extends ChangeNotifier {
       if (p.category.trim().isNotEmpty && p.category.toLowerCase() != 'all') {
         final upper = p.category.trim().toUpperCase();
         if (!_deletedCategories.contains(upper)) {
-          set.add(upper);
-        }
-      }
-    }
-    for (final c in defaultCategories) {
-      final upper = c.toUpperCase();
-      if (!_deletedCategories.contains(upper)) {
-        // Only include default categories if they still have products
-        final hasProducts = _products.any((p) => p.category.trim().toUpperCase() == upper);
-        if (hasProducts) {
           set.add(upper);
         }
       }
@@ -247,6 +237,13 @@ class ProductProvider extends ChangeNotifier {
     notifyListeners();
 
     // Load & merge cloud/SQLite categories config FIRST so deleted categories stay suppressed
+    try {
+      final localCats = await LocalDbService.instance.getCategories(shopId);
+      _normalizedCategories
+        ..clear()
+        ..addAll(localCats);
+    } catch (_) {}
+
     try {
       final remoteCfg = await SupabaseService.instance.getCategoriesConfig(shopId);
       if (remoteCfg.isNotEmpty) {
@@ -313,10 +310,22 @@ class ProductProvider extends ChangeNotifier {
     if (name.isEmpty) return;
     _deletedCategories.remove(name);
     await _saveDeletedCategories();
-    if (!_customCategories.contains(name) && !defaultCategories.contains(name)) {
+    if (!_customCategories.contains(name)) {
       _customCategories.add(name);
       await _saveCustomCategories();
     }
+    final catId = const Uuid().v4();
+    final cat = Category(
+      id: catId,
+      shopId: _activeShopId,
+      name: name,
+      isActive: true,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await LocalDbService.instance.upsertCategory(_activeShopId, cat);
+    _normalizedCategories.removeWhere((c) => c.name.toUpperCase() == name);
+    _normalizedCategories.add(cat);
     await _syncCategoriesToDoubleLayer();
     notifyListeners();
   }
@@ -326,8 +335,10 @@ class ProductProvider extends ChangeNotifier {
     _customCategories.remove(name);
     _deletedCategories.add(name);
     _categoryImages.remove(name);
+    _normalizedCategories.removeWhere((c) => c.name.toUpperCase() == name);
     await _saveCustomCategories();
     await _saveDeletedCategories();
+    await LocalDbService.instance.deleteCategory(_activeShopId, name);
 
     // Cascade Delete: Soft-delete all products in this category in Cloud Supabase + Local SQLite
     final toDelete = _products.where((p) => p.category.trim().toUpperCase() == name).toList();

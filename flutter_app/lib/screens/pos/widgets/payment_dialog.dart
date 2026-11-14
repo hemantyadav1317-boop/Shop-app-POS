@@ -16,6 +16,7 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/payment_qr_helper.dart';
 import '../../../../data/models/sale.dart';
 import '../../../../data/models/shop.dart';
+import '../../../../data/services/local_db_service.dart';
 import '../../../../data/services/supabase_service.dart';
 import '../../../../data/services/upi_service.dart';
 import '../../../../providers/auth_provider.dart';
@@ -77,9 +78,22 @@ class _PaymentDialogState extends State<PaymentDialog> {
     } else {
       _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
       _upiController = TextEditingController(text: '0.00');
-      _billNo = DateTime.now().millisecondsSinceEpoch % 100000;
+      _billNo = 1;
+      _initBillNo();
     }
     _loadQuote();
+  }
+
+  void _initBillNo() async {
+    final cart = context.read<CartProvider>();
+    if (cart.editingSale != null) return;
+    final shop = context.read<ShopProvider>().shop;
+    final peek = await LocalDbService.instance.peekNextBillNo(shop.id);
+    if (mounted && _completedSale == null) {
+      setState(() {
+        _billNo = peek;
+      });
+    }
   }
 
   void _loadQuote() async {
@@ -396,10 +410,12 @@ class _PaymentDialogState extends State<PaymentDialog> {
           custProv.loadCustomers(shop.id);
         }
       } else {
+        final confirmedBillNo = await LocalDbService.instance.getNextBillNo(shop.id);
+        _billNo = confirmedBillNo;
         final sale = Sale(
           id: const Uuid().v4(),
           shopId: shop.id,
-          billNo: _billNo,
+          billNo: confirmedBillNo,
           customerId: cart.customer?.id,
           customerName: cart.customer?.name,
           customerPhone: cart.customer?.phone,

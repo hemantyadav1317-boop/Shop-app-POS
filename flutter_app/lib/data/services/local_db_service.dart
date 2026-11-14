@@ -1,8 +1,10 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
+import '../models/category.dart';
 import '../models/customer.dart';
+import '../models/customer_ledger_entry.dart';
 import '../models/product.dart';
 import '../models/sale.dart';
 import '../models/shop.dart';
@@ -60,7 +62,7 @@ class LocalDbService {
   static final LocalDbService instance = LocalDbService._();
   LocalDbService._();
 
-  static const int _dbVersion = 1;
+  static const int _dbVersion = 2;
   static const String _dbName = 'shop_pos_local.db';
 
   Database? _db;
@@ -91,6 +93,7 @@ class LocalDbService {
         path,
         version: _dbVersion,
         onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
       );
       _disabled = false;
     } catch (e) {
@@ -108,6 +111,17 @@ class LocalDbService {
   }
 
   Future<void> _onCreate(Database db, int version) async {
+    await _createBaseTables(db);
+    await _createV2Tables(db);
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await _createV2Tables(db);
+    }
+  }
+
+  Future<void> _createBaseTables(Database db) async {
     await db.execute('''
       CREATE TABLE IF NOT EXISTS products (
         id TEXT PRIMARY KEY,
@@ -171,6 +185,48 @@ class LocalDbService {
     ''');
     await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_outbox_shop ON sync_outbox (shop_id, created_at ASC)');
+  }
+
+  Future<void> _createV2Tables(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS categories (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        image_url TEXT,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        data_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_categories_shop ON categories (shop_id, is_active)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS customer_ledger (
+        id TEXT PRIMARY KEY,
+        shop_id TEXT NOT NULL,
+        customer_id TEXT NOT NULL,
+        entry_type TEXT NOT NULL,
+        amount REAL NOT NULL DEFAULT 0,
+        balance_after REAL NOT NULL DEFAULT 0,
+        sale_id TEXT,
+        payment_id TEXT,
+        note TEXT,
+        created_at TEXT NOT NULL,
+        data_json TEXT NOT NULL
+      )
+    ''');
+    await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_ledger_shop_cust ON customer_ledger (shop_id, customer_id, created_at DESC)');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS shop_bill_counters (
+        shop_id TEXT PRIMARY KEY,
+        last_bill_no INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL
+      )
+    ''');
   }
 
   // ===================== PRODUCTS =====================
@@ -638,8 +694,230 @@ class LocalDbService {
       'productsCount': await countTable('products'),
       'customersCount': await countTable('customers'),
       'salesCount': await countTable('sales'),
+      'categoriesCount': await countTable('categories'),
       'pendingSyncCount': await getPendingOutboxCount(shopId),
     };
+  }
+
+  // ===================== CATEGORIES =====================
+
+  Future<void> saveCategories(String shopId, List<Category> categories) async {
+    final db = await _ensureDb();
+    if (db == null) return;
+    final now = DateTime.now().toIso8601String();
+    await db.transaction((txn) async {
+      await txn.delete('categories', where: 'shop_id = ?', whereArgs: [shopId]);
+      final batch = txn.batch();
+      for (final cat in categories) {
+        batch.insert(
+          'categories',
+          {
+            'id': cat.id,
+            'shop_id': shopId,
+            'name': cat.name,
+            'image_url': cat.imageUrl,
+            'is_active': cat.isActive ? 1 : 0,
+            'data_json': jsonEncode(cat.toJson()),
+            'updated_at': cat.updatedAt?.toIso8601String() ?? now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  Future<void> upsertCategory(String shopId, Category category) async {
+    final db = await _ensureDb();
+    if (db == null) return;
+    await db.insert(
+      'categories',
+      {
+        'id': category.id,
+        'shop_id': shopId,
+        'name': category.name,
+        'image_url': category.imageUrl,
+        'is_active': category.isActive ? 1 : 0,
+        'data_json': jsonEncode(category.toJson()),
+        'updated_at': category.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<void> deleteCategory(String shopId, String categoryId) async {
+    final db = await _ensureDb();
+    if (db == null) return;
+    await db.delete('categories', where: 'id = ? AND shop_id = ?', whereArgs: [categoryId, shopId]);
+  }
+
+  Future<List<Category>> getCategories(String shopId) async {
+    final db = await _ensureDb();
+    if (db == null) return [];
+    final rows = await db.query(
+      'categories',
+      where: 'shop_id = ? AND is_active = 1',
+      whereArgs: [shopId],
+      orderBy: 'name ASC',
+    );
+    final List<Category> result = [];
+    for (final row in rows) {
+      try {
+        final decoded = Map<String, dynamic>.from(jsonDecode(row['data_json'] as String));
+        result.add(Category.fromJson(decoded));
+      } catch (e) {
+        debugPrint('LocalDb decode category failed: $e');
+      }
+    }
+    return result;
+  }
+
+  // ===================== CUSTOMER LEDGER =====================
+
+  Future<void> saveCustomerLedgerEntries(String shopId, List<CustomerLedgerEntry> entries) async {
+    final db = await _ensureDb();
+    if (db == null) return;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (final e in entries) {
+        batch.insert(
+          'customer_ledger',
+          {
+            'id': e.id,
+            'shop_id': shopId,
+            'customer_id': e.customerId,
+            'entry_type': e.entryType,
+            'amount': e.amount,
+            'balance_after': e.balanceAfter,
+            'sale_id': e.saleId,
+            'payment_id': e.paymentId,
+            'note': e.note,
+            'created_at': e.createdAt.toIso8601String(),
+            'data_json': jsonEncode(e.toJson()),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  Future<void> addCustomerLedgerEntry(String shopId, CustomerLedgerEntry entry) async {
+    final db = await _ensureDb();
+    if (db == null) return;
+    await db.insert(
+      'customer_ledger',
+      {
+        'id': entry.id,
+        'shop_id': shopId,
+        'customer_id': entry.customerId,
+        'entry_type': entry.entryType,
+        'amount': entry.amount,
+        'balance_after': entry.balanceAfter,
+        'sale_id': entry.saleId,
+        'payment_id': entry.paymentId,
+        'note': entry.note,
+        'created_at': entry.createdAt.toIso8601String(),
+        'data_json': jsonEncode(entry.toJson()),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<List<CustomerLedgerEntry>> getCustomerLedger(String shopId, String customerId) async {
+    final db = await _ensureDb();
+    if (db == null) return [];
+    final rows = await db.query(
+      'customer_ledger',
+      where: 'shop_id = ? AND customer_id = ?',
+      whereArgs: [shopId, customerId],
+      orderBy: 'created_at DESC',
+    );
+    final List<CustomerLedgerEntry> result = [];
+    for (final row in rows) {
+      try {
+        final decoded = Map<String, dynamic>.from(jsonDecode(row['data_json'] as String));
+        result.add(CustomerLedgerEntry.fromJson(decoded));
+      } catch (e) {
+        debugPrint('LocalDb decode ledger failed: $e');
+      }
+    }
+    return result;
+  }
+
+  // ===================== ATOMIC BILL COUNTERS =====================
+
+  Future<int> peekNextBillNo(String shopId) async {
+    final db = await _ensureDb();
+    if (db == null) return 1;
+    final rows = await db.query(
+      'shop_bill_counters',
+      where: 'shop_id = ?',
+      whereArgs: [shopId],
+    );
+    if (rows.isNotEmpty) {
+      final current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
+      return current + 1;
+    }
+    final sRows = await db.rawQuery(
+      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ?',
+      [shopId],
+    );
+    final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
+    return maxSales + 1;
+  }
+
+  Future<int> getNextBillNo(String shopId) async {
+    final db = await _ensureDb();
+    if (db == null) {
+      return DateTime.now().millisecondsSinceEpoch % 100000;
+    }
+    return await db.transaction((txn) async {
+      final rows = await txn.query(
+        'shop_bill_counters',
+        where: 'shop_id = ?',
+        whereArgs: [shopId],
+      );
+      int nextNo = 1;
+      final now = DateTime.now().toIso8601String();
+      if (rows.isNotEmpty) {
+        final current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
+        nextNo = current + 1;
+        await txn.update(
+          'shop_bill_counters',
+          {'last_bill_no': nextNo, 'updated_at': now},
+          where: 'shop_id = ?',
+          whereArgs: [shopId],
+        );
+      } else {
+        final sRows = await txn.rawQuery(
+          'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ?',
+          [shopId],
+        );
+        final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
+        nextNo = maxSales + 1;
+        await txn.insert(
+          'shop_bill_counters',
+          {'shop_id': shopId, 'last_bill_no': nextNo, 'updated_at': now},
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      return nextNo;
+    });
+  }
+
+  Future<void> setLastBillNo(String shopId, int lastBillNo) async {
+    final db = await _ensureDb();
+    if (db == null) return;
+    await db.insert(
+      'shop_bill_counters',
+      {
+        'shop_id': shopId,
+        'last_bill_no': lastBillNo,
+        'updated_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   /// Close and clear tables in unit tests
