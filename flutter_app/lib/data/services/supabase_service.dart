@@ -508,8 +508,21 @@ class SupabaseService {
             .order('name');
         final list = (response as List)
             .map((e) => Product.fromJson(e))
-            .where((p) => !pendingDeletions.contains(p.id))
             .toList();
+
+        // ⚡ Authoritative Cloud Reconciliation:
+        // Any product returned with is_active = true by Supabase Cloud is active!
+        // Purge it from stale local pending deletion queues.
+        if (list.isNotEmpty) {
+          final activeIds = list.map((p) => p.id).toSet();
+          if (pendingDeletions.any(activeIds.contains)) {
+            pendingDeletions.removeWhere(activeIds.contains);
+            await prefs.setStringList(queueKey, pendingDeletions);
+          }
+          await LocalDbService.instance.reconcileCloudActiveProducts(validShopId, list);
+        } else {
+          await LocalDbService.instance.saveProducts(validShopId, list);
+        }
 
         // ONLY sync local products if they genuinely belong to validShopId (NEVER push demo-shop-101 items to user's real shop)
         final cloudIds = list.map((p) => p.id).toSet();

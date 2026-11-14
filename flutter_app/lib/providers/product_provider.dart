@@ -320,6 +320,19 @@ class ProductProvider extends ChangeNotifier {
     final loaded = await SupabaseService.instance.getProducts(shopId);
     _products = loaded;
 
+    // Unblock any category that has active products
+    bool changedDeletedCats = false;
+    for (final p in _products) {
+      final upper = p.category.trim().toUpperCase();
+      if (upper.isNotEmpty && upper != 'ALL' && _deletedCategories.contains(upper)) {
+        _deletedCategories.remove(upper);
+        changedDeletedCats = true;
+      }
+    }
+    if (changedDeletedCats) {
+      await _saveDeletedCategories();
+    }
+
     // Recompute product and category popularity / sales count from local sales history
     try {
       final sales = await LocalDbService.instance.getSales(shopId);

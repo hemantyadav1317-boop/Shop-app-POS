@@ -596,6 +596,22 @@ class LocalDbService {
     }
   }
 
+  /// Reconciles active products returned authoritatively by Supabase Cloud.
+  /// Automatically purges stale local deletion flags and outbox soft-delete tasks.
+  Future<void> reconcileCloudActiveProducts(String shopId, List<Product> cloudActiveProducts) async {
+    final activeIds = cloudActiveProducts.map((p) => p.id).toSet();
+    final currentDeleted = (await getDeletedProductIds(shopId)).toSet();
+    final beforeLen = currentDeleted.length;
+    currentDeleted.removeAll(activeIds);
+    if (currentDeleted.length != beforeLen) {
+      await saveDeletedProductIds(shopId, currentDeleted.toList());
+    }
+    for (final id in activeIds) {
+      await removeOutboxForEntity('product', id);
+    }
+    await saveProducts(shopId, cloudActiveProducts);
+  }
+
   // ===================== SYNC OUTBOX =====================
 
   Future<void> enqueueOutbox({
