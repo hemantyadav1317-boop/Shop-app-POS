@@ -19,6 +19,7 @@ import '../../data/models/sale.dart';
 import '../../data/models/cart_item.dart';
 import '../../data/models/shop.dart';
 import '../../data/services/upi_service.dart';
+import '../../data/services/phonepe_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/auth_provider.dart';
@@ -51,6 +52,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late bool _allowNegativeStock;
   String? _qrImageUrl;
 
+  late bool _phonePeEnabled;
+  late TextEditingController _phonePeMobileCtrl;
+  late TextEditingController _phonePeMidCtrl;
+  late TextEditingController _phonePeStoreNameCtrl;
+  late String _phonePeEnvironment;
+  bool _isConnectingPhonePe = false;
+
   String? _btPrinterName;
   String? _btPrinterMac;
   bool _btIsConnected = false;
@@ -73,9 +81,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _allowNegativeStock = shop.allowNegativeStock;
     _qrImageUrl = shop.qrImageUrl;
 
+    _phonePeEnabled = shop.phonePeEnabled;
+    _phonePeMobileCtrl = TextEditingController(text: shop.phonePeMobileNumber ?? shop.phone ?? '');
+    _phonePeMidCtrl = TextEditingController(text: shop.phonePeMerchantId ?? '');
+    _phonePeStoreNameCtrl = TextEditingController(text: shop.phonePeStoreName ?? shop.name);
+    _phonePeEnvironment = shop.phonePeEnvironment;
+
     _upiIdCtrl.addListener(() => setState(() {}));
     _upiNameCtrl.addListener(() => setState(() {}));
     _googleReviewUrlCtrl.addListener(() => setState(() {}));
+    _phonePeMobileCtrl.addListener(() => setState(() {}));
+    _phonePeMidCtrl.addListener(() => setState(() {}));
 
     void attachTypeSound(TextEditingController ctrl) {
       String prev = ctrl.text;
@@ -259,6 +275,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _upiNameCtrl.dispose();
     _googleReviewUrlCtrl.dispose();
     _footerCtrl.dispose();
+    _phonePeMobileCtrl.dispose();
+    _phonePeMidCtrl.dispose();
+    _phonePeStoreNameCtrl.dispose();
     super.dispose();
   }
 
@@ -712,6 +731,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
       allowNegativeStock: _allowNegativeStock,
       qrImageUrl: (_qrImageUrl != null && _qrImageUrl!.trim().isNotEmpty) ? _qrImageUrl : null,
       clearQrImageUrl: _qrImageUrl == null || _qrImageUrl!.trim().isEmpty,
+      phonePeEnabled: _phonePeEnabled,
+      phonePeMobileNumber: _phonePeMobileCtrl.text.trim().isEmpty ? null : _phonePeMobileCtrl.text.trim(),
+      clearPhonePeMobileNumber: _phonePeMobileCtrl.text.trim().isEmpty,
+      phonePeMerchantId: _phonePeMidCtrl.text.trim().isEmpty ? null : _phonePeMidCtrl.text.trim(),
+      clearPhonePeMerchantId: _phonePeMidCtrl.text.trim().isEmpty,
+      phonePeStoreName: _phonePeStoreNameCtrl.text.trim().isEmpty ? null : _phonePeStoreNameCtrl.text.trim(),
+      clearPhonePeStoreName: _phonePeStoreNameCtrl.text.trim().isEmpty,
+      phonePeEnvironment: _phonePeEnvironment,
     );
 
     await context.read<ShopProvider>().updateShop(updated);
@@ -1922,6 +1949,245 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // PhonePe Auto-Verification Card
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: _phonePeEnabled ? const Color(0xFF5F259F) : Colors.grey.shade300,
+                  width: _phonePeEnabled ? 1.6 : 1.0,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF5F259F).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.bolt_rounded, color: Color(0xFF5F259F), size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'PhonePe ऑटो-पेमेंट वेरिफिकेशन',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Text(
+                                    'PRO',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w900,
+                                      color: Color(0xFF5F259F),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                _phonePeEnabled
+                                    ? '✓ PhonePe कनेक्टेड (Dynamic QR व ऑटो बिलिंग चालू)'
+                                    : 'Dynamic QR से भुगतान मिलते ही बिल अपने आप पास होगा',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _phonePeEnabled ? const Color(0xFF00875A) : AppColors.lightTextSecondary,
+                                  fontWeight: _phonePeEnabled ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _phonePeEnabled,
+                          activeThumbColor: const Color(0xFF5F259F),
+                          onChanged: authProvider.isStaffSession
+                              ? null
+                              : (val) {
+                                  setState(() {
+                                    _phonePeEnabled = val;
+                                  });
+                                  SoundService.instance.playClick();
+                                },
+                        ),
+                      ],
+                    ),
+                    if (_phonePeEnabled) ...[
+                      const Divider(height: 20),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFBF8FF),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE9D5FF)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'PhonePe बिज़नेस क्रेडेंशियल्स',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF4C1D95)),
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _phonePeMobileCtrl,
+                              readOnly: authProvider.isStaffSession,
+                              keyboardType: TextInputType.phone,
+                              decoration: const InputDecoration(
+                                labelText: 'PhonePe Business रजिस्टर्ड मोबाइल नंबर *',
+                                prefixIcon: Icon(Icons.phone_android, color: Color(0xFF5F259F)),
+                                hintText: '9876543210',
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            TextField(
+                              controller: _phonePeMidCtrl,
+                              readOnly: authProvider.isStaffSession,
+                              decoration: const InputDecoration(
+                                labelText: 'Merchant ID / MID (वैकल्पिक - खाली रहने पर ऑटो बनेगी)',
+                                prefixIcon: Icon(Icons.storefront_outlined, color: Color(0xFF5F259F)),
+                                hintText: 'MYADAVVEGGIE या M9876543210',
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                const Text('पर्यावरण (Mode): ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 8),
+                                ChoiceChip(
+                                  label: const Text('Sandbox (UAT टेस्ट)', style: TextStyle(fontSize: 11)),
+                                  selected: _phonePeEnvironment == 'sandbox',
+                                  onSelected: authProvider.isStaffSession
+                                      ? null
+                                      : (sel) {
+                                          if (sel) setState(() => _phonePeEnvironment = 'sandbox');
+                                        },
+                                ),
+                                const SizedBox(width: 6),
+                                ChoiceChip(
+                                  label: const Text('Live (प्रोडक्शन)', style: TextStyle(fontSize: 11)),
+                                  selected: _phonePeEnvironment == 'production',
+                                  onSelected: authProvider.isStaffSession
+                                      ? null
+                                      : (sel) {
+                                          if (sel) setState(() => _phonePeEnvironment = 'production');
+                                        },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFF5F259F),
+                                    foregroundColor: Colors.white,
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  icon: _isConnectingPhonePe
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        )
+                                      : const Icon(Icons.check_circle_outline, size: 16),
+                                  label: const Text('PhonePe से जोड़ें (Verify & Connect)'),
+                                  onPressed: _isConnectingPhonePe || authProvider.isStaffSession
+                                      ? null
+                                      : () async {
+                                          final phone = _phonePeMobileCtrl.text.trim();
+                                          if (phone.length < 10) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                backgroundColor: AppColors.error,
+                                                content: Text('कृपया 10 अंकों का मान्य PhonePe मोबाइल नंबर दर्ज करें।'),
+                                              ),
+                                            );
+                                            return;
+                                          }
+                                          final messenger = ScaffoldMessenger.of(context);
+                                          final shopProv = context.read<ShopProvider>();
+                                          setState(() => _isConnectingPhonePe = true);
+                                          final res = await PhonePeService.instance.connectMerchant(
+                                            shop: shopProv.shop,
+                                            mobileNumber: phone,
+                                            merchantId: _phonePeMidCtrl.text.trim(),
+                                            environment: _phonePeEnvironment,
+                                          );
+                                          if (!mounted) return;
+                                          setState(() => _isConnectingPhonePe = false);
+                                          if (res['success'] == true) {
+                                            SoundService.instance.playSuccess();
+                                            messenger.showSnackBar(
+                                              const SnackBar(
+                                                backgroundColor: Color(0xFF00875A),
+                                                content: Text('✓ PhonePe Merchant सफलतापूर्वक लिंक हो गया!'),
+                                              ),
+                                            );
+                                            await _saveSettings();
+                                          }
+                                        },
+                                ),
+                                OutlinedButton.icon(
+                                  icon: const Icon(Icons.qr_code, size: 16, color: Color(0xFF5F259F)),
+                                  label: const Text('₹1 का टेस्ट Dynamic QR बनाएं'),
+                                  style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                                  onPressed: () async {
+                                    final currentShop = context.read<ShopProvider>().shop;
+                                    final tx = await PhonePeService.instance.createPaymentOrder(
+                                      shop: currentShop,
+                                      billNo: 9999,
+                                      amount: 1.0,
+                                      clientRef: 'test_123',
+                                    );
+                                    if (!mounted) return;
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('PhonePe Dynamic QR (₹1.00 Test)', style: TextStyle(fontSize: 14)),
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              QrImageView(
+                                                data: tx.qrData ?? 'upi://pay?pa=phonepe@merchant&am=1.00',
+                                                version: QrVersions.auto,
+                                                size: 160,
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text('Tx ID: ${tx.merchantTransactionId}', style: const TextStyle(fontSize: 10)),
+                                            ],
+                                          ),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+                                          ],
+                                        ),
+                                      );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
@@ -16,7 +17,9 @@ import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/payment_qr_helper.dart';
 import '../../../../data/models/sale.dart';
 import '../../../../data/models/shop.dart';
+import '../../../../data/models/payment_transaction.dart';
 import '../../../../data/services/local_db_service.dart';
+import '../../../../data/services/phonepe_service.dart';
 import '../../../../data/services/supabase_service.dart';
 import '../../../../data/services/upi_service.dart';
 import '../../../../providers/auth_provider.dart';
@@ -47,6 +50,12 @@ class _PaymentDialogState extends State<PaymentDialog> {
   late final String _clientRef = const Uuid().v4();
   final ScreenshotController _screenshotController = ScreenshotController();
   BillQuote? _currentBillQuote;
+
+  PaymentTransaction? _activePhonePeTx;
+  bool _isCreatingPhonePeOrder = false;
+  StreamSubscription<PaymentTransaction>? _phonePeSub;
+  Timer? _phonePeTimer;
+  int _phonePeRemainingSeconds = 180;
 
   @override
   void initState() {
@@ -82,6 +91,12 @@ class _PaymentDialogState extends State<PaymentDialog> {
       _initBillNo();
     }
     _loadQuote();
+
+    if (_paymentMode == 'online' || _paymentMode == 'split') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _initPhonePePayment();
+      });
+    }
   }
 
   void _initBillNo() async {
@@ -96,6 +111,81 @@ class _PaymentDialogState extends State<PaymentDialog> {
     }
   }
 
+  void _initPhonePePayment() async {
+    final shop = context.read<ShopProvider>().shop;
+    if (!shop.phonePeEnabled) return;
+
+    final cart = context.read<CartProvider>();
+    final upiAmount = _paymentMode == 'split'
+        ? (double.tryParse(_upiController.text.trim()) ?? 0.0)
+        : cart.total;
+
+    if (upiAmount <= 0.009) return;
+
+    _phonePeSub?.cancel();
+    _phonePeTimer?.cancel();
+
+    setState(() {
+      _isCreatingPhonePeOrder = true;
+      _phonePeRemainingSeconds = 180;
+    });
+
+    final tx = await PhonePeService.instance.createPaymentOrder(
+      shop: shop,
+      billNo: _billNo,
+      amount: upiAmount,
+      clientRef: _clientRef,
+      paymentMode: _paymentMode,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _activePhonePeTx = tx;
+      _isCreatingPhonePeOrder = false;
+    });
+
+    // Start 180-second countdown
+    _phonePeTimer = Timer.periodic(const Duration(seconds: 1), (tm) {
+      if (!mounted) {
+        tm.cancel();
+        return;
+      }
+      setState(() {
+        if (_phonePeRemainingSeconds > 0) {
+          _phonePeRemainingSeconds--;
+        } else {
+          tm.cancel();
+        }
+      });
+    });
+
+    // Listen to Realtime status updates with polling fallback
+    _phonePeSub = PhonePeService.instance.listenToTransactionStatus(
+      merchantTxId: tx.merchantTransactionId,
+      onStatusUpdated: (updatedTx) {
+        if (!mounted) return;
+        setState(() {
+          _activePhonePeTx = updatedTx;
+        });
+
+        if (updatedTx.isSuccess && !_onlinePaymentVerified) {
+          _phonePeTimer?.cancel();
+          setState(() {
+            _onlinePaymentVerified = true;
+          });
+          SoundService.instance.playSuccess();
+          // Auto-complete bill after brief 600ms celebratory feedback
+          Future.delayed(const Duration(milliseconds: 600), () {
+            if (mounted && _completedSale == null && !_isSaving) {
+              _processCheckout();
+            }
+          });
+        }
+      },
+    );
+  }
+
   void _loadQuote() async {
     final quote = await AiQuoteService.getUniqueQuoteForBill();
     if (mounted) {
@@ -107,6 +197,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
   @override
   void dispose() {
+    _phonePeSub?.cancel();
+    _phonePeTimer?.cancel();
     _paidController.dispose();
     _upiController.dispose();
     super.dispose();
@@ -134,11 +226,22 @@ class _PaymentDialogState extends State<PaymentDialog> {
         _upiController.text = remUpi.toStringAsFixed(2);
       }
     });
+
+    if (mode == 'online' || mode == 'split') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _initPhonePePayment();
+      });
+    } else {
+      _phonePeSub?.cancel();
+      _phonePeTimer?.cancel();
+      _activePhonePeTx = null;
+    }
   }
 
   PaymentBreakdown _computeBreakdown(CartProvider cart) {
     final cashInput = double.tryParse(_paidController.text.trim()) ?? 0.0;
     final upiInput = double.tryParse(_upiController.text.trim()) ?? 0.0;
+    final shop = context.read<ShopProvider>().shop;
     return PaymentQrHelper.calculateBreakdown(
       total: cart.total,
       paymentMode: _paymentMode,
@@ -146,7 +249,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
       upiAmount: upiInput,
       onlineVerified: _onlinePaymentVerified,
       verificationSource: _paymentMode == 'online' || (_paymentMode == 'split' && upiInput > 0)
-          ? (_onlinePaymentVerified ? 'cashier_verified' : 'unverified')
+          ? (_onlinePaymentVerified
+              ? (shop.phonePeEnabled ? 'phonepe_auto_verified' : 'cashier_verified')
+              : 'unverified')
           : null,
     );
   }
@@ -760,6 +865,34 @@ class _PaymentDialogState extends State<PaymentDialog> {
                           shop.qrImageUrl!.trim().isNotEmpty;
 
                       Widget renderQrVisual() {
+                        // PhonePe Dynamic QR has highest priority when PhonePe integration is enabled
+                        if (shop.phonePeEnabled) {
+                          if (_isCreatingPhonePeOrder) {
+                            return SizedBox(
+                              width: qrSize,
+                              height: qrSize,
+                              child: const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    CircularProgressIndicator(color: Color(0xFF5F259F)),
+                                    SizedBox(height: 10),
+                                    Text('PhonePe Dynamic QR बन रहा है...', style: TextStyle(fontSize: 11, color: Color(0xFF5F259F))),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }
+                          if (_activePhonePeTx?.qrData != null && _activePhonePeTx!.qrData!.isNotEmpty) {
+                            return QrImageView(
+                              data: _activePhonePeTx!.qrData!,
+                              version: QrVersions.auto,
+                              size: qrSize,
+                              backgroundColor: Colors.white,
+                            );
+                          }
+                        }
+
                         // Always prioritize live Dynamic Amount UPI QR when valid UPI ID is set
                         if (upiUri != null && upiUri.isNotEmpty) {
                           return QrImageView(
@@ -803,27 +936,44 @@ class _PaymentDialogState extends State<PaymentDialog> {
                         return _buildNoUpiWarning();
                       }
 
+                      final isPhonePeActive = shop.phonePeEnabled;
+
                       return Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
+                          color: isPhonePeActive ? const Color(0xFFFAF5FF) : Colors.blue.shade50,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: _onlinePaymentVerified ? Colors.green.shade400 : Colors.blue.shade200,
+                            color: _onlinePaymentVerified
+                                ? Colors.green.shade400
+                                : (isPhonePeActive ? const Color(0xFFC084FC) : Colors.blue.shade200),
                             width: 1.4,
                           ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Text(
-                              _paymentMode == 'split'
-                                  ? 'Split UPI QR कोड स्कैन करें (केवल UPI हिस्सा)'
-                                  : 'UPI QR कोड स्कैन करें',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue),
-                            ),
+                            if (isPhonePeActive)
+                              const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.bolt_rounded, color: Color(0xFF5F259F), size: 18),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'PhonePe ऑटोमैटिक Dynamic QR',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF5F259F)),
+                                  ),
+                                ],
+                              )
+                            else
+                              Text(
+                                _paymentMode == 'split'
+                                    ? 'Split UPI QR कोड स्कैन करें (केवल UPI हिस्सा)'
+                                    : 'UPI QR कोड स्कैन करें',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue),
+                              ),
                             const SizedBox(height: 12),
                             // Center QR with generous Quiet Zone (16px white padding)
                             Center(
@@ -855,7 +1005,17 @@ class _PaymentDialogState extends State<PaymentDialog> {
                               ),
                             ),
                             const SizedBox(height: 4),
-                            if (shop.upiId != null && shop.upiId!.trim().isNotEmpty)
+                            if (isPhonePeActive)
+                              Text(
+                                'PhonePe MID: ${shop.phonePeMerchantId ?? 'Auto'} (${shop.phonePeEnvironment.toUpperCase()})',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontSize: 12.0,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF5F259F),
+                                ),
+                              )
+                            else if (shop.upiId != null && shop.upiId!.trim().isNotEmpty)
                               Text(
                                 'UPI ID: ${shop.upiId!.trim()}',
                                 textAlign: TextAlign.center,
@@ -872,40 +1032,165 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                 style: TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.w600),
                               ),
                             const SizedBox(height: 8),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: _onlinePaymentVerified ? Colors.green.shade50 : Colors.amber.shade50,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _onlinePaymentVerified ? Colors.green.shade300 : Colors.amber.shade300,
-                                ),
-                              ),
-                              child: CheckboxListTile(
-                                title: const Text(
-                                  'Payment प्राप्त हो गया (Verified)',
-                                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: Text(
-                                  _onlinePaymentVerified
-                                      ? 'भुगतान सत्यापित ✓ — बिल में Google Review QR दिखेगा'
-                                      : 'असत्यापित (Pending) — बिल में UPI Payment QR दिखेगा',
-                                  style: TextStyle(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: _onlinePaymentVerified ? Colors.green.shade800 : Colors.amber.shade900,
+
+                            if (isPhonePeActive) ...[
+                              if (_onlinePaymentVerified)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.green.shade400),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, color: Colors.green.shade700, size: 24),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '✓ भुगतान सत्यापित (Verified by PhonePe)',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.green.shade900),
+                                            ),
+                                            Text(
+                                              'बिल अपने आप पूरा हो रहा है... Google Review QR तैयार है ✓',
+                                              style: TextStyle(fontSize: 10.5, color: Colors.green.shade800),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF3E8FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFD8B4FE)),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        children: [
+                                          const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF5F259F)),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'PhonePe भुगतान की प्रतीक्षा है... (${_phonePeRemainingSeconds ~/ 60}:${(_phonePeRemainingSeconds % 60).toString().padLeft(2, '0')})',
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF4C1D95)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 4,
+                                        alignment: WrapAlignment.center,
+                                        children: [
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              visualDensity: VisualDensity.compact,
+                                              side: const BorderSide(color: Color(0xFF5F259F)),
+                                            ),
+                                            icon: const Icon(Icons.refresh, size: 14, color: Color(0xFF5F259F)),
+                                            label: const Text('स्थिति जांचें', style: TextStyle(fontSize: 11, color: Color(0xFF5F259F))),
+                                            onPressed: () async {
+                                              if (_activePhonePeTx != null) {
+                                                final tx = await PhonePeService.instance.checkPaymentStatus(_activePhonePeTx!.merchantTransactionId);
+                                                if (tx != null && tx.isSuccess) {
+                                                  _phonePeTimer?.cancel();
+                                                  setState(() => _onlinePaymentVerified = true);
+                                                  SoundService.instance.playSuccess();
+                                                  Future.delayed(const Duration(milliseconds: 600), () {
+                                                    if (mounted && _completedSale == null && !_isSaving) {
+                                                      _processCheckout();
+                                                    }
+                                                  });
+                                                } else {
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      const SnackBar(content: Text('भुगतान अभी पेंडिंग है। कृपया ग्राहक से पिन दर्ज करने को कहें।')),
+                                                    );
+                                                  }
+                                                }
+                                              }
+                                            },
+                                          ),
+                                          if (shop.phonePeEnvironment == 'sandbox')
+                                            ElevatedButton.icon(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: const Color(0xFF00875A),
+                                                foregroundColor: Colors.white,
+                                                visualDensity: VisualDensity.compact,
+                                              ),
+                                              icon: const Icon(Icons.science_outlined, size: 14),
+                                              label: const Text('🧪 Test Pay', style: TextStyle(fontSize: 11)),
+                                              onPressed: () async {
+                                                if (_activePhonePeTx != null) {
+                                                  final res = await PhonePeService.instance.simulatePaymentSuccess(_activePhonePeTx!.merchantTransactionId);
+                                                  if (res != null && res.isSuccess) {
+                                                    _phonePeTimer?.cancel();
+                                                    setState(() => _onlinePaymentVerified = true);
+                                                    SoundService.instance.playSuccess();
+                                                    Future.delayed(const Duration(milliseconds: 600), () {
+                                                      if (mounted && _completedSale == null && !_isSaving) {
+                                                        _processCheckout();
+                                                      }
+                                                    });
+                                                  }
+                                                }
+                                              },
+                                            ),
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                value: _onlinePaymentVerified,
-                                onChanged: (val) {
-                                  setState(() {
-                                    _onlinePaymentVerified = val ?? false;
-                                  });
-                                },
-                                dense: true,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                controlAffinity: ListTileControlAffinity.leading,
+                            ] else ...[
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: _onlinePaymentVerified ? Colors.green.shade50 : Colors.amber.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: _onlinePaymentVerified ? Colors.green.shade300 : Colors.amber.shade300,
+                                  ),
+                                ),
+                                child: CheckboxListTile(
+                                  title: const Text(
+                                    'Payment प्राप्त हो गया (Verified)',
+                                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                  ),
+                                  subtitle: Text(
+                                    _onlinePaymentVerified
+                                        ? 'भुगतान सत्यापित ✓ — बिल में Google Review QR दिखेगा'
+                                        : 'असत्यापित (Pending) — बिल में UPI Payment QR दिखेगा',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: _onlinePaymentVerified ? Colors.green.shade800 : Colors.amber.shade900,
+                                    ),
+                                  ),
+                                  value: _onlinePaymentVerified,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _onlinePaymentVerified = val ?? false;
+                                    });
+                                  },
+                                  dense: true,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  controlAffinity: ListTileControlAffinity.leading,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       );
