@@ -13,6 +13,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/services/sound_service.dart';
 import '../../../../core/services/backup_service.dart';
 import '../../../../core/services/receipt_print_service.dart';
+import '../../../../core/services/printer_settings_service.dart';
+import '../../../../core/services/bluetooth_printer_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/payment_qr_helper.dart';
 import '../../../../data/models/sale.dart';
@@ -561,6 +563,31 @@ class _PaymentDialogState extends State<PaymentDialog> {
       SoundService.instance.playSuccess();
 
       cart.clear();
+
+      // D-Mart style Auto-Print on Payment completion
+      if (PrinterSettingsService.instance.autoPrintOnPayment) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          try {
+            final isConnected = await BluetoothPrinterService.isConnected();
+            final savedMac = await BluetoothPrinterService.getSavedPrinterMac();
+            if (isConnected || (savedMac != null && savedMac.isNotEmpty)) {
+              // Give 250ms for the bill receipt widget to layout and render
+              await Future.delayed(const Duration(milliseconds: 250));
+              final imageBytes = await _screenshotController.capture(pixelRatio: 2.0).timeout(
+                const Duration(milliseconds: 2000),
+                onTimeout: () => null,
+              );
+              await ReceiptPrintService.printReceipt(
+                sale: saved,
+                shop: shop,
+                imageBytes: imageBytes,
+              );
+            }
+          } catch (printErr) {
+            debugPrint('[AutoPrint] Non-fatal auto-print error: $printErr');
+          }
+        });
+      }
     } catch (e) {
       setState(() {
         _isSaving = false;

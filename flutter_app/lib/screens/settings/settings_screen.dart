@@ -13,6 +13,7 @@ import '../../core/services/backup_service.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/services/bluetooth_printer_service.dart';
+import '../../core/services/printer_settings_service.dart';
 import '../../core/utils/payment_qr_helper.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../../data/models/sale.dart';
@@ -2389,6 +2390,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                     const SizedBox(height: 14),
+
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: PrinterSettingsService.instance.autoPrintOnPayment,
+                      activeThumbColor: AppColors.primary,
+                      title: const Text(
+                        'D-Mart स्टाइल ऑटो-प्रिंट (Auto-Print on Bill)',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: const Text(
+                        'भुगतान पूरा होते ही थर्मल प्रिंटर से बिल अपने आप बाहर निकलेगा',
+                        style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
+                      ),
+                      onChanged: authProvider.isStaffSession
+                          ? null
+                          : (val) async {
+                              await PrinterSettingsService.instance.setAutoPrintOnPayment(val);
+                              setState(() {});
+                            },
+                    ),
+                    const SizedBox(height: 10),
 
                     TextField(
                       controller: _footerCtrl,

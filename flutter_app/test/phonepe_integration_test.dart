@@ -1,10 +1,17 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shop_pos/data/models/shop.dart';
 import 'package:shop_pos/data/models/payment_transaction.dart';
 import 'package:shop_pos/data/services/phonepe_service.dart';
 import 'package:shop_pos/core/utils/payment_qr_helper.dart';
+import 'package:shop_pos/core/services/printer_settings_service.dart';
 
 void main() {
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('⚡ PhonePe Dynamic QR & Auto-Verification Integration Tests', () {
     test('Shop model serializes and parses PhonePe integration configuration', () {
       final now = DateTime.now();
@@ -159,6 +166,19 @@ void main() {
       expect(verifiedBreakdown.paid, 1000.0);
       expect(verifiedBreakdown.due, 0.0);
       expect(verifiedBreakdown.paymentStatus, 'completed');
+    });
+
+    test('PrinterSettingsService defaults to D-Mart style auto-print on payment and toggles cleanly', () async {
+      SharedPreferences.setMockInitialValues({});
+      final ps = PrinterSettingsService.instance;
+      await ps.loadSettings();
+      expect(ps.autoPrintOnPayment, isTrue);
+
+      await ps.setAutoPrintOnPayment(false);
+      expect(ps.autoPrintOnPayment, isFalse);
+
+      await ps.setAutoPrintOnPayment(true);
+      expect(ps.autoPrintOnPayment, isTrue);
     });
   });
 }

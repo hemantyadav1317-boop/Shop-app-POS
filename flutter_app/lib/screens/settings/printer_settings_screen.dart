@@ -792,6 +792,16 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                     _buildToggleTile('शुभ विचार (AI Daily Thought / Quote)', _showQuote, (v) => setState(() => _showQuote  = v), isStaff),
                     _buildToggleTile('फ़ुटर संदेश (Visit Again Message)', _showFooter, (v) => setState(() => _showFooter  = v), isStaff),
                     _buildToggleTile('UPI पेमेंट QR कोड (Scan & Pay)', _showQr, (v) => setState(() => _showQr  = v), isStaff),
+                    const Divider(height: 16),
+                    _buildToggleTile(
+                      '🖨️ भुगतान होते ही ऑटो-प्रिंट (D-Mart Style Auto-Print)',
+                      _ps.autoPrintOnPayment,
+                      (v) {
+                        _ps.setAutoPrintOnPayment(v);
+                        setState(() {});
+                      },
+                      isStaff,
+                    ),
                   ],
                 ),
               ),

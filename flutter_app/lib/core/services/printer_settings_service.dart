@@ -21,6 +21,7 @@ class PrinterSettingsService extends ChangeNotifier {
   static const String _keyShowQuote = 'printer_show_quote';
   static const String _keyShowFooter = 'printer_show_footer';
   static const String _keyShowQr = 'printer_show_qr';
+  static const String _keyAutoPrintOnPayment = 'printer_auto_print_on_payment';
 
   // Config State with sensible Indian POS defaults
   String _paperSize = '58mm'; // '58mm' or '80mm'
@@ -35,6 +36,7 @@ class PrinterSettingsService extends ChangeNotifier {
   bool _showQuote = true;
   bool _showFooter = true;
   bool _showQr = true;
+  bool _autoPrintOnPayment = true; // D-Mart style auto-print on payment completion
 
   // Getters
   String get paperSize => _paperSize;
@@ -55,22 +57,47 @@ class PrinterSettingsService extends ChangeNotifier {
   bool get showQuote => _showQuote;
   bool get showFooter => _showFooter;
   bool get showQr => _showQr;
+  bool get autoPrintOnPayment => _autoPrintOnPayment;
 
-  Future<void> loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    _paperSize = prefs.getString(_keyPaperSize) ?? '58mm';
-    _fontScale = prefs.getDouble(_keyFontScale) ?? 1.25; // Default Large for clear 58mm reading
-    _showShopName = prefs.getBool(_keyShowShopName) ?? true;
-    _showAddress = prefs.getBool(_keyShowAddress) ?? true;
-    _showPhone = prefs.getBool(_keyShowPhone) ?? true;
-    _showEmail = prefs.getBool(_keyShowEmail) ?? false;
-    _showGstin = prefs.getBool(_keyShowGstin) ?? true;
-    _showInvoiceNo = prefs.getBool(_keyShowInvoiceNo) ?? true;
-    _showCustomer = prefs.getBool(_keyShowCustomer) ?? true;
-    _showQuote = prefs.getBool(_keyShowQuote) ?? true;
-    _showFooter = prefs.getBool(_keyShowFooter) ?? true;
-    _showQr = prefs.getBool(_keyShowQr) ?? true;
+  Future<void>? _activeLoadFuture;
+
+  Future<void> loadSettings({bool forceReload = false}) {
+    if (forceReload || _activeLoadFuture == null) {
+      _activeLoadFuture = _loadSettingsInternal();
+    }
+    return _activeLoadFuture!;
+  }
+
+  Future<void> _loadSettingsInternal() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _paperSize = prefs.getString(_keyPaperSize) ?? '58mm';
+      _fontScale = prefs.getDouble(_keyFontScale) ?? 1.25; // Default Large for clear 58mm reading
+      _showShopName = prefs.getBool(_keyShowShopName) ?? true;
+      _showAddress = prefs.getBool(_keyShowAddress) ?? true;
+      _showPhone = prefs.getBool(_keyShowPhone) ?? true;
+      _showEmail = prefs.getBool(_keyShowEmail) ?? false;
+      _showGstin = prefs.getBool(_keyShowGstin) ?? true;
+      _showInvoiceNo = prefs.getBool(_keyShowInvoiceNo) ?? true;
+      _showCustomer = prefs.getBool(_keyShowCustomer) ?? true;
+      _showQuote = prefs.getBool(_keyShowQuote) ?? true;
+      _showFooter = prefs.getBool(_keyShowFooter) ?? true;
+      _showQr = prefs.getBool(_keyShowQr) ?? true;
+      _autoPrintOnPayment = prefs.getBool(_keyAutoPrintOnPayment) ?? true;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  Future<void> setAutoPrintOnPayment(bool value) async {
+    if (_activeLoadFuture != null) {
+      await _activeLoadFuture;
+    }
+    _autoPrintOnPayment = value;
     notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyAutoPrintOnPayment, value);
+    } catch (_) {}
   }
 
   Future<void> setPaperSize(String size) async {
