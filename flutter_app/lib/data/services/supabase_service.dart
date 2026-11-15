@@ -1194,6 +1194,16 @@ class SupabaseService {
 
         if (rpcRes != null) {
           final saleId = rpcRes.toString();
+
+          // If server created sale with an anomalous bill_no (or mismatched client's sequential billNo):
+          if (targetSale.billNo > 0 && targetSale.billNo < 50000) {
+            try {
+              await client!.from('sales').update({'bill_no': targetSale.billNo}).eq('id', saleId);
+            } catch (e) {
+              debugPrint("Failed to sync client bill_no to sale $saleId: $e");
+            }
+          }
+
           final createdRow = await client!
               .from('sales')
               .select('*, sale_items(*)')
@@ -1201,7 +1211,11 @@ class SupabaseService {
               .maybeSingle();
           if (createdRow != null) {
             final parsedCloud = Sale.fromJson(createdRow);
+            final authoritativeBillNo = (targetSale.billNo > 0 && targetSale.billNo < 50000)
+                ? targetSale.billNo
+                : parsedCloud.billNo;
             final cloudSale = parsedCloud.copyWith(
+              billNo: authoritativeBillNo,
               clientRef: parsedCloud.clientRef ?? targetSale.clientRef,
               paymentStatus: targetSale.paymentStatus,
               cashPaid: targetSale.cashPaid,
