@@ -9,6 +9,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/weighing_scale_provider.dart';
 import '../../providers/ai_vision_provider.dart';
+import '../../providers/menu_visibility_provider.dart';
 import '../settings/weighing_scale_settings_screen.dart';
 import 'widgets/product_grid.dart';
 import 'widgets/cart_panel.dart';
@@ -459,6 +460,34 @@ class _PosScreenState extends State<PosScreen> {
                                 size: 17,
                               ),
                             ),
+                          ),
+                          const SizedBox(width: 8),
+                          Consumer<MenuVisibilityProvider>(
+                            builder: (context, menuProv, _) {
+                              return InkWell(
+                                onTap: () {
+                                  SoundService.instance.playButtonClick();
+                                  menuProv.toggleMenu();
+                                },
+                                borderRadius: BorderRadius.circular(20),
+                                child: Container(
+                                  padding: const EdgeInsets.all(7),
+                                  decoration: BoxDecoration(
+                                    color: menuProv.isMenuHidden
+                                        ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
+                                        : Colors.white.withValues(alpha: 0.14),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    menuProv.isMenuHidden
+                                        ? Icons.fullscreen_exit_rounded
+                                        : Icons.fullscreen_rounded,
+                                    color: menuProv.isMenuHidden ? const Color(0xFFFDE68A) : Colors.white,
+                                    size: 17,
+                                  ),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

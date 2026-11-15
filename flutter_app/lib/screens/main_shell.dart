@@ -8,6 +8,7 @@ import '../providers/auth_provider.dart';
 import '../providers/customer_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/shop_provider.dart';
+import '../providers/menu_visibility_provider.dart';
 import 'pos/pos_screen.dart';
 import 'bills/bills_screen.dart';
 import 'customers/customers_screen.dart';
@@ -139,68 +140,95 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width >= 768;
+    final menuVisibility = context.watch<MenuVisibilityProvider>();
+    final isMenuHidden = menuVisibility.isMenuHidden;
 
     if (isTablet) {
       return Scaffold(
         body: Row(
           children: [
-            NavigationRail(
-              selectedIndex: _currentIndex,
-              onDestinationSelected: _onNavigationChanged,
-              labelType: NavigationRailLabelType.all,
-              leading: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(12),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: isMenuHidden ? 52 : 84,
+              child: NavigationRail(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _onNavigationChanged,
+                minWidth: isMenuHidden ? 52 : 84,
+                labelType: isMenuHidden
+                    ? NavigationRailLabelType.none
+                    : NavigationRailLabelType.all,
+                leading: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.storefront, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(height: 8),
+                      IconButton(
+                        icon: Icon(
+                          isMenuHidden
+                              ? Icons.chevron_right_rounded
+                              : Icons.chevron_left_rounded,
+                          size: 20,
+                          color: AppColors.primary,
+                        ),
+                        tooltip: isMenuHidden
+                            ? 'मेन्यू फैलाएं (Expand Menu)'
+                            : 'मेन्यू सिकोड़ें (Collapse Menu)',
+                        onPressed: () => menuVisibility.toggleMenu(),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.storefront, color: Colors.white, size: 26),
                 ),
+                selectedIconTheme: const IconThemeData(color: AppColors.primary),
+                selectedLabelTextStyle: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+                unselectedLabelTextStyle: const TextStyle(
+                  color: AppColors.lightTextSecondary,
+                  fontSize: 11,
+                ),
+                destinations: const [
+                  NavigationRailDestination(
+                    icon: Icon(Icons.point_of_sale_outlined),
+                    selectedIcon: Icon(Icons.point_of_sale),
+                    label: Text('Billing'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.receipt_long_outlined),
+                    selectedIcon: Icon(Icons.receipt_long),
+                    label: Text('Bills'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.people_outline),
+                    selectedIcon: Icon(Icons.people),
+                    label: Text('Khata'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.inventory_2_outlined),
+                    selectedIcon: Icon(Icons.inventory_2),
+                    label: Text('Stock'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.account_balance_wallet_outlined),
+                    selectedIcon: Icon(Icons.account_balance_wallet),
+                    label: Text('Daybook'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.settings_outlined),
+                    selectedIcon: Icon(Icons.settings),
+                    label: Text('Settings'),
+                  ),
+                ],
               ),
-              selectedIconTheme: const IconThemeData(color: AppColors.primary),
-              selectedLabelTextStyle: const TextStyle(
-                color: AppColors.primary,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-              ),
-              unselectedLabelTextStyle: const TextStyle(
-                color: AppColors.lightTextSecondary,
-                fontSize: 11,
-              ),
-              destinations: const [
-                NavigationRailDestination(
-                  icon: Icon(Icons.point_of_sale_outlined),
-                  selectedIcon: Icon(Icons.point_of_sale),
-                  label: Text('Billing'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.receipt_long_outlined),
-                  selectedIcon: Icon(Icons.receipt_long),
-                  label: Text('Bills'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.people_outline),
-                  selectedIcon: Icon(Icons.people),
-                  label: Text('Khata'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.inventory_2_outlined),
-                  selectedIcon: Icon(Icons.inventory_2),
-                  label: Text('Stock'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.account_balance_wallet_outlined),
-                  selectedIcon: Icon(Icons.account_balance_wallet),
-                  label: Text('Daybook'),
-                ),
-                NavigationRailDestination(
-                  icon: Icon(Icons.settings_outlined),
-                  selectedIcon: Icon(Icons.settings),
-                  label: Text('Settings'),
-                ),
-              ],
             ),
             VerticalDivider(width: 1, color: Theme.of(context).dividerColor),
             Expanded(child: _screens[_currentIndex]),
@@ -210,59 +238,97 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
-      body: _screens[_currentIndex],
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
+      body: Stack(
+        children: [
+          _screens[_currentIndex],
+          if (isMenuHidden)
+            Positioned(
+              bottom: 16,
+              left: 16,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(24),
+                color: AppColors.primary,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(24),
+                  onTap: () => menuVisibility.toggleMenu(),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.menu_rounded, color: Colors.white, size: 18),
+                        SizedBox(width: 6),
+                        Text(
+                          'मेन्यू दिखाएं',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
-        child: NavigationBar(
-          height: 64,
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          selectedIndex: _currentIndex,
-          onDestinationSelected: _onNavigationChanged,
-          indicatorColor: const Color(0xFFE8F5E9), // Light green capsule pill
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF00875A)),
-              label: 'होम',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              selectedIcon: Icon(Icons.receipt_long_rounded, color: Color(0xFF00875A)),
-              label: 'बिल्स',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.people_alt_outlined),
-              selectedIcon: Icon(Icons.people_alt_rounded, color: Color(0xFF00875A)),
-              label: 'खाता',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.inventory_2_outlined),
-              selectedIcon: Icon(Icons.inventory_2_rounded, color: Color(0xFF00875A)),
-              label: 'स्टॉक',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.calendar_month_outlined),
-              selectedIcon: Icon(Icons.calendar_month_rounded, color: Color(0xFF00875A)),
-              label: 'डे-बुक',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings_rounded, color: Color(0xFF00875A)),
-              label: 'सेटिंग्स',
-            ),
-          ],
-        ),
+        ],
       ),
+      bottomNavigationBar: isMenuHidden
+          ? null
+          : Container(
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: NavigationBar(
+                height: 64,
+                elevation: 0,
+                backgroundColor: Colors.transparent,
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _onNavigationChanged,
+                indicatorColor: const Color(0xFFE8F5E9), // Light green capsule pill
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF00875A)),
+                    label: 'होम',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.receipt_long_outlined),
+                    selectedIcon: Icon(Icons.receipt_long_rounded, color: Color(0xFF00875A)),
+                    label: 'बिल्स',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.people_alt_outlined),
+                    selectedIcon: Icon(Icons.people_alt_rounded, color: Color(0xFF00875A)),
+                    label: 'खाता',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.inventory_2_outlined),
+                    selectedIcon: Icon(Icons.inventory_2_rounded, color: Color(0xFF00875A)),
+                    label: 'स्टॉक',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.calendar_month_outlined),
+                    selectedIcon: Icon(Icons.calendar_month_rounded, color: Color(0xFF00875A)),
+                    label: 'डे-बुक',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.settings_outlined),
+                    selectedIcon: Icon(Icons.settings_rounded, color: Color(0xFF00875A)),
+                    label: 'सेटिंग्स',
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }

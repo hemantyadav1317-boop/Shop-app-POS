@@ -13,7 +13,9 @@ import 'providers/product_provider.dart';
 import 'providers/customer_provider.dart';
 import 'providers/weighing_scale_provider.dart';
 import 'providers/ai_vision_provider.dart';
+import 'providers/menu_visibility_provider.dart';
 import 'core/services/sound_service.dart';
+import 'core/services/local_image_cache_service.dart';
 import 'screens/splash/splash_screen.dart';
 
 void main() async {
@@ -21,6 +23,9 @@ void main() async {
 
   // Initialize Sound Service
   await SoundService.instance.init();
+
+  // Initialize Persistent Local Image Cache for instant offline photos
+  await LocalImageCacheService.instance.init();
 
   // Set immersive status bar
   SystemChrome.setSystemUIOverlayStyle(
@@ -101,6 +106,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => CustomerProvider()..loadCustomers(initialShopId)),
         ChangeNotifierProvider(create: (_) => WeighingScaleProvider()),
         ChangeNotifierProvider(create: (_) => AiVisionProvider()),
+        ChangeNotifierProvider(create: (_) => MenuVisibilityProvider()),
       ],
       child: const ShopPosApp(),
     ),

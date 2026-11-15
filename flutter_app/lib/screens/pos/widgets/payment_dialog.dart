@@ -549,11 +549,13 @@ class _PaymentDialogState extends State<PaymentDialog> {
         productProv.deductStock(sale.items);
       }
 
-      // Trigger quiet phone auto-backup in background if enabled
-      BackupService.runAutoBackupIfEnabled(
-        shop: shop,
-        categoriesConfig: productProv.exportCategoriesConfig(),
-      );
+      // Trigger quiet phone auto-backup in background without blocking checkout
+      unawaited(Future(() {
+        BackupService.runAutoBackupIfEnabled(
+          shop: shop,
+          categoriesConfig: productProv.exportCategoriesConfig(),
+        );
+      }));
 
       setState(() {
         _completedSale = saved;

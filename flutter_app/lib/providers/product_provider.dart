@@ -9,6 +9,7 @@ import '../data/models/sale.dart';
 import '../data/services/local_db_service.dart';
 import '../data/services/supabase_service.dart';
 import '../core/constants/aliases.dart';
+import '../core/services/local_image_cache_service.dart';
 
 class ProductProvider extends ChangeNotifier {
   static const List<String> defaultCategories = [];
@@ -271,6 +272,7 @@ class ProductProvider extends ChangeNotifier {
         _products = localProds;
         _isLoading = false;
         notifyListeners();
+        LocalImageCacheService.instance.preloadProductImages(_products);
       }
     } catch (_) {}
 
@@ -343,6 +345,7 @@ class ProductProvider extends ChangeNotifier {
 
     _isLoading = false;
     notifyListeners();
+    LocalImageCacheService.instance.preloadProductImages(_products);
   }
 
   /// Recomputes product and category sales frequency / total units sold

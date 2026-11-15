@@ -1162,6 +1162,11 @@ class SupabaseService {
       }
     }
 
+    // ⚡ 1. INSTANT PERSISTENCE: Save locally to SQLite and memory in <15ms
+    await LocalDbService.instance.upsertSale(validShopId, targetSale);
+    await _saveCachedSales(validShopId, _localSales);
+    await _saveCachedProducts(validShopId, _localProducts);
+
     if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
         // 1. Try calling official Supabase RPC create_sale
@@ -1189,7 +1194,7 @@ class SupabaseService {
           '_customer_name': targetSale.customerName,
           '_customer_phone': targetSale.customerPhone,
           '_note': targetSale.encodedNote,
-        });
+        }).timeout(const Duration(milliseconds: 1800));
         debugPrint("Sale successfully synced to cloud via create_sale RPC");
 
         if (rpcRes != null) {

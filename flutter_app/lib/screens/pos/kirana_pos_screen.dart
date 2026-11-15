@@ -8,6 +8,7 @@ import '../../data/models/product.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../../providers/menu_visibility_provider.dart';
 import 'widgets/barcode_scanner_dialog.dart';
 import 'widgets/cart_panel.dart';
 
@@ -245,6 +246,34 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
                         ],
                       ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Consumer<MenuVisibilityProvider>(
+                    builder: (context, menuProv, _) {
+                      return InkWell(
+                        onTap: () {
+                          SoundService.instance.playButtonClick();
+                          menuProv.toggleMenu();
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: menuProv.isMenuHidden
+                                ? const Color(0xFFF59E0B).withValues(alpha: 0.3)
+                                : Colors.white.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            menuProv.isMenuHidden
+                                ? Icons.fullscreen_exit_rounded
+                                : Icons.fullscreen_rounded,
+                            color: menuProv.isMenuHidden ? const Color(0xFFFDE68A) : Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
