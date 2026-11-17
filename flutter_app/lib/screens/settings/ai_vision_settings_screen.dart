@@ -104,7 +104,7 @@ class _AiVisionSettingsScreenState extends State<AiVisionSettingsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('AI विज़न व स्मार्ट कैमरा सेटिंग्स'),
-        backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFF00875A),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
       ),
       body: ListView(

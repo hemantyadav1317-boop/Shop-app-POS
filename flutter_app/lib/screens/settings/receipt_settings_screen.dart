@@ -123,13 +123,16 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Receipt Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Receipt Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
         actions: [
           TextButton.icon(
             icon: _isSaving
                 ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.check, size: 18),
-            label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+                : const Icon(Icons.check, size: 18, color: Colors.white),
+            label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             onPressed: _isSaving ? null : _saveSettings,
           ),
         ],

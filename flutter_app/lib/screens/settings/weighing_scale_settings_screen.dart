@@ -26,16 +26,18 @@ class _WeighingScaleSettingsScreenState
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
         title: const Row(
           children: [
             Text('⚖️ ', style: TextStyle(fontSize: 20)),
             Text(
               'Electronic Weighing Scale',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
             ),
           ],
         ),
-        elevation: 0,
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

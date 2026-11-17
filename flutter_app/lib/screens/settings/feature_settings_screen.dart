@@ -238,11 +238,14 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Feature Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Feature Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
         actions: [
           TextButton.icon(
-            icon: const Icon(Icons.check, size: 18),
-            label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
+            icon: const Icon(Icons.check, size: 18, color: Colors.white),
+            label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
             onPressed: _saveUpiAndStock,
           ),
         ],

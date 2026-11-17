@@ -1435,32 +1435,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('स्टॉक व कैटेगरी / Inventory', style: TextStyle(fontWeight: FontWeight.bold)),
-          bottom: const TabBar(
-            indicatorColor: AppColors.primary,
-            labelColor: AppColors.primary,
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          title: const Text('Inventory', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
+          bottom: TabBar(
+            indicatorColor: Colors.white,
+            indicatorWeight: 3,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
             tabs: [
               Tab(
-                icon: Icon(Icons.inventory_2_outlined),
-                text: 'सामान स्टॉक (Products)',
+                text: 'Products (${products.length})',
               ),
               Tab(
-                icon: Icon(Icons.category_outlined),
-                text: 'कैटेगरी प्रबंधन (Categories)',
+                text: 'Category (${allCats.length})',
               ),
             ],
           ),
           actions: [
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                visualDensity: VisualDensity.compact,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.upload_file, size: 16),
-              label: const Text('बल्क जोड़ें', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            IconButton(
+              icon: const Icon(Icons.upload_file, color: Colors.white, size: 22),
+              tooltip: 'बल्क जोड़ें (Excel/CSV)',
               onPressed: () {
                 showDialog(
                   context: context,
@@ -1468,19 +1466,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 );
               },
             ),
-            const SizedBox(width: 4),
             IconButton(
-              icon: const Icon(Icons.history_edu_rounded, color: AppColors.primary, size: 24),
+              icon: const Icon(Icons.history_edu_rounded, color: Colors.white, size: 22),
               tooltip: 'स्टॉक ऑडिट लॉग्स (Adjustment Logs)',
               onPressed: () => _showStockAdjustmentLogs(context),
             ),
-            if (!context.watch<AuthProvider>().isStaffSession)
-              IconButton(
-                icon: const Icon(Icons.add_circle, color: AppColors.primary, size: 28),
-                tooltip: 'Add Product',
-                onPressed: () => _showAddEditProductDialogDirect(context),
-              ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
           ],
         ),
         body: TabBarView(
@@ -1583,7 +1574,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           )
                         : ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
                             itemCount: products.length,
                             separatorBuilder: (_, __) => const SizedBox(height: 6),
                             itemBuilder: (context, i) {
@@ -1888,23 +1879,34 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   ),
                 ),
 
-                // Category List
+                // Category List (Clean & Premium Billiez Layout)
                 Expanded(
                   child: allCats.isEmpty
-                      ? const Center(child: Text('कोई कैटेगरी नहीं है'))
+                      ? const Center(
+                          child: Text(
+                            'कोई कैटेगरी नहीं है (No Category Yet)',
+                            style: TextStyle(color: AppColors.lightTextSecondary),
+                          ),
+                        )
                       : ListView.separated(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.fromLTRB(12, 6, 12, 80),
                           itemCount: allCats.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 6),
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
                           itemBuilder: (context, i) {
+                            final isDark = Theme.of(context).brightness == Brightness.dark;
                             final cat = allCats[i];
                             final count = productProvider.getProductCountForCategory(cat);
-                            final catImg = productProvider.getCategoryImage(cat);
 
                             return Card(
-                              elevation: 1.5,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              child: ListTile(
+                              elevation: 0.5,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                side: BorderSide(
+                                  color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+                                ),
+                              ),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
                                 onTap: () {
                                   SoundService.instance.playButtonClick();
                                   Navigator.push(
@@ -1914,40 +1916,61 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     ),
                                   );
                                 },
-                                leading: ProductImageView(
-                                  imageUrl: catImg,
-                                  fallbackIcon: InventoryScreen.getCategoryEmoji(cat),
-                                  size: 42,
-                                  borderRadius: 8,
-                                ),
-                                title: Text(
-                                  cat,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                                ),
-                                subtitle: Text(
-                                  '$count सामान (Products)',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: count > 0 ? AppColors.primary : AppColors.lightTextSecondary,
-                                    fontWeight: count > 0 ? FontWeight.w600 : FontWeight.normal,
-                                  ),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (!context.watch<AuthProvider>().isStaffSession) ...[
-                                      IconButton(
-                                        icon: const Icon(Icons.add_a_photo_outlined, color: AppColors.primary),
-                                        tooltip: 'फोटो जोड़ें / बदलें',
-                                        onPressed: () => _showAddCategoryDialog(context, null, cat),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              cat.toUpperCase(),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w800,
+                                                fontSize: 14.5,
+                                                letterSpacing: 0.3,
+                                                color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              '$count Products',
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.lightTextSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                                        tooltip: 'Delete Category',
-                                        onPressed: () => _confirmDeleteCategory(context, cat),
-                                      ),
+                                      if (!context.watch<AuthProvider>().isStaffSession) ...[
+                                        TextButton.icon(
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: AppColors.error,
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                          icon: const Icon(Icons.delete_outline, size: 16),
+                                          label: const Text('Delete', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                          onPressed: () => _confirmDeleteCategory(context, cat),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        TextButton.icon(
+                                          style: TextButton.styleFrom(
+                                            foregroundColor: AppColors.primary,
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            visualDensity: VisualDensity.compact,
+                                          ),
+                                          icon: const Icon(Icons.add, size: 16),
+                                          label: const Text('Add Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          onPressed: () => _showAddEditProductDialogDirect(context, null, cat),
+                                        ),
+                                        const SizedBox(width: 2),
+                                      ],
+                                      const Icon(Icons.keyboard_arrow_right_rounded, size: 20, color: Colors.grey),
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
                             );
@@ -1958,6 +1981,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ),
           ],
         ),
+        floatingActionButton: context.watch<AuthProvider>().isStaffSession
+            ? null
+            : Builder(
+                builder: (scaffoldContext) {
+                  return FloatingActionButton(
+                    backgroundColor: AppColors.primary,
+                    elevation: 3,
+                    child: const Icon(Icons.add, color: Colors.white, size: 28),
+                    onPressed: () {
+                      final tabController = DefaultTabController.of(scaffoldContext);
+                      if (tabController.index == 1) {
+                        _showAddCategoryDialog(context);
+                      } else {
+                        _showAddEditProductDialogDirect(context);
+                      }
+                    },
+                  );
+                },
+              ),
       ),
     );
   }

@@ -475,6 +475,7 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
     final cart = context.watch<CartProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isTablet = MediaQuery.of(context).size.width >= 768;
+    final menuProv = context.watch<MenuVisibilityProvider>();
 
     if (isTablet) {
       return Scaffold(
@@ -482,7 +483,7 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              _buildHeader(shop, cart, isDark),
+              if (!menuProv.isMenuHidden) _buildHeader(shop, cart, isDark),
               Expanded(
                 child: Row(
                   children: [
@@ -522,7 +523,7 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(shop, cart, isDark),
+            if (!menuProv.isMenuHidden) _buildHeader(shop, cart, isDark),
             _buildScanAndSearchBar(isDark),
             _buildQuickPills(),
             Expanded(

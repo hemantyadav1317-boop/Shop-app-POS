@@ -431,25 +431,10 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('प्रिंटर सेटिंग्स / Printer Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-        actions: [
-          if (!context.watch<AuthProvider>().isStaffSession)
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ElevatedButton.icon(
-              icon: const Icon(Icons.save_rounded, size: 16),
-              label: const Text('सेव करें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00875A),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                visualDensity: VisualDensity.compact,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: _saveAllSettings,
-            ),
-          ),
-        ],
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('प्रिंटर सेटिंग्स / Printer Setup', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 30),
@@ -961,25 +946,36 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
               ),
             ),
 
-            const SizedBox(height: 20),
-
-            // Big Save Button
-            if (!isStaff)
-              ElevatedButton.icon(
-              icon: const Icon(Icons.check_circle_outline, size: 20),
-              label: const Text('सभी सेटिंग्स सेव करें (Save All Details)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF00875A),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                elevation: 3,
-              ),
-              onPressed: _saveAllSettings,
-            ),
           ],
         ),
       ),
+      bottomNavigationBar: isStaff
+          ? null
+          : Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                boxShadow: const [
+                  BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2)),
+                ],
+              ),
+              child: SafeArea(
+                child: SizedBox(
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.check_circle_rounded, size: 20),
+                    label: const Text('सभी सेटिंग्स सेव करें (Save All Details)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
+                    onPressed: _saveAllSettings,
+                  ),
+                ),
+              ),
+            ),
     );
   }
 

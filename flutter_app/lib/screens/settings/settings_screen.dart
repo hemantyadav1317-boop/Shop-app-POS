@@ -5,7 +5,6 @@ import '../../core/services/sound_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
-import '../../providers/menu_visibility_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../auth/login_screen.dart';
 import 'business_details_screen.dart';
@@ -415,20 +414,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0D47A1), // Exact deep navy/blue from screenshot
+        backgroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.white),
-          tooltip: 'Menu',
-          onPressed: () {
-            if (Scaffold.maybeOf(context)?.hasDrawer ?? false) {
-              Scaffold.of(context).openDrawer();
-            } else {
-              context.read<MenuVisibilityProvider>().toggleMenu();
-            }
-          },
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           'Settings',
           style: TextStyle(

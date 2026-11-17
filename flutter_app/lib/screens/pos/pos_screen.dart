@@ -207,6 +207,7 @@ class _PosScreenState extends State<PosScreen> {
     final cart = context.watch<CartProvider>();
     final isTablet = MediaQuery.of(context).size.width >= 768;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final menuProv = context.watch<MenuVisibilityProvider>();
 
     final scale = context.watch<WeighingScaleProvider>();
     final ai = context.watch<AiVisionProvider>();
@@ -232,8 +233,9 @@ class _PosScreenState extends State<PosScreen> {
           children: [
             Column(
               children: [
-            // Lush Organic Indian Store Header
-            Stack(
+            // Lush Organic Indian Store Header (Hidden in Fullscreen Mode for Maximum Billing Space)
+            if (!menuProv.isMenuHidden)
+              Stack(
               children: [
                 Positioned.fill(
                   child: Image.asset(
@@ -536,6 +538,43 @@ class _PosScreenState extends State<PosScreen> {
             ),
           ],
         ),
+        if (menuProv.isMenuHidden)
+          Positioned(
+            top: 8,
+            right: 12,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  SoundService.instance.playButtonClick();
+                  context.read<MenuVisibilityProvider>().toggleMenu();
+                },
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14532D).withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF4ADE80), width: 1),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 2)),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.fullscreen_exit_rounded, color: Color(0xFF4ADE80), size: 16),
+                      SizedBox(width: 5),
+                      Text(
+                        'हेडर दिखाएं',
+                        style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         const AiVisionOverlay(),
       ],
     ),
