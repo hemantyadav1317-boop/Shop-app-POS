@@ -302,42 +302,6 @@ class _ProductGridState extends State<ProductGrid> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-
-                // ⚡ Quick Sell Action Button
-                InkWell(
-                  onTap: () => _showQuickSellDialog(context),
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8.5),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00875A),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF00875A).withValues(alpha: 0.25),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.bolt, color: Colors.white, size: 17),
-                        SizedBox(width: 3),
-                        Text(
-                          'Quick',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ],
             ),
           ),

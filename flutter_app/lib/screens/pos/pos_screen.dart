@@ -329,68 +329,7 @@ class _PosScreenState extends State<PosScreen> {
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Consumer<WeighingScaleProvider>(
-                            builder: (context, scale, _) {
-                              return InkWell(
-                                onTap: () {
-                                  SoundService.instance.playButtonClick();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (_) =>
-                                            const WeighingScaleSettingsScreen()),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(20),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 8, vertical: 5),
-                                  decoration: BoxDecoration(
-                                    color: scale.isConnected
-                                        ? const Color(0xFF10B981).withValues(alpha: 0.25)
-                                        : Colors.white.withValues(alpha: 0.14),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: scale.isConnected
-                                          ? const Color(0xFF10B981)
-                                          : Colors.white24,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.scale_rounded,
-                                        color: scale.isConnected
-                                            ? const Color(0xFF34D399)
-                                            : Colors.white70,
-                                        size: 15,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        scale.isConnected
-                                            ? '${scale.liveWeight.toStringAsFixed(3)} kg'
-                                            : 'Scale',
-                                        style: TextStyle(
-                                          color: scale.isConnected
-                                              ? const Color(0xFF34D399)
-                                              : Colors.white,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                          fontFamily: scale.isConnected
-                                              ? 'monospace'
-                                              : null,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
                           if (isTablet) ...[
-                            const SizedBox(width: 12),
                             Container(
                               padding: const EdgeInsets.all(3),
                               decoration: BoxDecoration(

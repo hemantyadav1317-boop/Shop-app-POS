@@ -1521,10 +1521,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
                 // Search Field
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: TextField(
                     decoration: const InputDecoration(
-                      hintText: 'सामान का नाम या बारकोड खोजें...',
+                      hintText: 'Search products or scan barcode...',
                       prefixIcon: Icon(Icons.search),
                     ),
                     onChanged: (q) {
@@ -1533,29 +1533,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     },
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.primary,
-                        side: const BorderSide(color: AppColors.primary),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                      ),
-                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                      label: const Text('📥 Excel / CSV / बिल से 50-100+ सामान एक साथ चढ़ाएं (बल्क अपलोड)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => const BulkImportDialog(),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
 
                 // Product List
                 Expanded(
@@ -1569,12 +1547,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             physics: const AlwaysScrollableScrollPhysics(),
                             children: const [
                               SizedBox(height: 120),
-                              Center(child: Text('कोई प्रोडक्ट नहीं मिला', style: TextStyle(color: AppColors.lightTextSecondary))),
+                              Center(child: Text('No products found', style: TextStyle(color: AppColors.lightTextSecondary))),
                             ],
                           )
                         : ListView.separated(
                             physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 80),
+                            padding: const EdgeInsets.fromLTRB(12, 6, 12, 80),
                             itemCount: products.length,
                             separatorBuilder: (_, __) => const SizedBox(height: 6),
                             itemBuilder: (context, i) {
@@ -1587,102 +1565,147 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                 borderRadius: BorderRadius.circular(12),
                                 onTap: () => _showAddEditProductDialogDirect(context, product),
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      // Top Row: Image, Product Name, Category, Price, and 3-dots Menu
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          ProductImageView(
-                                            imageUrl: product.imageUrl,
-                                            fallbackIcon: product.icon,
-                                            size: 50,
-                                            borderRadius: 10,
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                      ProductImageView(
+                                        imageUrl: product.imageUrl,
+                                        fallbackIcon: product.icon,
+                                        size: 46,
+                                        borderRadius: 8,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              product.name,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14.5,
+                                                letterSpacing: 0.1,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 3),
+                                            Wrap(
+                                              spacing: 5,
+                                              runSpacing: 2,
+                                              crossAxisAlignment: WrapCrossAlignment.center,
                                               children: [
-                                                Text(
-                                                  product.name,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 15,
-                                                    letterSpacing: 0.2,
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors.lightMuted,
+                                                    borderRadius: BorderRadius.circular(4),
                                                   ),
-                                                  maxLines: 2,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                                const SizedBox(height: 3),
-                                                Wrap(
-                                                  spacing: 6,
-                                                  runSpacing: 2,
-                                                  crossAxisAlignment: WrapCrossAlignment.center,
-                                                  children: [
-                                                    Text(
-                                                      'दर: ${CurrencyFormatter.format(product.price)} / ${product.unit}  •  ${product.category}',
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        color: AppColors.lightTextSecondary,
-                                                        fontWeight: FontWeight.w500,
-                                                      ),
+                                                  child: Text(
+                                                    product.category,
+                                                    style: const TextStyle(
+                                                      fontSize: 10.5,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: AppColors.lightTextSecondary,
                                                     ),
-                                                    if (product.mrp != null && product.mrp! > 0)
-                                                      Text(
-                                                        'MRP: ₹${product.mrp!.toStringAsFixed(0)}',
-                                                        style: TextStyle(
-                                                          fontSize: 10.5,
-                                                          color: Colors.grey.shade500,
-                                                          decoration: product.mrp! > product.price ? TextDecoration.lineThrough : null,
-                                                        ),
-                                                      ),
-                                                    if (product.purchasePrice != null && product.purchasePrice! > 0)
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                        decoration: BoxDecoration(
-                                                          color: const Color(0xFF00875A).withValues(alpha: 0.1),
-                                                          borderRadius: BorderRadius.circular(4),
-                                                        ),
-                                                        child: Text(
-                                                          'मुनाफा: ₹${(product.price - product.purchasePrice!).toStringAsFixed(1)}',
+                                                  ),
+                                                ),
+                                                if (product.barcode != null && product.barcode!.isNotEmpty)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.blue.withValues(alpha: 0.08),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.qr_code, size: 10, color: Colors.blue),
+                                                        const SizedBox(width: 2),
+                                                        Text(
+                                                          product.barcode!,
                                                           style: const TextStyle(
-                                                            fontSize: 10,
-                                                            fontWeight: FontWeight.bold,
-                                                            color: Color(0xFF00875A),
+                                                            fontSize: 9.5,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: Colors.blue,
                                                           ),
                                                         ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                if (product.isLowStock)
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                    decoration: BoxDecoration(
+                                                      color: AppColors.error.withValues(alpha: 0.1),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: const Text(
+                                                      'LOW STOCK',
+                                                      style: TextStyle(
+                                                        fontSize: 9.5,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: AppColors.error,
                                                       ),
-                                                    if (product.barcode != null && product.barcode!.isNotEmpty)
-                                                      Container(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.blue.withValues(alpha: 0.1),
-                                                          borderRadius: BorderRadius.circular(4),
-                                                        ),
-                                                        child: Row(
-                                                          mainAxisSize: MainAxisSize.min,
-                                                          children: [
-                                                            const Icon(Icons.qr_code, size: 10, color: Colors.blue),
-                                                            const SizedBox(width: 2),
-                                                            Text(
-                                                              product.barcode!,
-                                                              style: const TextStyle(
-                                                                fontSize: 9.5,
-                                                                fontWeight: FontWeight.w600,
-                                                                color: Colors.blue,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                  ],
-                                                ),
+                                                    ),
+                                                  ),
                                               ],
                                             ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  '${CurrencyFormatter.format(product.price)} / ${product.unit}',
+                                                  style: const TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.primary,
+                                                  ),
+                                                ),
+                                                if (product.mrp != null && product.mrp! > product.price) ...[
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    '₹${product.mrp!.toStringAsFixed(0)}',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.grey.shade500,
+                                                      decoration: TextDecoration.lineThrough,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          InkWell(
+                                            onTap: () => _showStockAdjustmentDialog(context, product),
+                                            borderRadius: BorderRadius.circular(6),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: product.isLowStock
+                                                    ? AppColors.error.withValues(alpha: 0.1)
+                                                    : AppColors.primarySurface,
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                '${product.stock} ${product.unit}',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                  color: product.isLowStock ? AppColors.error : AppColors.primaryDark,
+                                                ),
+                                              ),
+                                            ),
                                           ),
+                                          const SizedBox(height: 4),
                                           PopupMenuButton<String>(
                                             icon: const Icon(Icons.more_vert, size: 20, color: AppColors.lightTextSecondary),
                                             padding: EdgeInsets.zero,
@@ -1690,6 +1713,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                             onSelected: (val) {
                                               if (val == 'edit') {
                                                 _showAddEditProductDialogDirect(context, product);
+                                              } else if (val == 'adjust') {
+                                                _showStockAdjustmentDialog(context, product);
                                               } else if (val == 'delete') {
                                                 _confirmDeleteProduct(context, product);
                                               }
@@ -1703,7 +1728,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                                     children: [
                                                       Icon(Icons.edit, size: 16),
                                                       SizedBox(width: 8),
-                                                      Text('एडिट करें'),
+                                                      Text('Edit Product'),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const PopupMenuItem(
+                                                  value: 'adjust',
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(Icons.tune, size: 16, color: AppColors.primary),
+                                                      SizedBox(width: 8),
+                                                      Text('Adjust Stock'),
                                                     ],
                                                   ),
                                                 ),
@@ -1714,113 +1749,12 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                                       children: [
                                                         Icon(Icons.delete_outline, size: 16, color: AppColors.error),
                                                         SizedBox(width: 8),
-                                                        Text('हटाएं (Delete)', style: TextStyle(color: AppColors.error)),
+                                                        Text('Delete Product', style: TextStyle(color: AppColors.error)),
                                                       ],
                                                     ),
                                                   ),
                                               ];
                                             },
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      const Divider(height: 1),
-                                      const SizedBox(height: 8),
-
-                                      // Bottom Row: Stock status badge on left, Stock amount & Adjust Button on right
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          if (product.isLowStock)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.error.withOpacity(0.12),
-                                                borderRadius: BorderRadius.circular(6),
-                                                border: Border.all(color: AppColors.error.withOpacity(0.3)),
-                                              ),
-                                              child: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: const [
-                                                  Icon(Icons.warning_amber_rounded, size: 13, color: AppColors.error),
-                                                  SizedBox(width: 4),
-                                                  Text(
-                                                    'LOW STOCK',
-                                                    style: TextStyle(
-                                                      color: AppColors.error,
-                                                      fontSize: 10,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            )
-                                          else
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.primary.withOpacity(0.08),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: const Text(
-                                                'इन स्टॉक (In Stock)',
-                                                style: TextStyle(
-                                                  color: AppColors.primary,
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              RichText(
-                                                text: TextSpan(
-                                                  children: [
-                                                    const TextSpan(
-                                                      text: 'स्टॉक: ',
-                                                      style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                                                    ),
-                                                    TextSpan(
-                                                      text: '${product.stock} ${product.unit}',
-                                                      style: TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        fontSize: 13.5,
-                                                        color: product.isLowStock ? AppColors.error : AppColors.primaryDark,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              InkWell(
-                                                onTap: () => _showStockAdjustmentDialog(context, product),
-                                                borderRadius: BorderRadius.circular(6),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                  decoration: BoxDecoration(
-                                                    color: AppColors.primarySurface,
-                                                    borderRadius: BorderRadius.circular(6),
-                                                    border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                                                  ),
-                                                  child: Row(
-                                                    mainAxisSize: MainAxisSize.min,
-                                                    children: const [
-                                                      Icon(Icons.edit_note, size: 16, color: AppColors.primary),
-                                                      SizedBox(width: 3),
-                                                      Text(
-                                                        'एडजस्ट',
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          fontWeight: FontWeight.bold,
-                                                          color: AppColors.primary,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
                                           ),
                                         ],
                                       ),

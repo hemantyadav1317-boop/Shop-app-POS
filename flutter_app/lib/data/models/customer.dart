@@ -7,6 +7,10 @@ class Customer {
   final double balance; // Positive balance means customer owes money (Udhar)
   final double creditLimit; // 0.0 means no limit; >0 enforces max credit limit
   final DateTime createdAt;
+  final String? email;
+  final String? gstNo;
+  final String? gender;
+  final String? dob;
 
   Customer({
     required this.id,
@@ -17,6 +21,10 @@ class Customer {
     this.balance = 0.0,
     this.creditLimit = 0.0,
     required this.createdAt,
+    this.email,
+    this.gstNo,
+    this.gender,
+    this.dob,
   });
 
   factory Customer.fromJson(Map<String, dynamic> json) {
@@ -31,6 +39,10 @@ class Customer {
       createdAt: json['created_at'] != null 
           ? DateTime.parse(json['created_at'] as String) 
           : DateTime.now(),
+      email: json['email'] as String?,
+      gstNo: (json['gst_no'] ?? json['gstNo']) as String?,
+      gender: json['gender'] as String?,
+      dob: json['dob'] as String?,
     );
   }
 
@@ -44,6 +56,10 @@ class Customer {
       'balance': balance,
       'credit_limit': creditLimit,
       'created_at': createdAt.toIso8601String(),
+      if (email != null) 'email': email,
+      if (gstNo != null) 'gst_no': gstNo,
+      if (gender != null) 'gender': gender,
+      if (dob != null) 'dob': dob,
     };
   }
 
@@ -70,6 +86,10 @@ class Customer {
     double? balance,
     double? creditLimit,
     DateTime? createdAt,
+    String? email,
+    String? gstNo,
+    String? gender,
+    String? dob,
   }) {
     return Customer(
       id: id ?? this.id,
@@ -80,6 +100,10 @@ class Customer {
       balance: balance ?? this.balance,
       creditLimit: creditLimit ?? this.creditLimit,
       createdAt: createdAt ?? this.createdAt,
+      email: email ?? this.email,
+      gstNo: gstNo ?? this.gstNo,
+      gender: gender ?? this.gender,
+      dob: dob ?? this.dob,
     );
   }
 }

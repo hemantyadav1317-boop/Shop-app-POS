@@ -136,13 +136,14 @@ class _DaybookScreenState extends State<DaybookScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('दैनिक रोकड़ (Daybook)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        backgroundColor: const Color(0xFF00875A),
+        title: const Text('Daybook', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
+        backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
+        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.analytics_outlined, color: Colors.white),
-            tooltip: 'सेल्स व मुनाफा एनालिटिक्स / Analytics',
+            tooltip: 'Sales & Profit Analytics',
             onPressed: () {
               SoundService.instance.playButtonClick();
               Navigator.push(context, MaterialPageRoute(builder: (_) => const AnalyticsScreen()));
@@ -160,7 +161,7 @@ class _DaybookScreenState extends State<DaybookScreen> {
         ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFF00875A)))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : Column(
               children: [
                 const SizedBox(height: 10),
@@ -177,12 +178,12 @@ class _DaybookScreenState extends State<DaybookScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [Color(0xFF00875A), Color(0xFF045D39)],
+                          colors: [AppColors.primary, AppColors.primaryDark],
                         ),
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF00875A).withValues(alpha: 0.28),
+                            color: AppColors.primary.withValues(alpha: 0.28),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -197,12 +198,12 @@ class _DaybookScreenState extends State<DaybookScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'बिक्री व मुनाफा एनालिटिक्स (Sales & Profit Reports)',
+                                  'Sales & Profit Analytics',
                                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                                 ),
                                 SizedBox(height: 2),
                                 Text(
-                                  'Top/Least बिकने वाले सामान, मार्जिन और ट्रेंड रिपोर्ट देखें',
+                                  'View top selling items, profit margins, and sales trends',
                                   style: TextStyle(color: Colors.white70, fontSize: 11),
                                 ),
                               ],
@@ -241,10 +242,10 @@ class _DaybookScreenState extends State<DaybookScreen> {
                         children: [
                           const Row(
                             children: [
-                              Icon(Icons.account_balance_wallet_rounded, color: Color(0xFF00875A), size: 18),
+                              Icon(Icons.account_balance_wallet_rounded, color: AppColors.primary, size: 18),
                               SizedBox(width: 6),
                               Text(
-                                'गल्ले में शुद्ध नकद (Net Cash)',
+                                'Net Drawer Cash',
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                               ),
                             ],
@@ -252,20 +253,20 @@ class _DaybookScreenState extends State<DaybookScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF00875A).withValues(alpha: 0.10),
+                              color: AppColors.primary.withValues(alpha: 0.10),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.event_note_rounded, size: 13, color: Color(0xFF00875A)),
+                                const Icon(Icons.event_note_rounded, size: 13, color: AppColors.primary),
                                 const SizedBox(width: 4),
                                 Text(
                                   DateFormat('dd MMM yyyy').format(DateTime.now()),
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF00875A),
+                                    color: AppColors.primary,
                                   ),
                                 ),
                               ],
@@ -281,7 +282,7 @@ class _DaybookScreenState extends State<DaybookScreen> {
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 32,
-                          color: netDrawer >= 0 ? const Color(0xFF00875A) : const Color(0xFFDC2626),
+                          color: netDrawer >= 0 ? AppColors.primary : const Color(0xFFDC2626),
                           letterSpacing: -0.5,
                         ),
                       ),
@@ -294,9 +295,9 @@ class _DaybookScreenState extends State<DaybookScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00875A).withValues(alpha: 0.08),
+                                color: AppColors.primary.withValues(alpha: 0.08),
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.2)),
+                                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
