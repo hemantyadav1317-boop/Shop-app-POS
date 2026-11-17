@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -1167,171 +1168,8 @@ class SupabaseService {
     await _saveCachedSales(validShopId, _localSales);
     await _saveCachedProducts(validShopId, _localProducts);
 
-    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
-      try {
-        // 1. Try calling official Supabase RPC create_sale
-        final formattedItems = targetSale.items.map((i) => {
-          'product_id': (i.productId != null && i.productId!.length >= 30) ? i.productId : null,
-          'name': i.name,
-          'unit': (i.unit == 'kg') ? 'kg' : 'pc',
-          'price': i.price,
-          'qty': i.qty,
-        }).toList();
-
-        final validMode = ['cash', 'online', 'credit', 'split', 'set_later'].contains(targetSale.paymentMode)
-            ? targetSale.paymentMode
-            : 'cash';
-
-        final custId = (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null;
-
-        final rpcRes = await client!.rpc('create_sale', params: {
-          '_shop_id': validShopId,
-          '_items': formattedItems,
-          '_discount': targetSale.discount,
-          '_payment_mode': validMode,
-          '_paid': targetSale.paid,
-          '_customer_id': custId,
-          '_customer_name': targetSale.customerName,
-          '_customer_phone': targetSale.customerPhone,
-          '_note': targetSale.encodedNote,
-        }).timeout(const Duration(milliseconds: 1800));
-        debugPrint("Sale successfully synced to cloud via create_sale RPC");
-
-        if (rpcRes != null) {
-          final saleId = rpcRes.toString();
-
-          // If server created sale with an anomalous bill_no (or mismatched client's sequential billNo):
-          if (targetSale.billNo > 0 && targetSale.billNo < 50000) {
-            try {
-              await client!.from('sales').update({'bill_no': targetSale.billNo}).eq('id', saleId);
-            } catch (e) {
-              debugPrint("Failed to sync client bill_no to sale $saleId: $e");
-            }
-          }
-
-          final createdRow = await client!
-              .from('sales')
-              .select('*, sale_items(*)')
-              .eq('id', saleId)
-              .maybeSingle();
-          if (createdRow != null) {
-            final parsedCloud = Sale.fromJson(createdRow);
-            final authoritativeBillNo = (targetSale.billNo > 0 && targetSale.billNo < 50000)
-                ? targetSale.billNo
-                : parsedCloud.billNo;
-            final cloudSale = parsedCloud.copyWith(
-              billNo: authoritativeBillNo,
-              clientRef: parsedCloud.clientRef ?? targetSale.clientRef,
-              paymentStatus: targetSale.paymentStatus,
-              cashPaid: targetSale.cashPaid,
-              upiPaid: targetSale.upiPaid,
-              upiPayable: targetSale.upiPayable,
-              creditAmount: targetSale.creditAmount,
-              onlineVerified: targetSale.onlineVerified,
-              verificationSource: targetSale.verificationSource,
-            );
-            final idx = _localSales.indexWhere((s) => s.id == targetSale.id || s.clientRef == targetSale.clientRef);
-            if (idx != -1) {
-              _localSales[idx] = cloudSale;
-            } else {
-              _localSales.insert(0, cloudSale);
-            }
-            _saveCachedSales(validShopId, _localSales);
-            return cloudSale;
-          }
-        }
-      } catch (e) {
-        debugPrint("RPC create_sale fallback to direct table insert: $e");
-        try {
-          final isValidSaleUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(targetSale.id);
-          final saleId = isValidSaleUuid ? targetSale.id : const Uuid().v4();
-          final salePayload = {
-            'id': saleId,
-            'shop_id': validShopId,
-            'bill_no': targetSale.billNo > 0 ? targetSale.billNo : 1,
-            'customer_id': (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null,
-            'customer_name': targetSale.customerName,
-            'customer_phone': targetSale.customerPhone,
-            'sub_total': targetSale.subtotal,
-            'discount': targetSale.discount,
-            'total': targetSale.total,
-            'paid': targetSale.paid,
-            'due': targetSale.due,
-            'payment_mode': ['cash', 'online', 'credit', 'split', 'set_later'].contains(targetSale.paymentMode)
-                ? targetSale.paymentMode
-                : 'cash',
-            'note': targetSale.encodedNote,
-          };
-          await client!.from('sales').insert(salePayload);
-
-          for (final item in targetSale.items) {
-            try {
-              await client!.from('sale_items').insert({
-                'shop_id': validShopId,
-                'sale_id': saleId,
-                'product_id': (item.productId != null && item.productId!.length >= 30) ? item.productId : null,
-                'name': item.name,
-                'unit': (item.unit == 'kg') ? 'kg' : 'pc',
-                'price': item.price,
-                'qty': item.qty,
-                'line_total': item.price * item.qty,
-              });
-
-              // Deduct stock in Cloud Supabase products table so all devices sync in real-time
-              if (item.productId != null && item.productId!.length >= 30) {
-                try {
-                  final pRow = await client!.from('products').select('stock').eq('id', item.productId!).maybeSingle();
-                  if (pRow != null && pRow['stock'] != null) {
-                    final curr = (pRow['stock'] as num).toDouble();
-                    final updatedStock = curr - item.qty;
-                    await client!.from('products').update({
-                      'stock': updatedStock,
-                      'updated_at': DateTime.now().toIso8601String(),
-                    }).eq('id', item.productId!);
-
-                    // Also record stock audit movement
-                    try {
-                      await client!.from('stock_movements').insert({
-                        'shop_id': validShopId,
-                        'product_id': item.productId!,
-                        'change': -item.qty,
-                        'reason': 'sale',
-                        'ref_id': saleId,
-                      });
-                    } catch (_) {}
-                  }
-                } catch (stockErr) {
-                  debugPrint("Error deducting stock in cloud for item ${item.name}: $stockErr");
-                }
-              }
-            } catch (_) {}
-          }
-
-          // Update customer balance in cloud if credit sale
-          if (targetSale.due > 0 && targetSale.customerId != null && targetSale.customerId!.length >= 30) {
-            try {
-              final cRow = await client!.from('customers').select('balance').eq('id', targetSale.customerId!).maybeSingle();
-              if (cRow != null && cRow['balance'] != null) {
-                final currBal = (cRow['balance'] as num).toDouble();
-                await client!.from('customers').update({
-                  'balance': currBal + targetSale.due,
-                  'updated_at': DateTime.now().toIso8601String(),
-                }).eq('id', targetSale.customerId!);
-              }
-            } catch (_) {}
-          }
-        } catch (inner) {
-          debugPrint("Failed to write sale directly to cloud (queued in outbox): $inner");
-          await LocalDbService.instance.enqueueOutbox(
-            shopId: validShopId,
-            entityType: 'sale',
-            entityId: targetSale.id,
-            operation: 'create',
-            payload: {'sale': targetSale.toJson()},
-          );
-        }
-      }
-    } else if (validShopId != 'demo-shop-101') {
+    // Enqueue in outbox for guaranteed cloud delivery
+    if (validShopId != 'demo-shop-101') {
       await LocalDbService.instance.enqueueOutbox(
         shopId: validShopId,
         entityType: 'sale',
@@ -1341,9 +1179,146 @@ class SupabaseService {
       );
     }
 
-    await _saveCachedSales(validShopId, _localSales);
-    await _saveCachedProducts(validShopId, _localProducts);
+    // ⚡ 2. NON-BLOCKING BACKGROUND SYNC: Cloud sync runs asynchronously!
+    // The cashier / customer gets instant checkout (<20ms) and bill print without waiting for network!
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
+      unawaited(_syncCreatedSaleToCloud(targetSale, validShopId));
+    }
+
     return targetSale;
+  }
+
+  Future<void> _syncCreatedSaleToCloud(Sale targetSale, String validShopId) async {
+    try {
+      // 1. Try calling official Supabase RPC create_sale with strict 2-sec timeout
+      final formattedItems = targetSale.items.map((i) => {
+        'product_id': (i.productId != null && i.productId!.length >= 30) ? i.productId : null,
+        'name': i.name,
+        'unit': (i.unit == 'kg') ? 'kg' : 'pc',
+        'price': i.price,
+        'qty': i.qty,
+      }).toList();
+
+      final validMode = ['cash', 'online', 'credit', 'split', 'set_later'].contains(targetSale.paymentMode)
+          ? targetSale.paymentMode
+          : 'cash';
+
+      final custId = (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null;
+
+      final rpcRes = await client!.rpc('create_sale', params: {
+        '_shop_id': validShopId,
+        '_items': formattedItems,
+        '_discount': targetSale.discount,
+        '_payment_mode': validMode,
+        '_paid': targetSale.paid,
+        '_customer_id': custId,
+        '_customer_name': targetSale.customerName,
+        '_customer_phone': targetSale.customerPhone,
+        '_note': targetSale.encodedNote,
+      }).timeout(const Duration(milliseconds: 2000));
+      debugPrint("Sale successfully synced to cloud via create_sale RPC");
+
+      if (rpcRes != null) {
+        final saleId = rpcRes.toString();
+
+        if (targetSale.billNo > 0 && targetSale.billNo < 50000) {
+          try {
+            await client!.from('sales').update({'bill_no': targetSale.billNo}).eq('id', saleId).timeout(const Duration(milliseconds: 1500));
+          } catch (e) {
+            debugPrint("Failed to sync client bill_no to sale $saleId: $e");
+          }
+        }
+
+        // Successfully synced to cloud - remove from outbox!
+        await LocalDbService.instance.removeOutboxForEntity('sale', targetSale.id);
+        return;
+      }
+    } catch (e) {
+      debugPrint("RPC create_sale fallback to direct table insert: $e");
+      try {
+        final isValidSaleUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(targetSale.id);
+        final saleId = isValidSaleUuid ? targetSale.id : const Uuid().v4();
+        final salePayload = {
+          'id': saleId,
+          'shop_id': validShopId,
+          'bill_no': targetSale.billNo > 0 ? targetSale.billNo : 1,
+          'customer_id': (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null,
+          'customer_name': targetSale.customerName,
+          'customer_phone': targetSale.customerPhone,
+          'sub_total': targetSale.subtotal,
+          'discount': targetSale.discount,
+          'total': targetSale.total,
+          'paid': targetSale.paid,
+          'due': targetSale.due,
+          'payment_mode': ['cash', 'online', 'credit', 'split', 'set_later'].contains(targetSale.paymentMode)
+              ? targetSale.paymentMode
+              : 'cash',
+          'note': targetSale.encodedNote,
+        };
+        await client!.from('sales').upsert(salePayload).timeout(const Duration(milliseconds: 2500));
+
+        // ⚡ BATCH INSERT ALL SALE ITEMS IN ONE SINGLE CALL INSTEAD OF N SEPARATE CALLS!
+        if (targetSale.items.isNotEmpty) {
+          final itemRows = targetSale.items.map((item) => {
+            'shop_id': validShopId,
+            'sale_id': saleId,
+            'product_id': (item.productId != null && item.productId!.length >= 30) ? item.productId : null,
+            'name': item.name,
+            'unit': (item.unit == 'kg') ? 'kg' : 'pc',
+            'price': item.price,
+            'qty': item.qty,
+            'line_total': item.price * item.qty,
+          }).toList();
+          await client!.from('sale_items').insert(itemRows).timeout(const Duration(milliseconds: 2500));
+        }
+
+        // Deduct stock in Cloud Supabase products table
+        for (final item in targetSale.items) {
+          if (item.productId != null && item.productId!.length >= 30) {
+            try {
+              final pRow = await client!.from('products').select('stock').eq('id', item.productId!).maybeSingle().timeout(const Duration(milliseconds: 1500));
+              if (pRow != null && pRow['stock'] != null) {
+                final curr = (pRow['stock'] as num).toDouble();
+                final updatedStock = curr - item.qty;
+                await client!.from('products').update({
+                  'stock': updatedStock,
+                  'updated_at': DateTime.now().toIso8601String(),
+                }).eq('id', item.productId!).timeout(const Duration(milliseconds: 1500));
+
+                try {
+                  await client!.from('stock_movements').insert({
+                    'shop_id': validShopId,
+                    'product_id': item.productId!,
+                    'change': -item.qty,
+                    'reason': 'sale',
+                    'ref_id': saleId,
+                  }).timeout(const Duration(milliseconds: 1500));
+                } catch (_) {}
+              }
+            } catch (_) {}
+          }
+        }
+
+        // Update customer balance in cloud if credit sale
+        if (targetSale.due > 0 && targetSale.customerId != null && targetSale.customerId!.length >= 30) {
+          try {
+            final cRow = await client!.from('customers').select('balance').eq('id', targetSale.customerId!).maybeSingle().timeout(const Duration(milliseconds: 1500));
+            if (cRow != null && cRow['balance'] != null) {
+              final currBal = (cRow['balance'] as num).toDouble();
+              await client!.from('customers').update({
+                'balance': currBal + targetSale.due,
+                'updated_at': DateTime.now().toIso8601String(),
+              }).eq('id', targetSale.customerId!).timeout(const Duration(milliseconds: 1500));
+            }
+          } catch (_) {}
+        }
+
+        // Successfully synced to cloud - remove from outbox!
+        await LocalDbService.instance.removeOutboxForEntity('sale', targetSale.id);
+      } catch (inner) {
+        debugPrint("Failed to write sale directly to cloud (queued in outbox): $inner");
+      }
+    }
   }
 
   static final RegExp _uuidPattern = RegExp(
@@ -1380,13 +1355,16 @@ class SupabaseService {
     );
 
     if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
-      try {
-        await _pushUpdatedSaleToCloud(normalizedSale, previousSale: oldSale);
-        await LocalDbService.instance.removeOutboxForEntity('sale', normalizedSale.id);
-        debugPrint("SUCCESS: Updated bill #${normalizedSale.billNo} + items in Supabase Cloud");
-      } catch (e) {
-        debugPrint("Error updating sale in cloud (queued in outbox): $e");
-      }
+      unawaited(Future(() async {
+        try {
+          await _pushUpdatedSaleToCloud(normalizedSale, previousSale: oldSale)
+              .timeout(const Duration(seconds: 4));
+          await LocalDbService.instance.removeOutboxForEntity('sale', normalizedSale.id);
+          debugPrint("SUCCESS: Updated bill #${normalizedSale.billNo} + items in Supabase Cloud");
+        } catch (e) {
+          debugPrint("Error updating sale in cloud (queued in outbox): $e");
+        }
+      }));
     }
 
     return normalizedSale;

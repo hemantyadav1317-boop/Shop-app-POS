@@ -132,7 +132,17 @@ class _PaymentDialogState extends State<PaymentDialog> {
     _phonePeSub?.cancel();
     _phonePeTimer?.cancel();
 
+    // ⚡ INSTANT QR: Pre-populate fallback transaction so QR code renders on Frame 1 (0ms)
+    final instantFallbackTx = PhonePeService.instance.buildFallbackTransaction(
+      shop: shop,
+      billNo: _billNo,
+      amount: upiAmount,
+      clientRef: _clientRef,
+      paymentMode: _paymentMode,
+    );
+
     setState(() {
+      _activePhonePeTx = instantFallbackTx;
       _isCreatingPhonePeOrder = true;
       _phonePeRemainingSeconds = 180;
     });
@@ -959,25 +969,17 @@ class _PaymentDialogState extends State<PaymentDialog> {
                       Widget renderQrVisual() {
                         // PhonePe Dynamic QR has highest priority when PhonePe integration is enabled
                         if (shop.phonePeEnabled) {
-                          if (_isCreatingPhonePeOrder) {
-                            return SizedBox(
-                              width: qrSize,
-                              height: qrSize,
-                              child: const Center(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(color: Color(0xFF5F259F)),
-                                    SizedBox(height: 10),
-                                    Text('PhonePe Dynamic QR बन रहा है...', style: TextStyle(fontSize: 11, color: Color(0xFF5F259F))),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
                           if (_activePhonePeTx?.qrData != null && _activePhonePeTx!.qrData!.isNotEmpty) {
                             return QrImageView(
                               data: _activePhonePeTx!.qrData!,
+                              version: QrVersions.auto,
+                              size: qrSize,
+                              backgroundColor: Colors.white,
+                            );
+                          }
+                          if (upiUri != null && upiUri.isNotEmpty) {
+                            return QrImageView(
+                              data: upiUri,
                               version: QrVersions.auto,
                               size: qrSize,
                               backgroundColor: Colors.white,

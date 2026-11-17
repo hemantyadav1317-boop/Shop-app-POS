@@ -85,17 +85,17 @@ class PhonePeService {
     return true;
   }
 
-  /// Creates a Dynamic In-Store Payment Request
-  Future<PaymentTransaction> createPaymentOrder({
+  /// Builds an instant fallback transaction and QR with 0ms latency
+  PaymentTransaction buildFallbackTransaction({
     required Shop shop,
     required int billNo,
     required double amount,
     required String clientRef,
     String paymentMode = 'online',
-  }) async {
+  }) {
     final safeAmount = PaymentQrHelper.round2(amount);
-    final client = SupabaseService.instance.client;
-    final cleanRef = shop.id.replaceAll('-', '').substring(0, 6);
+    final rawClean = shop.id.replaceAll('-', '');
+    final cleanRef = rawClean.length >= 6 ? rawClean.substring(0, 6) : rawClean;
     final fallbackTxId = 'BILLZO_${cleanRef}_${billNo}_${DateTime.now().millisecondsSinceEpoch ~/ 1000}';
     final payeeVpa = (shop.upiId != null && shop.upiId!.trim().isNotEmpty)
         ? shop.upiId!.trim()
@@ -111,37 +111,6 @@ class PhonePeService {
         '&tr=${Uri.encodeComponent(fallbackTxId)}'
         '&tn=${Uri.encodeComponent("Bill #$billNo")}';
 
-    if (client != null && shop.id != 'demo-shop-101') {
-      try {
-        final res = await client.rpc('create_phonepe_payment_order', params: {
-          '_shop_id': shop.id,
-          '_bill_no': billNo,
-          '_amount': safeAmount,
-          '_client_ref': clientRef,
-          '_payment_mode': paymentMode,
-        });
-
-        if (res is Map<String, dynamic> && res['success'] == true) {
-          return PaymentTransaction(
-            id: res['transaction_id']?.toString() ?? fallbackTxId,
-            shopId: shop.id,
-            billNo: billNo,
-            clientRef: clientRef,
-            merchantTransactionId: res['merchant_transaction_id']?.toString() ?? fallbackTxId,
-            amount: safeAmount,
-            status: res['status']?.toString() ?? 'PENDING',
-            paymentMode: paymentMode,
-            qrData: res['qr_data']?.toString() ?? fallbackQr,
-            createdAt: DateTime.now(),
-            updatedAt: DateTime.now(),
-          );
-        }
-      } catch (e) {
-        debugPrint('[PhonePeService] create_phonepe_payment_order RPC error: $e');
-      }
-    }
-
-    // Offline / Demo fallback
     return PaymentTransaction(
       id: fallbackTxId,
       shopId: shop.id,
@@ -157,6 +126,57 @@ class PhonePeService {
     );
   }
 
+  /// Creates a Dynamic In-Store Payment Request
+  Future<PaymentTransaction> createPaymentOrder({
+    required Shop shop,
+    required int billNo,
+    required double amount,
+    required String clientRef,
+    String paymentMode = 'online',
+  }) async {
+    final fallbackTx = buildFallbackTransaction(
+      shop: shop,
+      billNo: billNo,
+      amount: amount,
+      clientRef: clientRef,
+      paymentMode: paymentMode,
+    );
+
+    final client = SupabaseService.instance.client;
+    if (client != null && shop.id != 'demo-shop-101') {
+      try {
+        final res = await client.rpc('create_phonepe_payment_order', params: {
+          '_shop_id': shop.id,
+          '_bill_no': billNo,
+          '_amount': fallbackTx.amount,
+          '_client_ref': clientRef,
+          '_payment_mode': paymentMode,
+        }).timeout(const Duration(milliseconds: 1500));
+
+        if (res is Map<String, dynamic> && res['success'] == true) {
+          return PaymentTransaction(
+            id: res['transaction_id']?.toString() ?? fallbackTx.id,
+            shopId: shop.id,
+            billNo: billNo,
+            clientRef: clientRef,
+            merchantTransactionId: res['merchant_transaction_id']?.toString() ?? fallbackTx.merchantTransactionId,
+            amount: fallbackTx.amount,
+            status: res['status']?.toString() ?? 'PENDING',
+            paymentMode: paymentMode,
+            qrData: res['qr_data']?.toString() ?? fallbackTx.qrData,
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        }
+      } catch (e) {
+        debugPrint('[PhonePeService] create_phonepe_payment_order RPC error/timeout: $e');
+      }
+    }
+
+    // Return instant fallback transaction
+    return fallbackTx;
+  }
+
   /// Checks status of a payment transaction from database
   Future<PaymentTransaction?> checkPaymentStatus(String merchantTxId) async {
     final client = SupabaseService.instance.client;
@@ -167,7 +187,8 @@ class PhonePeService {
           .from('payment_transactions')
           .select('*')
           .eq('merchant_transaction_id', merchantTxId)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(milliseconds: 2000));
 
       if (row != null) {
         return PaymentTransaction.fromJson(Map<String, dynamic>.from(row));
