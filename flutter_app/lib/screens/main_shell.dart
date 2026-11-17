@@ -278,7 +278,50 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: Stack(
+        children: [
+          _screens[_currentIndex],
+          if (isMenuHidden)
+            Positioned(
+              top: MediaQuery.of(context).padding.top + 8,
+              right: 12,
+              child: Material(
+                elevation: 6,
+                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFF0F172A),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () {
+                    SoundService.instance.playButtonClick();
+                    menuVisibility.toggleMenu();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A).withValues(alpha: 0.94),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF4ADE80), width: 1.2),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black38, blurRadius: 6, offset: Offset(0, 2)),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.fullscreen_exit_rounded, color: Color(0xFF4ADE80), size: 18),
+                        SizedBox(width: 5),
+                        Text(
+                          'फुलस्क्रीन बंद करें',
+                          style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
       bottomNavigationBar: isMenuHidden
           ? null
           : Container(

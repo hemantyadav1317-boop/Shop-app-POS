@@ -289,14 +289,16 @@ class SupabaseService {
           for (final candidate in candidateShops) {
             int score = 0;
             try {
-              final results = await Future.wait([
-                client!.from('customers').select('id').eq('shop_id', candidate.id).limit(1).timeout(const Duration(milliseconds: 1200), onTimeout: () => []),
-                client!.from('sales').select('id').eq('shop_id', candidate.id).limit(1).timeout(const Duration(milliseconds: 1200), onTimeout: () => []),
-                client!.from('products').select('id').eq('shop_id', candidate.id).limit(1).timeout(const Duration(milliseconds: 1200), onTimeout: () => []),
-              ]);
-              if ((results[0] as List).isNotEmpty) score += 50;
-              if ((results[1] as List).isNotEmpty) score += 50;
-              if ((results[2] as List).isNotEmpty) score += 20;
+              final cList = await client!.from('customers').select('id').eq('shop_id', candidate.id).limit(1);
+              if ((cList as List).isNotEmpty) score += 50;
+            } catch (_) {}
+            try {
+              final sList = await client!.from('sales').select('id').eq('shop_id', candidate.id).limit(1);
+              if ((sList as List).isNotEmpty) score += 50;
+            } catch (_) {}
+            try {
+              final pList = await client!.from('products').select('id').eq('shop_id', candidate.id).limit(1);
+              if ((pList as List).isNotEmpty) score += 20;
             } catch (_) {}
             if (score > maxScore) {
               maxScore = score;
@@ -311,16 +313,14 @@ class SupabaseService {
             'shop_id': bestShop.id,
             'user_id': userId,
             'role': 'owner',
-          }).timeout(const Duration(milliseconds: 1500));
+          });
         } catch (_) {}
 
         // Migrate any legacy data where shop_id was stored as raw userId
         try {
-          await Future.wait([
-            client!.from('customers').update({'shop_id': bestShop.id}).eq('shop_id', userId).timeout(const Duration(milliseconds: 1500), onTimeout: () => null),
-            client!.from('sales').update({'shop_id': bestShop.id}).eq('shop_id', userId).timeout(const Duration(milliseconds: 1500), onTimeout: () => null),
-            client!.from('products').update({'shop_id': bestShop.id}).eq('shop_id', userId).timeout(const Duration(milliseconds: 1500), onTimeout: () => null),
-          ]);
+          await client!.from('customers').update({'shop_id': bestShop.id}).eq('shop_id', userId);
+          await client!.from('sales').update({'shop_id': bestShop.id}).eq('shop_id', userId);
+          await client!.from('products').update({'shop_id': bestShop.id}).eq('shop_id', userId);
         } catch (_) {}
 
         final localUpi = (bestShop.upiId != null && bestShop.upiId!.trim().isNotEmpty)
@@ -1870,7 +1870,7 @@ class SupabaseService {
     if (cleanName.isEmpty) cleanName = 'स्टाफ';
     if (cleanRole.isEmpty) cleanRole = 'कैशियर';
 
-    if (cleanPhone.isEmpty && cleanPin.isEmpty) {
+    if (cleanPhone.isEmpty || cleanPin.isEmpty) {
       throw Exception('कृपया दुकान का मोबाइल नंबर और 6-अंकीय स्टाफ पिन दोनों दर्ज करें।');
     }
 
@@ -1879,7 +1879,7 @@ class SupabaseService {
     }
 
     // 3. Try Server-Side Secure RPC (Layer 1 & Security Definer)
-    if (_isInitialized && client != null && cleanPhone.isNotEmpty) {
+    if (_isInitialized && client != null) {
       try {
         final dynamic res = await client!.rpc('staff_verify_shop', params: {
           '_phone': cleanPhone,
@@ -1965,111 +1965,6 @@ class SupabaseService {
         }
       } catch (rpcErr) {
         debugPrint("RPC staff_verify_shop failed or not created yet: $rpcErr");
-      }
-    }
-
-    // 3B. Direct Supabase Query Fallback (In case RPC is missing or fails)
-    if (_isInitialized && client != null) {
-      try {
-        String p10 = cleanPhone;
-        if (p10.length > 10) {
-          p10 = p10.substring(p10.length - 10);
-        }
-
-        final filterQuery = cleanPhone.isNotEmpty
-            ? 'phone.ilike.%$p10%,share_code.eq.$cleanPin,bill_prefix.eq.PIN:$cleanPin'
-            : 'share_code.eq.$cleanPin,bill_prefix.eq.PIN:$cleanPin';
-
-        final dynamic shopRows = await client!
-            .from('shops')
-            .select('*')
-            .or(filterQuery)
-            .limit(10)
-            .timeout(const Duration(seconds: 4));
-
-        if (shopRows is List && shopRows.isNotEmpty) {
-          Map<String, dynamic>? matchedShop;
-          for (final row in shopRows) {
-            final sMap = row as Map<String, dynamic>;
-            final sPhone = (sMap['phone'] ?? '').toString().replaceAll(' ', '').replaceAll('-', '');
-            final sPin = (sMap['share_code'] ?? '').toString().trim();
-            final sPrefix = (sMap['bill_prefix'] ?? '').toString().trim();
-            final sid = sMap['id'].toString();
-            final sDet = ((sid.hashCode.abs() % 900000) + 100000).toString();
-
-            final phoneOk = cleanPhone.isEmpty || sPhone.contains(p10) || p10.contains(sPhone);
-            final pinOk = sPin == cleanPin || sPrefix == 'PIN:$cleanPin' || sPrefix == cleanPin || sDet == cleanPin;
-
-            if (phoneOk && pinOk) {
-              matchedShop = sMap;
-              break;
-            }
-          }
-
-          if (matchedShop != null) {
-            _localShop = Shop.fromJson(matchedShop);
-            final realShopId = _localShop.id;
-
-            // Fetch products
-            try {
-              final dynamic prods = await client!.from('products').select('*').eq('shop_id', realShopId).timeout(const Duration(seconds: 4));
-              if (prods != null && prods is Iterable) {
-                final prodsList = prods.map((p) => Product.fromJson(p as Map<String, dynamic>)).toList();
-                _localProducts.clear();
-                _localProducts.addAll(prodsList);
-                await prefs.setString('cached_products_$realShopId', jsonEncode(prodsList.map((e) => e.toJson()).toList()));
-              }
-            } catch (_) {}
-
-            // Fetch customers
-            try {
-              final dynamic custs = await client!.from('customers').select('*').eq('shop_id', realShopId).timeout(const Duration(seconds: 3));
-              if (custs != null && custs is Iterable) {
-                final custsList = custs.map((c) => Customer.fromJson(c as Map<String, dynamic>)).toList();
-                _localCustomers.clear();
-                _localCustomers.addAll(custsList);
-                await prefs.setString('cached_customers_$realShopId', jsonEncode(custsList.map((e) => e.toJson()).toList()));
-              }
-            } catch (_) {}
-
-            // Fetch sales
-            try {
-              final dynamic sales = await client!.from('sales').select('*').eq('shop_id', realShopId).order('created_at', ascending: false).limit(100).timeout(const Duration(seconds: 3));
-              if (sales != null && sales is Iterable) {
-                final salesList = sales.map((s) => Sale.fromJson(s as Map<String, dynamic>)).toList();
-                _localSales.clear();
-                _localSales.addAll(salesList);
-                await _saveCachedSales(realShopId, salesList);
-              }
-            } catch (_) {}
-
-            // Save staff session
-            await prefs.setInt('staff_failed_attempts', 0);
-            await prefs.setBool('is_guest_mode', true);
-            await prefs.setBool('is_staff_session', true);
-            await prefs.setString('staff_name', cleanName);
-            await prefs.setString('staff_role', cleanRole);
-            await prefs.setString('staff_pin', cleanPin);
-            await prefs.setString('staff_shop_phone', cleanPhone);
-            await prefs.setString('active_role', cleanRole);
-            await prefs.setBool('setup_done_guest', true);
-            await prefs.setString('saved_shop_data', jsonEncode(_localShop.toJson()));
-            await prefs.setString('shop_name', _localShop.name);
-            if (_localShop.phone != null) await prefs.setString('shop_phone', _localShop.phone!);
-            if (_localShop.address != null) await prefs.setString('shop_address', _localShop.address!);
-            if (_localShop.gstin != null) await prefs.setString('shop_gstin', _localShop.gstin!);
-            if (_localShop.upiId != null) await prefs.setString('shop_upi_id', _localShop.upiId!);
-            if (_localShop.upiPayeeName != null) await prefs.setString('shop_upi_payee_name', _localShop.upiPayeeName!);
-            if (_localShop.receiptFooter != null) await prefs.setString('shop_receipt_footer', _localShop.receiptFooter!);
-            await prefs.setString('shop_paper_size', _localShop.printPaperSize);
-            await prefs.setBool('shop_allow_negative_stock', _localShop.allowNegativeStock);
-
-            debugPrint("Staff successfully joined shop via Direct Query fallback: ${_localShop.name}");
-            return _localShop;
-          }
-        }
-      } catch (directErr) {
-        debugPrint("Direct query fallback in verifyAndJoinStaff failed: $directErr");
       }
     }
 
