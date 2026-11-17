@@ -13,6 +13,8 @@ import 'feature_settings_screen.dart';
 import 'printer_settings_screen.dart';
 import 'receipt_settings_screen.dart';
 import 'tax_settings_screen.dart';
+import 'weighing_scale_settings_screen.dart';
+import 'ai_vision_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -492,7 +494,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
 
-            // 5. Feature Settings
+            // 5. Weighing Scale (इलेक्ट्रॉनिक तराजू)
+            _buildSettingTile(
+              context: context,
+              title: 'Weighing Scale',
+              subtitle: 'Configure Bluetooth & USB Weight Scale / इलेक्ट्रॉनिक तराजू',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const WeighingScaleSettingsScreen()),
+                );
+              },
+            ),
+
+            // 6. AI Vision Camera
+            _buildSettingTile(
+              context: context,
+              title: 'AI Vision Camera',
+              subtitle: 'Smart vegetable & fruit recognition / कैमरा पहचान',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AiVisionSettingsScreen()),
+                );
+              },
+            ),
+
+            // 7. Feature Settings
             _buildSettingTile(
               context: context,
               title: 'Feature Settings',
