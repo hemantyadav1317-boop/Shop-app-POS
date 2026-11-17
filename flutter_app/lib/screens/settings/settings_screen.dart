@@ -14,6 +14,7 @@ import '../../core/services/sound_service.dart';
 import '../../core/services/receipt_print_service.dart';
 import '../../core/services/bluetooth_printer_service.dart';
 import '../../core/services/printer_settings_service.dart';
+import '../../core/services/payment_notification_service.dart';
 import '../../core/utils/payment_qr_helper.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../../data/models/sale.dart';
@@ -66,9 +67,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isConnectingBt = false;
   bool _isSyncingCloud = false;
 
+  bool _autoVerifyEnabled = true;
+  bool _cloudRelayEnabled = false;
+  bool _notificationPermissionGranted = false;
+
   @override
   void initState() {
     super.initState();
+    _autoVerifyEnabled = PaymentNotificationService.instance.isAutoVerifyEnabled;
+    _cloudRelayEnabled = PaymentNotificationService.instance.isCloudRelayEnabled;
+    _checkNotificationPermission();
     final shop = context.read<ShopProvider>().shop;
     _nameCtrl = TextEditingController(text: shop.name);
     _phoneCtrl = TextEditingController(text: shop.phone ?? '');
@@ -114,6 +122,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     attachTypeSound(_footerCtrl);
 
     _loadBtPrinterInfo();
+  }
+
+  Future<void> _checkNotificationPermission() async {
+    final granted = await PaymentNotificationService.instance.checkPermission();
+    if (mounted) {
+      setState(() {
+        _notificationPermissionGranted = granted;
+      });
+    }
   }
 
   Future<void> _loadBtPrinterInfo() async {
@@ -1950,6 +1967,187 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ],
                       ),
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // D-Mart Style Auto-Payment Verification Card
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(
+                  color: _autoVerifyEnabled ? const Color(0xFF00875A) : Colors.grey.shade300,
+                  width: _autoVerifyEnabled ? 1.6 : 1.0,
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00875A).withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.flash_on_rounded, color: Color(0xFF00875A), size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Text(
+                                    'D-Mart स्टाइल ऑटो-पेमेंट वेरिफिकेशन',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                    decoration: BoxDecoration(
+                                      color: Color(0xFF00875A),
+                                      borderRadius: BorderRadius.all(Radius.circular(4)),
+                                    ),
+                                    child: Text(
+                                      'AUTO-PRINT',
+                                      style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                _autoVerifyEnabled
+                                    ? '✓ सक्रिय: PhonePe, Paytm, GPay या बैंक SMS आते ही बिल खुद पास व प्रिंट होगा'
+                                    : 'बंद: कैशियर को हाथ से कन्फर्म करना होगा',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: _autoVerifyEnabled ? const Color(0xFF00875A) : AppColors.lightTextSecondary,
+                                  fontWeight: _autoVerifyEnabled ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: _autoVerifyEnabled,
+                          activeThumbColor: const Color(0xFF00875A),
+                          onChanged: authProvider.isStaffSession
+                              ? null
+                              : (val) async {
+                                  setState(() => _autoVerifyEnabled = val);
+                                  await PaymentNotificationService.instance.setAutoVerifyEnabled(val);
+                                  SoundService.instance.playClick();
+                                },
+                        ),
+                      ],
+                    ),
+                    if (_autoVerifyEnabled) ...[
+                      const Divider(height: 18),
+                      // Permission status row
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _notificationPermissionGranted ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _notificationPermissionGranted ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              _notificationPermissionGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                              size: 18,
+                              color: _notificationPermissionGranted ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _notificationPermissionGranted
+                                    ? 'Notification Access: चालू है (PhonePe/Paytm अलर्ट लाइव)'
+                                    : 'Notification Access: बंद है (ऑटो-वेरिफिकेशन के लिए चालू करें)',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: _notificationPermissionGranted ? const Color(0xFF15803D) : const Color(0xFFB45309),
+                                ),
+                              ),
+                            ),
+                            if (!_notificationPermissionGranted && PaymentNotificationService.instance.isAndroidSupported)
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00875A),
+                                  foregroundColor: Colors.white,
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                ),
+                                onPressed: () async {
+                                  await PaymentNotificationService.instance.openSettings();
+                                  Future.delayed(const Duration(seconds: 2), _checkNotificationPermission);
+                                },
+                                child: const Text('चालू करें', style: TextStyle(fontSize: 11)),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      // Cloud Relay for multi-device tablet/laptop
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        title: const Text(
+                          '📡 क्लाउड रिले (Owner Phone -> Counter Tablet/PC)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                        ),
+                        subtitle: const Text(
+                          'यदि आप इस फोन के पेमेंट अलर्ट को दुकान के टैबलेट/लैपटॉप पर भेजना चाहते हैं',
+                          style: TextStyle(fontSize: 10.5, color: Colors.grey),
+                        ),
+                        value: _cloudRelayEnabled,
+                        activeThumbColor: const Color(0xFF00875A),
+                        onChanged: (val) async {
+                          setState(() => _cloudRelayEnabled = val);
+                          await PaymentNotificationService.instance.setCloudRelayEnabled(val);
+                          SoundService.instance.playClick();
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      // Test Auto-Print Action Button
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF00875A),
+                            side: const BorderSide(color: Color(0xFF00875A)),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.print_rounded, size: 15),
+                          label: const Text('🧪 ₹1 का टेस्ट पेमेंट चलाएं (Test Auto-Print)'),
+                          onPressed: () async {
+                            SoundService.instance.playButtonClick();
+                            await PaymentNotificationService.instance.simulatePayment(
+                              amount: 1.0,
+                              appName: 'PhonePe',
+                            );
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  backgroundColor: Color(0xFF00875A),
+                                  content: Text('✓ ₹1.00 का टेस्ट पेमेंट भेजा गया! चेकआउट स्क्रीन पर लाइव दिखेगा।'),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

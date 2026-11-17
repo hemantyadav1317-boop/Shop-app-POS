@@ -15,6 +15,7 @@ import '../../../../core/services/backup_service.dart';
 import '../../../../core/services/receipt_print_service.dart';
 import '../../../../core/services/printer_settings_service.dart';
 import '../../../../core/services/bluetooth_printer_service.dart';
+import '../../../../core/services/payment_notification_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/payment_qr_helper.dart';
 import '../../../../data/models/sale.dart';
@@ -56,6 +57,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
   PaymentTransaction? _activePhonePeTx;
   bool _isCreatingPhonePeOrder = false;
   StreamSubscription<PaymentTransaction>? _phonePeSub;
+  StreamSubscription<DetectedPayment>? _paymentNotifSub;
+  String? _detectedPaymentApp;
+  String? _detectedUtr;
   Timer? _phonePeTimer;
   int _phonePeRemainingSeconds = 180;
 
@@ -97,6 +101,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     if (_paymentMode == 'online' || _paymentMode == 'split') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _initPhonePePayment();
+        _initPaymentNotificationListener();
       });
     }
   }
@@ -188,6 +193,59 @@ class _PaymentDialogState extends State<PaymentDialog> {
     );
   }
 
+  void _initPaymentNotificationListener() {
+    _paymentNotifSub?.cancel();
+    if (_onlinePaymentVerified || _completedSale != null || _isSaving) return;
+
+    final cart = context.read<CartProvider>();
+    final upiAmount = _paymentMode == 'split'
+        ? (double.tryParse(_upiController.text.trim()) ?? 0.0)
+        : cart.total;
+
+    if (upiAmount <= 0.009) return;
+
+    // 1. Instant check: was a payment for this exact amount received in the last 60 seconds?
+    final existingMatch = PaymentNotificationService.instance.consumeMatchingPayment(upiAmount);
+    if (existingMatch != null) {
+      _onPaymentVerifiedAutomatically(existingMatch);
+      return;
+    }
+
+    // 2. Stream check: listen for incoming payment notifications
+    _paymentNotifSub = PaymentNotificationService.instance.paymentStream.listen((detected) {
+      if (!mounted || _onlinePaymentVerified || _completedSale != null || _isSaving) return;
+      if (!detected.isConsumed && (detected.amount - upiAmount).abs() <= 0.05) {
+        detected.isConsumed = true;
+        _onPaymentVerifiedAutomatically(detected);
+      }
+    });
+  }
+
+  void _onPaymentVerifiedAutomatically(DetectedPayment detected) {
+    _phonePeTimer?.cancel();
+    _paymentNotifSub?.cancel();
+    setState(() {
+      _onlinePaymentVerified = true;
+      _detectedPaymentApp = detected.appName;
+      _detectedUtr = detected.utr;
+    });
+    SoundService.instance.playSuccess();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF00875A),
+        duration: const Duration(seconds: 2),
+        content: Text('✓ ${detected.appName} से ₹${detected.amount.toStringAsFixed(2)} प्राप्त हुए! रसीद प्रिंट हो रही है...'),
+      ),
+    );
+
+    // D-Mart style: 500ms celebratory feedback -> auto checkout & instant auto-print!
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted && _completedSale == null && !_isSaving) {
+        _processCheckout();
+      }
+    });
+  }
+
   void _loadQuote() async {
     final quote = await AiQuoteService.getUniqueQuoteForBill();
     if (mounted) {
@@ -201,6 +259,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   void dispose() {
     _phonePeSub?.cancel();
     _phonePeTimer?.cancel();
+    _paymentNotifSub?.cancel();
     _paidController.dispose();
     _upiController.dispose();
     super.dispose();
@@ -232,10 +291,12 @@ class _PaymentDialogState extends State<PaymentDialog> {
     if (mode == 'online' || mode == 'split') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _initPhonePePayment();
+        _initPaymentNotificationListener();
       });
     } else {
       _phonePeSub?.cancel();
       _phonePeTimer?.cancel();
+      _paymentNotifSub?.cancel();
       _activePhonePeTx = null;
     }
   }
@@ -252,7 +313,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
       onlineVerified: _onlinePaymentVerified,
       verificationSource: _paymentMode == 'online' || (_paymentMode == 'split' && upiInput > 0)
           ? (_onlinePaymentVerified
-              ? (shop.phonePeEnabled ? 'phonepe_auto_verified' : 'cashier_verified')
+              ? (_detectedPaymentApp != null
+                  ? 'notification_${_detectedPaymentApp!.toLowerCase().replaceAll(' ', '_')}'
+                  : (shop.phonePeEnabled ? 'phonepe_auto_verified' : 'cashier_verified'))
               : 'unverified')
           : null,
     );
@@ -1185,40 +1248,119 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                   ),
                                 ),
                             ] else ...[
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: _onlinePaymentVerified ? Colors.green.shade50 : Colors.amber.shade50,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: _onlinePaymentVerified ? Colors.green.shade300 : Colors.amber.shade300,
+                              if (_onlinePaymentVerified)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: Colors.green.shade400),
                                   ),
-                                ),
-                                child: CheckboxListTile(
-                                  title: const Text(
-                                    'Payment प्राप्त हो गया (Verified)',
-                                    style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, color: Colors.green.shade700, size: 24),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              '✓ भुगतान सत्यापित (${_detectedPaymentApp ?? 'UPI / PhonePe'})',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.green.shade900),
+                                            ),
+                                            Text(
+                                              'रसीद अपने आप प्रिंट हो रही है... D-Mart स्टाइल ✓',
+                                              style: TextStyle(fontSize: 10.5, color: Colors.green.shade800),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  subtitle: Text(
-                                    _onlinePaymentVerified
-                                        ? 'भुगतान सत्यापित ✓ — बिल में Google Review QR दिखेगा'
-                                        : 'असत्यापित (Pending) — बिल में UPI Payment QR दिखेगा',
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: _onlinePaymentVerified ? Colors.green.shade800 : Colors.amber.shade900,
+                                )
+                              else ...[
+                                if (PaymentNotificationService.instance.isAutoVerifyEnabled)
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF0FDF4),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFF86EFAC)),
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const SizedBox(
+                                              width: 14,
+                                              height: 14,
+                                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00875A)),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Expanded(
+                                              child: Text(
+                                                '⚡ D-Mart ऑटो-प्रिंट सक्रिय: PhonePe, Paytm, GPay पेमेंट आते ही बिल खुद प्रिंट होगा',
+                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF14532D)),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 6),
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            visualDensity: VisualDensity.compact,
+                                            foregroundColor: const Color(0xFF00875A),
+                                            side: const BorderSide(color: Color(0xFF00875A)),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                          ),
+                                          icon: const Icon(Icons.flash_on_rounded, size: 14),
+                                          label: Text('🧪 ₹${upiAmount.toStringAsFixed(2)} टेस्ट पे (Test Auto-Print)', style: const TextStyle(fontSize: 11)),
+                                          onPressed: () {
+                                            PaymentNotificationService.instance.simulatePayment(
+                                              amount: upiAmount,
+                                              appName: 'PhonePe',
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                  value: _onlinePaymentVerified,
-                                  onChanged: (val) {
-                                    setState(() {
-                                      _onlinePaymentVerified = val ?? false;
-                                    });
-                                  },
-                                  dense: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  controlAffinity: ListTileControlAffinity.leading,
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: _onlinePaymentVerified ? Colors.green.shade50 : Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: _onlinePaymentVerified ? Colors.green.shade300 : Colors.amber.shade300,
+                                    ),
+                                  ),
+                                  child: CheckboxListTile(
+                                    title: const Text(
+                                      'Payment प्राप्त हो गया (Verified)',
+                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
+                                    ),
+                                    subtitle: Text(
+                                      _onlinePaymentVerified
+                                          ? 'भुगतान सत्यापित ✓ — बिल में Google Review QR दिखेगा'
+                                          : 'असत्यापित (Pending) — बिल में UPI Payment QR दिखेगा',
+                                      style: TextStyle(
+                                        fontSize: 10.5,
+                                        fontWeight: FontWeight.w600,
+                                        color: _onlinePaymentVerified ? Colors.green.shade800 : Colors.amber.shade900,
+                                      ),
+                                    ),
+                                    value: _onlinePaymentVerified,
+                                    onChanged: (val) {
+                                      setState(() {
+                                        _onlinePaymentVerified = val ?? false;
+                                      });
+                                    },
+                                    dense: true,
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                    controlAffinity: ListTileControlAffinity.leading,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ],
                         ),

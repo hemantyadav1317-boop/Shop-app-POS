@@ -16,6 +16,7 @@ import 'providers/ai_vision_provider.dart';
 import 'providers/menu_visibility_provider.dart';
 import 'core/services/sound_service.dart';
 import 'core/services/local_image_cache_service.dart';
+import 'core/services/payment_notification_service.dart';
 import 'screens/splash/splash_screen.dart';
 
 void main() async {
@@ -26,6 +27,9 @@ void main() async {
 
   // Initialize Persistent Local Image Cache for instant offline photos
   await LocalImageCacheService.instance.init();
+
+  // Initialize D-Mart Style Automatic Payment Notification & Cloud Bridge Service
+  await PaymentNotificationService.instance.init();
 
   // Set immersive status bar
   SystemChrome.setSystemUIOverlayStyle(

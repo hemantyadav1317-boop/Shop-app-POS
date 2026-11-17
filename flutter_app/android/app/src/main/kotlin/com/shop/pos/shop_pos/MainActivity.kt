@@ -1,45 +1,98 @@
 package com.shop.pos.shop_pos
 
+import android.content.Intent
 import android.content.res.AssetFileDescriptor
 import android.media.AudioAttributes
 import android.media.SoundPool
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.shop.pos/native_sound"
+    private val SOUND_CHANNEL = "com.shop.pos/native_sound"
+    private val PAYMENT_METHOD_CHANNEL = "com.shop.pos/payment_notification_channel"
+    private val PAYMENT_EVENT_CHANNEL = "com.shop.pos/payment_notification_events"
+
     private var soundPool: SoundPool? = null
     private val soundMap = HashMap<String, Int>()
+    private var paymentEventSink: EventChannel.EventSink? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         initSoundPool()
 
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
+        // 1. Native Sound Effects
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SOUND_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
-                "playClick" -> {
-                    result.success(playSound("click"))
+                "playClick" -> result.success(playSound("click"))
+                "playProductAdd" -> result.success(playSound("beep"))
+                "playDelete" -> result.success(playSound("delete"))
+                "playDot" -> result.success(playSound("dot"))
+                "playSuccess" -> result.success(playSound("success"))
+                "playAppStartup" -> result.success(playSound("success"))
+                else -> result.notImplemented()
+            }
+        }
+
+        // 2. Payment Notification Control MethodChannel
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PAYMENT_METHOD_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isPermissionGranted" -> {
+                    val isGranted = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
+                    result.success(isGranted)
                 }
-                "playProductAdd" -> {
-                    result.success(playSound("beep"))
+                "openSettings" -> {
+                    try {
+                        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        startActivity(intent)
+                        result.success(true)
+                    } catch (e: Exception) {
+                        result.error("SETTINGS_ERROR", e.message, null)
+                    }
                 }
-                "playDelete" -> {
-                    result.success(playSound("delete"))
-                }
-                "playDot" -> {
-                    result.success(playSound("dot"))
-                }
-                "playSuccess" -> {
-                    result.success(playSound("success"))
-                }
-                "playAppStartup" -> {
-                    result.success(playSound("success"))
+                "simulatePayment" -> {
+                    val amount = call.argument<Double>("amount") ?: 1.0
+                    val appName = call.argument<String>("appName") ?: "PhonePe"
+                    val utr = call.argument<String>("utr") ?: "TEST_${System.currentTimeMillis()}"
+                    val payload = mapOf(
+                        "amount" to amount,
+                        "appName" to appName,
+                        "packageName" to "com.phonepe.app",
+                        "title" to "$appName Business",
+                        "text" to "Received ₹$amount via UPI",
+                        "utr" to utr,
+                        "timestamp" to System.currentTimeMillis()
+                    )
+                    PaymentNotificationListener.onPaymentDetected?.invoke(payload)
+                    result.success(true)
                 }
                 else -> result.notImplemented()
             }
         }
+
+        // 3. Payment Notification Live EventStream
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, PAYMENT_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    paymentEventSink = events
+                    PaymentNotificationListener.onPaymentDetected = { payload ->
+                        runOnUiThread {
+                            paymentEventSink?.success(payload)
+                        }
+                    }
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    paymentEventSink = null
+                    PaymentNotificationListener.onPaymentDetected = null
+                }
+            }
+        )
     }
 
     private fun initSoundPool() {
@@ -93,6 +146,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        paymentEventSink = null
+        PaymentNotificationListener.onPaymentDetected = null
         soundPool?.release()
         soundPool = null
         soundMap.clear()
