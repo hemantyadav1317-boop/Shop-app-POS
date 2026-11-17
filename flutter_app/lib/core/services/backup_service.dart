@@ -13,6 +13,7 @@ import '../../data/models/sale.dart';
 import '../../data/models/shop.dart';
 import '../../data/services/local_db_service.dart';
 import '../../data/services/supabase_service.dart';
+import 'update_service.dart';
 
 class BackupSnapshot {
   final String appVersion;
@@ -86,7 +87,7 @@ class BackupService {
     final payload = {
       'app': 'BillZo POS',
       'schema_version': 1,
-      'app_version': '1.5.9',
+      'app_version': UpdateService.currentVersion,
       'exported_at': DateTime.now().toIso8601String(),
       'shop': shop.toJson(),
       'categories': categoriesConfig ?? {},
