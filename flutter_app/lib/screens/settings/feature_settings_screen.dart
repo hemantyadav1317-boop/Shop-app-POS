@@ -233,7 +233,7 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
     final payeeName = _upiNameCtrl.text.trim().isNotEmpty ? _upiNameCtrl.text.trim() : shop.name;
     final hasValidUpi = upiId.isNotEmpty && upiId.contains('@');
     final upiUri = hasValidUpi
-        ? (PaymentQrHelper.buildUpiUri(upiId: upiId, payeeName: payeeName, amount: 100.0, transactionNote: 'POS Payment Test') ?? '')
+        ? (PaymentQrHelper.buildUpiUri(upiId: upiId, payeeName: payeeName, amount: 100.0, billNo: 'TEST') ?? '')
         : '';
 
     return Scaffold(

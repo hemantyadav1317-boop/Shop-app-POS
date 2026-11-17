@@ -72,7 +72,7 @@ class PaymentNotificationListener : NotificationListenerService() {
         val bigText = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() ?: ""
         val fullContent = "$title $text $bigText"
 
-        val lower = fullContent.toLowerCase()
+        val lower = fullContent.lowercase()
 
         // Filter: Must indicate money arrived (received / credited / प्राप्त / जमा)
         val isReceived = lower.contains("received") ||

@@ -5,6 +5,7 @@ import '../../core/services/fmcg_catalog_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/fmcg_item.dart';
 import '../../data/models/product.dart';
+import '../../data/models/shop.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
@@ -535,7 +536,6 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
         ),
       ),
     );
-  }
   }
 
   Widget _buildQuickPill(String title, String barcode) {
