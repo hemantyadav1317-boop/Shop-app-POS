@@ -25,7 +25,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   // App Version
-  static const String _appVersion = 'V 1.5.7';
+  static const String _appVersion = 'V 1.5.8';
 
   void _confirmLogout(BuildContext context) {
     SoundService.instance.playButtonClick();
