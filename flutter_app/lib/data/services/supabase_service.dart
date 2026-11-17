@@ -53,6 +53,8 @@ class SupabaseService {
   );
 
   Shop get currentShop => _localShop;
+  List<Sale> get currentLocalSales => List.unmodifiable(_localSales);
+  List<Expense> get currentLocalExpenses => List.unmodifiable(_localExpenses);
 
   Future<void> initialize() async {
     await LocalDbService.instance.init();
@@ -593,31 +595,43 @@ class SupabaseService {
       id: isValidUuid ? product.id : const Uuid().v4(),
       shopId: validShopId,
     );
-    Product saved = targetProduct;
-    bool synced = false;
-    if (isInitialized && client != null && validShopId != 'demo-shop-101') {
-      try {
-        final res = await client!.from('products').upsert(targetProduct.toSupabaseJson()).select().single();
-        saved = Product.fromJson(res);
-        synced = true;
-      } catch (e) {
-        debugPrint("Error inserting product in cloud (queued in outbox): $e");
-      }
-    }
-    if (!synced && validShopId != 'demo-shop-101') {
+
+    // ⚡ 1. INSTANT LOCAL PERSISTENCE (<10ms): Save to local memory and cache immediately
+    await LocalDbService.instance.removeDeletedProductId(validShopId, targetProduct.id);
+    _localProducts.removeWhere((p) => p.id == product.id || p.id == targetProduct.id);
+    _localProducts.add(targetProduct);
+    await _saveCachedProducts(validShopId, _localProducts);
+
+    // Enqueue in Outbox for guaranteed background delivery
+    if (validShopId != 'demo-shop-101') {
       await LocalDbService.instance.enqueueOutbox(
         shopId: validShopId,
         entityType: 'product',
-        entityId: saved.id,
+        entityId: targetProduct.id,
         operation: 'upsert',
-        payload: saved.toJson(),
+        payload: targetProduct.toJson(),
       );
     }
-    await LocalDbService.instance.removeDeletedProductId(validShopId, saved.id);
-    _localProducts.removeWhere((p) => p.id == product.id || p.id == targetProduct.id);
-    _localProducts.add(saved);
-    await _saveCachedProducts(validShopId, _localProducts);
-    return saved;
+
+    // ⚡ 2. NON-BLOCKING BACKGROUND SYNC: Update cloud quietly without freezing the UI!
+    if (isInitialized && client != null && validShopId != 'demo-shop-101') {
+      unawaited(Future(() async {
+        try {
+          final res = await client!.from('products').upsert(targetProduct.toSupabaseJson()).select().single().timeout(const Duration(seconds: 4));
+          final cloudSaved = Product.fromJson(res);
+          await LocalDbService.instance.removeOutboxForEntity('product', targetProduct.id);
+          final idx = _localProducts.indexWhere((p) => p.id == targetProduct.id);
+          if (idx != -1) {
+            _localProducts[idx] = cloudSaved;
+            await _saveCachedProducts(validShopId, _localProducts);
+          }
+        } catch (e) {
+          debugPrint("Error inserting product in cloud (queued in outbox): $e");
+        }
+      }));
+    }
+
+    return targetProduct;
   }
 
   Future<List<Product>> addProductsBatch(List<Product> products) async {
@@ -634,7 +648,7 @@ class SupabaseService {
     if (isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
         final payload = targetProducts.map((p) => p.toSupabaseJson()).toList();
-        final res = await client!.from('products').insert(payload).select();
+        final res = await client!.from('products').insert(payload).select().timeout(const Duration(seconds: 5));
         final list = (res as List).map((e) => Product.fromJson(e)).toList();
         savedList.addAll(list);
       } catch (e) {
@@ -658,22 +672,18 @@ class SupabaseService {
   Future<void> updateProduct(Product product) async {
     final validShopId = await _ensureValidShopId(product.shopId);
     final targetProduct = product.shopId != validShopId ? product.copyWith(shopId: validShopId) : product;
+
+    // ⚡ 1. INSTANT LOCAL PERSISTENCE (<10ms): Update local memory and cache immediately
     final index = _localProducts.indexWhere((p) => p.id == targetProduct.id);
     if (index != -1) {
       _localProducts[index] = targetProduct;
     } else {
       _localProducts.add(targetProduct);
     }
-    bool synced = false;
-    if (isInitialized && client != null && validShopId != 'demo-shop-101') {
-      try {
-        await client!.from('products').update(targetProduct.toSupabaseJson()).eq('id', targetProduct.id);
-        synced = true;
-      } catch (e) {
-        debugPrint("Error updating product in cloud (queued in outbox): $e");
-      }
-    }
-    if (!synced && validShopId != 'demo-shop-101') {
+    await _saveCachedProducts(validShopId, _localProducts);
+
+    // Enqueue in Outbox
+    if (validShopId != 'demo-shop-101') {
       await LocalDbService.instance.enqueueOutbox(
         shopId: validShopId,
         entityType: 'product',
@@ -681,10 +691,19 @@ class SupabaseService {
         operation: 'upsert',
         payload: targetProduct.toJson(),
       );
-    } else if (synced) {
-      await LocalDbService.instance.removeOutboxForEntity('product', targetProduct.id);
     }
-    await _saveCachedProducts(validShopId, _localProducts);
+
+    // ⚡ 2. NON-BLOCKING BACKGROUND SYNC: Update cloud quietly without freezing the UI!
+    if (isInitialized && client != null && validShopId != 'demo-shop-101') {
+      unawaited(Future(() async {
+        try {
+          await client!.from('products').update(targetProduct.toSupabaseJson()).eq('id', targetProduct.id).timeout(const Duration(seconds: 4));
+          await LocalDbService.instance.removeOutboxForEntity('product', targetProduct.id);
+        } catch (e) {
+          debugPrint("Error updating product in cloud (queued in outbox): $e");
+        }
+      }));
+    }
   }
 
   Future<void> deleteProduct(String productId, {String? shopId}) async {

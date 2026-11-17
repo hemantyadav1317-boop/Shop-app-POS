@@ -328,45 +328,67 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ],
               ),
-              child: NavigationBar(
-                height: 64,
-                elevation: 0,
-                backgroundColor: Colors.transparent,
-                selectedIndex: _currentIndex,
-                onDestinationSelected: _onNavigationChanged,
-                indicatorColor: const Color(0xFFE8F5E9), // Light green capsule pill
-                destinations: [
-                  NavigationDestination(
-                    icon: const Icon(Icons.home_outlined),
-                    selectedIcon: const Icon(Icons.home_rounded, color: AppColors.primary),
-                    label: context.tr('nav_home'),
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.receipt_long_outlined),
-                    selectedIcon: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
-                    label: context.tr('nav_bills'),
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.people_alt_outlined),
-                    selectedIcon: const Icon(Icons.people_alt_rounded, color: AppColors.primary),
-                    label: context.tr('nav_khata'),
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.inventory_2_outlined),
-                    selectedIcon: const Icon(Icons.inventory_2_rounded, color: AppColors.primary),
-                    label: context.tr('nav_stock'),
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.calendar_month_outlined),
-                    selectedIcon: const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
-                    label: context.tr('nav_daybook'),
-                  ),
-                  NavigationDestination(
-                    icon: const Icon(Icons.settings_outlined),
-                    selectedIcon: const Icon(Icons.settings_rounded, color: AppColors.primary),
-                    label: context.tr('nav_settings'),
-                  ),
-                ],
+              child: NavigationBarTheme(
+                data: NavigationBarThemeData(
+                  height: 60,
+                  indicatorColor: const Color(0xFFE0F2FE),
+                  indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  iconTheme: WidgetStateProperty.resolveWith((states) {
+                    if (states.contains(WidgetState.selected)) {
+                      return const IconThemeData(color: Color(0xFF1A4B8E), size: 21);
+                    }
+                    return const IconThemeData(size: 21);
+                  }),
+                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                    final isSel = states.contains(WidgetState.selected);
+                    return TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                      color: isSel ? const Color(0xFF1A4B8E) : null,
+                      letterSpacing: -0.2,
+                    );
+                  }),
+                ),
+                child: NavigationBar(
+                  height: 60,
+                  elevation: 0,
+                  backgroundColor: Colors.transparent,
+                  selectedIndex: _currentIndex,
+                  onDestinationSelected: _onNavigationChanged,
+                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                  destinations: [
+                    NavigationDestination(
+                      icon: const Icon(Icons.home_outlined),
+                      selectedIcon: const Icon(Icons.home_rounded),
+                      label: context.tr('nav_home'),
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.receipt_long_outlined),
+                      selectedIcon: const Icon(Icons.receipt_long_rounded),
+                      label: context.tr('nav_bills'),
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.people_alt_outlined),
+                      selectedIcon: const Icon(Icons.people_alt_rounded),
+                      label: context.tr('nav_khata'),
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.inventory_2_outlined),
+                      selectedIcon: const Icon(Icons.inventory_2_rounded),
+                      label: context.tr('nav_stock'),
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.calendar_month_outlined),
+                      selectedIcon: const Icon(Icons.calendar_month_rounded),
+                      label: context.tr('nav_daybook'),
+                    ),
+                    NavigationDestination(
+                      icon: const Icon(Icons.settings_outlined),
+                      selectedIcon: const Icon(Icons.settings_rounded),
+                      label: context.tr('nav_settings'),
+                    ),
+                  ],
+                ),
               ),
             ),
     );

@@ -226,82 +226,221 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.credit_card_rounded, color: Color(0xFF2563EB), size: 24),
-            SizedBox(width: 8),
-            Text('Add Credit (उधार जोड़ें)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Customer: ${_currentCustomer.name}', style: const TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 4),
-              Text(
-                'Current Balance: ₹${_currentCustomer.balance.toStringAsFixed(2)}',
-                style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: amountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Credit Amount *',
-                  prefixText: '₹ ',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: noteCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Note (Optional)',
-                  hintText: 'e.g. Items purchased on credit',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2563EB),
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () async {
-              final amt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
-              if (amt <= 0) return;
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (bottomSheetCtx, setSheetState) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
 
-              await context.read<CustomerProvider>().addCredit(_currentCustomer.id, amt);
-              SoundService.instance.playSuccess();
-              final newBal = _currentCustomer.balance + amt;
-              setState(() {
-                _currentCustomer = _currentCustomer.copyWith(balance: newBal);
-              });
-              await _loadData();
-              if (mounted) {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: const Color(0xFF2563EB),
-                    content: Text('₹$amt credit added. New Balance: ₹${newBal.toStringAsFixed(2)}'),
+          void addChipAmount(double val) {
+            final curr = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+            final updated = curr + val;
+            amountCtrl.text = updated % 1 == 0 ? updated.toInt().toString() : updated.toStringAsFixed(2);
+            setSheetState(() {});
+          }
+
+          return Container(
+            padding: EdgeInsets.only(bottom: bottomInset + 16, left: 20, right: 20, top: 12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -4)),
+              ],
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Pull Handle
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                );
-              }
-            },
-            child: const Text('Add Credit', style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
+                  const SizedBox(height: 14),
+
+                  // Header with Billiez Blue Theme
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1A4B8E).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF1A4B8E), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Add Credit (उधार जोड़ें)',
+                              style: TextStyle(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1A4B8E),
+                              ),
+                            ),
+                            Text(
+                              'ग्राहक: ${_currentCustomer.name}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Current Balance Banner
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFCA5A5).withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'वर्तमान बकाया (Current Due):',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF991B1B)),
+                        ),
+                        Text(
+                          '₹${_currentCustomer.balance.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Amount Input Field
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    autofocus: true,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      labelText: 'उधार राशि (Credit Amount) *',
+                      labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF1A4B8E), fontWeight: FontWeight.w600),
+                      prefixText: '₹ ',
+                      prefixStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF1A4B8E)),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF1A4B8E), width: 2)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                    onChanged: (_) => setSheetState(() {}),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Quick Suggestion Chips
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [100.0, 200.0, 500.0, 1000.0, 2000.0].map((amt) {
+                      return InkWell(
+                        onTap: () => addChipAmount(amt),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1A4B8E).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFF1A4B8E).withValues(alpha: 0.25)),
+                          ),
+                          child: Text(
+                            '+₹${amt.toInt()}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1A4B8E)),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Note Input
+                  TextField(
+                    controller: noteCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'टिप्पणी / विवरण (Note - Optional)',
+                      hintText: 'उदा. राशन सामान उधार लिया',
+                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF1A4B8E), width: 1.5)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.check_circle_outline, size: 20),
+                      label: const Text('उधार जोड़ें (Save Credit)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A4B8E),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 2,
+                      ),
+                      onPressed: () async {
+                        final amt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+                        if (amt <= 0) return;
+
+                        await context.read<CustomerProvider>().addCredit(_currentCustomer.id, amt);
+                        SoundService.instance.playSuccess();
+                        final newBal = _currentCustomer.balance + amt;
+                        setState(() {
+                          _currentCustomer = _currentCustomer.copyWith(balance: newBal);
+                        });
+                        await _loadData();
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFF1A4B8E),
+                              content: Text('✓ ₹$amt उधार जोड़ा गया। नया कुल बकाया: ₹${newBal.toStringAsFixed(2)}'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -312,144 +451,323 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
     final noteCtrl = TextEditingController();
     String selectedMode = 'cash';
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
-        builder: (dialogCtx, setDialogState) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
-              children: [
-                Icon(Icons.payments_rounded, color: Color(0xFF00875A), size: 24),
-                SizedBox(width: 8),
-                Text('Receive Cash / Payment', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        builder: (bottomSheetCtx, setSheetState) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+
+          void setFullBalance() {
+            amountCtrl.text = _currentCustomer.balance % 1 == 0
+                ? _currentCustomer.balance.toInt().toString()
+                : _currentCustomer.balance.toStringAsFixed(2);
+            setSheetState(() {});
+          }
+
+          void addChipAmount(double val) {
+            final curr = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+            final updated = curr + val;
+            amountCtrl.text = updated % 1 == 0 ? updated.toInt().toString() : updated.toStringAsFixed(2);
+            setSheetState(() {});
+          }
+
+          return Container(
+            padding: EdgeInsets.only(bottom: bottomInset + 16, left: 20, right: 20, top: 12),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -4)),
               ],
             ),
-            content: SingleChildScrollView(
+            child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Customer: ${_currentCustomer.name}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Current Balance: ₹${_currentCustomer.balance.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 13),
+                  // Pull Handle
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
+
+                  // Header with Billiez Styling
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(9),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.payments_rounded, color: Color(0xFF16A34A), size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Receive Payment (भुगतान प्राप्त करें)',
+                              style: TextStyle(
+                                fontSize: 16.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF16A34A),
+                              ),
+                            ),
+                            Text(
+                              'ग्राहक: ${_currentCustomer.name}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Current Balance Banner with Full Balance Button
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFCA5A5).withValues(alpha: 0.5)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'कुल बकाया राशि (Total Due):',
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: Color(0xFF991B1B)),
+                            ),
+                            Text(
+                              '₹${_currentCustomer.balance.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFFDC2626)),
+                            ),
+                          ],
+                        ),
+                        if (_currentCustomer.balance > 0)
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.flash_on_rounded, size: 14),
+                            label: const Text('पूरा बकाया', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFDC2626),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            onPressed: setFullBalance,
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Amount Input
                   TextField(
                     controller: amountCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     autofocus: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Received Amount *',
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    decoration: InputDecoration(
+                      labelText: 'प्राप्त राशि (Received Amount) *',
+                      labelStyle: const TextStyle(fontSize: 13, color: Color(0xFF16A34A), fontWeight: FontWeight.w600),
                       prefixText: '₹ ',
-                      border: OutlineInputBorder(),
+                      prefixStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF16A34A), width: 2)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                     ),
+                    onChanged: (_) => setSheetState(() {}),
                   ),
                   const SizedBox(height: 10),
+
+                  // Quick Suggestion Chips
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [100.0, 200.0, 500.0, 1000.0, 2000.0].map((amt) {
+                      return InkWell(
+                        onTap: () => addChipAmount(amt),
+                        borderRadius: BorderRadius.circular(20),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF16A34A).withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.25)),
+                          ),
+                          child: Text(
+                            '+₹${amt.toInt()}',
+                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Payment Mode Selector (Cash vs UPI Online)
                   Row(
                     children: [
                       Expanded(
                         child: InkWell(
-                          onTap: () => setDialogState(() => selectedMode = 'cash'),
-                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => setSheetState(() => selectedMode = 'cash'),
+                          borderRadius: BorderRadius.circular(12),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: selectedMode == 'cash' ? const Color(0xFF00875A) : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
+                              color: selectedMode == 'cash' ? const Color(0xFF16A34A) : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: selectedMode == 'cash' ? const Color(0xFF00875A) : Colors.grey.shade300,
+                                color: selectedMode == 'cash' ? const Color(0xFF16A34A) : Colors.grey.shade300,
                               ),
                             ),
                             alignment: Alignment.center,
-                            child: Text(
-                              'Cash (नकद)',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: selectedMode == 'cash' ? Colors.white : Colors.black87,
-                              ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.money_rounded, size: 18, color: selectedMode == 'cash' ? Colors.white : Colors.grey.shade700),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Cash (नकद)',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: selectedMode == 'cash' ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: InkWell(
-                          onTap: () => setDialogState(() => selectedMode = 'upi'),
-                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => setSheetState(() => selectedMode = 'upi'),
+                          borderRadius: BorderRadius.circular(12),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 9),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
                             decoration: BoxDecoration(
-                              color: selectedMode == 'upi' ? const Color(0xFF2563EB) : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
+                              color: selectedMode == 'upi' ? const Color(0xFF1A4B8E) : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: selectedMode == 'upi' ? const Color(0xFF2563EB) : Colors.grey.shade300,
+                                color: selectedMode == 'upi' ? const Color(0xFF1A4B8E) : Colors.grey.shade300,
                               ),
                             ),
                             alignment: Alignment.center,
-                            child: Text(
-                              'UPI Online',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: selectedMode == 'upi' ? Colors.white : Colors.black87,
-                              ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.qr_code_rounded, size: 18, color: selectedMode == 'upi' ? Colors.white : Colors.grey.shade700),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'UPI Online',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: selectedMode == 'upi' ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
+
+                  // Note Input
                   TextField(
                     controller: noteCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Note (Optional)',
-                      hintText: 'e.g. Cash received, Google Pay',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: 'टिप्पणी / नोट (Note - Optional)',
+                      hintText: 'उदा. नकद प्राप्त, PhonePe/GPay',
+                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                      filled: true,
+                      fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey.shade300)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFF16A34A), width: 1.5)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Submit Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.check_circle_outline, size: 20),
+                      label: const Text('भुगतान दर्ज करें (Record Payment)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A34A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 2,
+                      ),
+                      onPressed: () async {
+                        final amt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+                        if (amt <= 0) return;
+
+                        final shop = context.read<ShopProvider>().shop;
+                        await context.read<CustomerProvider>().recordPayment(
+                          _currentCustomer.id,
+                          amt,
+                          shopId: shop.id,
+                          mode: selectedMode,
+                          note: noteCtrl.text.trim(),
+                        );
+                        SoundService.instance.playSuccess();
+                        final newBal = (_currentCustomer.balance - amt) > 0 ? (_currentCustomer.balance - amt) : 0.0;
+                        setState(() {
+                          _currentCustomer = _currentCustomer.copyWith(balance: newBal);
+                        });
+                        await _loadData();
+                        if (mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFF16A34A),
+                              content: Text('✓ ₹$amt का भुगतान दर्ज किया गया। नया बकाया: ₹${newBal.toStringAsFixed(2)}'),
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
                 ],
               ),
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00875A)),
-                onPressed: () async {
-                  final amt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
-                  if (amt <= 0) return;
-
-                  final shop = context.read<ShopProvider>().shop;
-                  await context.read<CustomerProvider>().recordPayment(
-                    _currentCustomer.id,
-                    amt,
-                    shopId: shop.id,
-                    mode: selectedMode,
-                    note: noteCtrl.text.trim(),
-                  );
-                  SoundService.instance.playSuccess();
-                  final newBal = (_currentCustomer.balance - amt) > 0 ? (_currentCustomer.balance - amt) : 0.0;
-                  setState(() {
-                    _currentCustomer = _currentCustomer.copyWith(balance: newBal);
-                  });
-                  await _loadData();
-                  if (mounted) {
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: const Color(0xFF00875A),
-                        content: Text('₹$amt payment recorded. New Balance: ₹${newBal.toStringAsFixed(2)}'),
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Record Payment', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              ),
-            ],
           );
         },
       ),

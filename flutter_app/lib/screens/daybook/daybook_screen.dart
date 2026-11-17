@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/sale.dart';
 import '../../data/models/expense.dart';
+import '../../data/services/local_db_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
@@ -30,29 +32,60 @@ class _DaybookScreenState extends State<DaybookScreen> {
   }
 
   Future<void> _loadDaybook() async {
-    setState(() => _isLoading = true);
     final shop = context.read<ShopProvider>().shop;
-    final allSales = await SupabaseService.instance.getSales(shop.id);
-    final allExpenses = await SupabaseService.instance.getExpenses(shop.id);
-
     final now = DateTime.now();
-    final todaySales = allSales.where((s) {
+
+    // ⚡ 1. INSTANT LOCAL LOAD (<10ms): Read immediately from local storage and memory
+    final localSales = await LocalDbService.instance.getSales(shop.id);
+    final salesSource = localSales.isNotEmpty ? localSales : SupabaseService.instance.currentLocalSales;
+    final expensesSource = SupabaseService.instance.currentLocalExpenses;
+
+    final initialTodaySales = salesSource.where((s) {
       return s.createdAt.year == now.year &&
           s.createdAt.month == now.month &&
           s.createdAt.day == now.day;
     }).toList();
 
-    final todayExpenses = allExpenses.where((e) {
+    final initialTodayExpenses = expensesSource.where((e) {
       return e.spentOn.year == now.year &&
           e.spentOn.month == now.month &&
           e.spentOn.day == now.day;
     }).toList();
 
-    setState(() {
-      _todaySales = todaySales;
-      _todayExpenses = todayExpenses;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _todaySales = initialTodaySales;
+        _todayExpenses = initialTodayExpenses;
+        _isLoading = false; // Zero waiting time!
+      });
+    }
+
+    // ⚡ 2. QUIET BACKGROUND REFRESH: fetch latest cloud updates without blocking the UI!
+    unawaited(Future(() async {
+      try {
+        final allSales = await SupabaseService.instance.getSales(shop.id).timeout(const Duration(seconds: 4));
+        final allExpenses = await SupabaseService.instance.getExpenses(shop.id).timeout(const Duration(seconds: 4));
+
+        final refreshedTodaySales = allSales.where((s) {
+          return s.createdAt.year == now.year &&
+              s.createdAt.month == now.month &&
+              s.createdAt.day == now.day;
+        }).toList();
+
+        final refreshedTodayExpenses = allExpenses.where((e) {
+          return e.spentOn.year == now.year &&
+              e.spentOn.month == now.month &&
+              e.spentOn.day == now.day;
+        }).toList();
+
+        if (mounted) {
+          setState(() {
+            _todaySales = refreshedTodaySales;
+            _todayExpenses = refreshedTodayExpenses;
+          });
+        }
+      } catch (_) {}
+    }));
   }
 
   void _showAddExpenseDialog() {

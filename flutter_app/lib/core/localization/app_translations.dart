@@ -7,7 +7,7 @@ class AppTranslations {
       'nav_bills': 'Bills',
       'nav_khata': 'Khata',
       'nav_stock': 'Stock',
-      'nav_daybook': 'Day-Book',
+      'nav_daybook': 'Daybook',
       'nav_settings': 'Settings',
 
       // POS
