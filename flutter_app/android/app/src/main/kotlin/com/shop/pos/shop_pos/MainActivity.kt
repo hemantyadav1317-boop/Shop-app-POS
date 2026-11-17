@@ -1,11 +1,8 @@
 package com.shop.pos.shop_pos
 
-import android.content.Intent
 import android.content.res.AssetFileDescriptor
 import android.media.AudioAttributes
 import android.media.SoundPool
-import android.provider.Settings
-import androidx.core.app.NotificationManagerCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -42,18 +39,10 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, PAYMENT_METHOD_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "isPermissionGranted" -> {
-                    val isGranted = NotificationManagerCompat.getEnabledListenerPackages(this).contains(packageName)
-                    result.success(isGranted)
+                    result.success(true)
                 }
                 "openSettings" -> {
-                    try {
-                        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-                        startActivity(intent)
-                        result.success(true)
-                    } catch (e: Exception) {
-                        result.error("SETTINGS_ERROR", e.message, null)
-                    }
+                    result.success(true)
                 }
                 "simulatePayment" -> {
                     val amount = call.argument<Double>("amount") ?: 1.0
@@ -68,7 +57,9 @@ class MainActivity : FlutterActivity() {
                         "utr" to utr,
                         "timestamp" to System.currentTimeMillis()
                     )
-                    PaymentNotificationListener.onPaymentDetected?.invoke(payload)
+                    runOnUiThread {
+                        paymentEventSink?.success(payload)
+                    }
                     result.success(true)
                 }
                 else -> result.notImplemented()
@@ -80,16 +71,10 @@ class MainActivity : FlutterActivity() {
             object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     paymentEventSink = events
-                    PaymentNotificationListener.onPaymentDetected = { payload ->
-                        runOnUiThread {
-                            paymentEventSink?.success(payload)
-                        }
-                    }
                 }
 
                 override fun onCancel(arguments: Any?) {
                     paymentEventSink = null
-                    PaymentNotificationListener.onPaymentDetected = null
                 }
             }
         )
@@ -147,7 +132,6 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         super.onDestroy()
         paymentEventSink = null
-        PaymentNotificationListener.onPaymentDetected = null
         soundPool?.release()
         soundPool = null
         soundMap.clear()

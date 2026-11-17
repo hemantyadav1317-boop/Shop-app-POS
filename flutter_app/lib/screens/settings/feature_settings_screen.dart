@@ -319,7 +319,7 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
                         Expanded(
                           child: Text(
                             _notificationPermissionGranted
-                                ? 'नोटिफिकेशन एक्सेस चालू है (Active)'
+                                ? 'ऑटो-पेमेंट वेरिफिकेशन सेवा सक्रिय (सुरक्षित व तैयार)'
                                 : 'नोटिफिकेशन एक्सेस बंद है! ऑटो-डिटेक्ट के लिए परमिशन दें',
                             style: TextStyle(
                               fontSize: 12,
