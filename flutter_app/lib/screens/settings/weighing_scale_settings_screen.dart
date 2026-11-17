@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:bluetooth_classic/models/device.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/services/scale_data_parser.dart';
 import '../../core/services/bluetooth_device_classifier.dart';

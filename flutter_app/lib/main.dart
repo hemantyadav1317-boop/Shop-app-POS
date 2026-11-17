@@ -14,6 +14,7 @@ import 'providers/customer_provider.dart';
 import 'providers/weighing_scale_provider.dart';
 import 'providers/ai_vision_provider.dart';
 import 'providers/menu_visibility_provider.dart';
+import 'providers/locale_provider.dart';
 import 'core/services/sound_service.dart';
 import 'core/services/local_image_cache_service.dart';
 import 'core/services/payment_notification_service.dart';
@@ -111,6 +112,7 @@ void main() async {
         ChangeNotifierProvider(create: (_) => WeighingScaleProvider()),
         ChangeNotifierProvider(create: (_) => AiVisionProvider()),
         ChangeNotifierProvider(create: (_) => MenuVisibilityProvider()),
+        ChangeNotifierProvider(create: (_) => LocaleProvider()),
       ],
       child: const ShopPosApp(),
     ),
@@ -123,6 +125,7 @@ class ShopPosApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shopProvider = context.watch<ShopProvider>();
+    final localeProvider = context.watch<LocaleProvider>();
 
     return MaterialApp(
       title: 'BillZo POS — Billing, Stock & Khata',
@@ -130,6 +133,7 @@ class ShopPosApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: shopProvider.themeMode,
+      locale: localeProvider.locale,
       home: const SplashScreen(),
     );
   }

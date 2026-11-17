@@ -9,6 +9,7 @@ import '../providers/customer_provider.dart';
 import '../providers/product_provider.dart';
 import '../providers/shop_provider.dart';
 import '../providers/menu_visibility_provider.dart';
+import '../providers/locale_provider.dart';
 import 'pos/pos_screen.dart';
 import 'bills/bills_screen.dart';
 import 'customers/customers_screen.dart';
@@ -334,36 +335,36 @@ class _MainShellState extends State<MainShell> {
                 selectedIndex: _currentIndex,
                 onDestinationSelected: _onNavigationChanged,
                 indicatorColor: const Color(0xFFE8F5E9), // Light green capsule pill
-                destinations: const [
+                destinations: [
                   NavigationDestination(
-                    icon: Icon(Icons.home_outlined),
-                    selectedIcon: Icon(Icons.home_rounded, color: Color(0xFF00875A)),
-                    label: 'होम',
+                    icon: const Icon(Icons.home_outlined),
+                    selectedIcon: const Icon(Icons.home_rounded, color: AppColors.primary),
+                    label: context.tr('nav_home'),
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.receipt_long_outlined),
-                    selectedIcon: Icon(Icons.receipt_long_rounded, color: Color(0xFF00875A)),
-                    label: 'बिल्स',
+                    icon: const Icon(Icons.receipt_long_outlined),
+                    selectedIcon: const Icon(Icons.receipt_long_rounded, color: AppColors.primary),
+                    label: context.tr('nav_bills'),
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.people_alt_outlined),
-                    selectedIcon: Icon(Icons.people_alt_rounded, color: Color(0xFF00875A)),
-                    label: 'खाता',
+                    icon: const Icon(Icons.people_alt_outlined),
+                    selectedIcon: const Icon(Icons.people_alt_rounded, color: AppColors.primary),
+                    label: context.tr('nav_khata'),
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.inventory_2_outlined),
-                    selectedIcon: Icon(Icons.inventory_2_rounded, color: Color(0xFF00875A)),
-                    label: 'स्टॉक',
+                    icon: const Icon(Icons.inventory_2_outlined),
+                    selectedIcon: const Icon(Icons.inventory_2_rounded, color: AppColors.primary),
+                    label: context.tr('nav_stock'),
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.calendar_month_outlined),
-                    selectedIcon: Icon(Icons.calendar_month_rounded, color: Color(0xFF00875A)),
-                    label: 'डे-बुक',
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    selectedIcon: const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
+                    label: context.tr('nav_daybook'),
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.settings_outlined),
-                    selectedIcon: Icon(Icons.settings_rounded, color: Color(0xFF00875A)),
-                    label: 'सेटिंग्स',
+                    icon: const Icon(Icons.settings_outlined),
+                    selectedIcon: const Icon(Icons.settings_rounded, color: AppColors.primary),
+                    label: context.tr('nav_settings'),
                   ),
                 ],
               ),

@@ -102,15 +102,6 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text('TAX / VAT', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white)),
-        actions: [
-          TextButton.icon(
-            icon: _isSaving
-                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Icon(Icons.check, size: 18, color: Colors.white),
-            label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-            onPressed: _isSaving ? null : _saveSettings,
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
@@ -246,25 +237,34 @@ class _TaxSettingsScreenState extends State<TaxSettingsScreen> {
                 ),
               ),
             ],
-            const SizedBox(height: 28),
-
-            // Save Button
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                icon: _isSaving
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.save_rounded),
-                label: const Text('Save TAX / VAT Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                onPressed: _isSaving ? null : _saveSettings,
-              ),
-            ),
           ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, -2)),
+          ],
+        ),
+        child: SafeArea(
+          child: SizedBox(
+            height: 48,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+              icon: _isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.check_circle_rounded, size: 20),
+              label: const Text('Save TAX / VAT Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              onPressed: _isSaving ? null : _saveSettings,
+            ),
+          ),
         ),
       ),
     );

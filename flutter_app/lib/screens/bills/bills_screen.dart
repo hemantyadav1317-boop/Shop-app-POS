@@ -17,6 +17,7 @@ import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
 import '../pos/widgets/bill_receipt_card.dart';
 import '../../core/services/ai_quote_service.dart';
+import '../../providers/locale_provider.dart';
 
 class BillsScreen extends StatefulWidget {
   final VoidCallback? onSwitchToBilling;
@@ -36,6 +37,7 @@ class _BillsScreenState extends State<BillsScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
   int _visibleCount = 50;
+  bool _showSearch = false;
 
   @override
   void initState() {
@@ -51,21 +53,6 @@ class _BillsScreenState extends State<BillsScreen> {
 
   static bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  String _getDateHeaderTitle(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final d = DateTime(date.year, date.month, date.day);
-
-    if (d == today) {
-      return '📅 आज (Today) · ${DateFormat('dd MMM yyyy').format(date)}';
-    } else if (d == yesterday) {
-      return '📅 कल (Yesterday) · ${DateFormat('dd MMM yyyy').format(date)}';
-    } else {
-      return '📅 ${DateFormat('dd MMM yyyy (EEEE)').format(date)}';
-    }
   }
 
   Future<void> _pickCustomDate() async {
@@ -635,17 +622,518 @@ class _BillsScreenState extends State<BillsScreen> {
     );
   }
 
+  void _settleBill(Sale sale) {
+    SoundService.instance.playButtonClick();
+    final TextEditingController amountCtrl = TextEditingController(text: sale.due.toStringAsFixed(2));
+    String paymentMethod = 'cash'; // 'cash' or 'upi'
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.payments_rounded, color: Color(0xFFD97706), size: 24),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Settle Bill #${sale.billNo}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      sale.customerName?.isNotEmpty == true ? sale.customerName! : 'Walk-in Customer',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Total Due / बाकी उधार:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text(
+                      CurrencyFormatter.format(sale.due),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFFD97706)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('भुगतान राशि (Payment Amount):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: amountCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  prefixText: '₹ ',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text('भुगतान का तरीका (Payment Mode):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('नकद (Cash)')),
+                      selected: paymentMethod == 'cash',
+                      selectedColor: AppColors.primarySurface,
+                      onSelected: (v) => setDialogState(() => paymentMethod = 'cash'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('UPI Online')),
+                      selected: paymentMethod == 'upi',
+                      selectedColor: AppColors.primarySurface,
+                      onSelected: (v) => setDialogState(() => paymentMethod = 'upi'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('रद्द करें (Cancel)'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () async {
+                final enterAmt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+                if (enterAmt <= 0) return;
+                Navigator.pop(ctx);
+
+                final payAmt = enterAmt > sale.due ? sale.due : enterAmt;
+                final newDue = PaymentQrHelper.round2((sale.due - payAmt).clamp(0.0, sale.total));
+                final newPaid = PaymentQrHelper.round2(sale.paid + payAmt);
+                final updatedSale = sale.copyWith(
+                  paid: newPaid,
+                  due: newDue,
+                  cashPaid: paymentMethod == 'cash' ? PaymentQrHelper.round2(sale.cashPaid + payAmt) : sale.cashPaid,
+                  upiPaid: paymentMethod == 'upi' ? PaymentQrHelper.round2(sale.upiPaid + payAmt) : sale.upiPaid,
+                  creditAmount: newDue,
+                  paymentStatus: newDue <= 0.009 ? 'completed' : 'pending',
+                );
+
+                await SupabaseService.instance.updateSale(updatedSale);
+                if (sale.customerId != null && sale.customerId!.isNotEmpty) {
+                  try {
+                    await SupabaseService.instance.addCustomerTransaction(
+                      customerId: sale.customerId!,
+                      amount: payAmt,
+                      type: 'payment',
+                      description: 'Bill #${sale.billNo} Settlement',
+                    );
+                  } catch (_) {}
+                }
+                SoundService.instance.playSuccess();
+                _loadSales();
+              },
+              child: const Text('जमा करें (Settle)', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPaymentFilterSheet() {
+    SoundService.instance.playButtonClick();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Filter by Payment Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 14),
+              _buildFilterOption(ctx, 'all', 'All Bills (सभी बिल)', Icons.receipt_long),
+              _buildFilterOption(ctx, 'cash', 'Cash (नकद)', Icons.payments_outlined),
+              _buildFilterOption(ctx, 'online', 'UPI Online (ऑनलाइन)', Icons.qr_code_2),
+              _buildFilterOption(ctx, 'credit', 'Unsettled / Credit (उधार बाकी)', Icons.book_outlined),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterOption(BuildContext ctx, String key, String title, IconData icon) {
+    final isSelected = _filter == key;
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? AppColors.primary : Colors.grey),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? AppColors.primary : (isDark ? Colors.white : Colors.black87),
+        ),
+      ),
+      trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
+      onTap: () {
+        setState(() => _filter = key);
+        Navigator.pop(ctx);
+      },
+    );
+  }
+
+  void _exportReport() {
+    SoundService.instance.playButtonClick();
+    final filtered = _filteredSales;
+    final total = filtered.fold<double>(0.0, (sum, s) => sum + s.total);
+    final count = filtered.length;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: AppColors.primary,
+        content: Text('$count Bills · Total: ${CurrencyFormatter.format(total)}'),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {},
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateHeader(DateTime date, int count, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+        border: Border(
+          top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 0.8),
+          bottom: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 0.8),
+        ),
+      ),
+      child: Text(
+        '${DateFormat('dd MMM, yyyy').format(date)} - $count',
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+          letterSpacing: 0.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBillCard(Sale sale, DateFormat timeFormat, bool isDark) {
+    final bool isUnsettled = sale.due > 0.009;
+    final staffOrAdmin = context.read<AuthProvider>().isStaffSession ? 'Staff' : 'Admin';
+    final customerDisplay = (sale.customerName != null && sale.customerName!.trim().isNotEmpty)
+        ? sale.customerName!.trim()
+        : '-';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+          width: 0.8,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Left orange banner if Unsettled
+            if (isUnsettled)
+              Container(
+                width: 22,
+                color: const Color(0xFFF59E0B),
+                alignment: Alignment.center,
+                child: const RotatedBox(
+                  quarterTurns: 3,
+                  child: Text(
+                    'Unsettled',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                ),
+              ),
+
+            // Main Content Area
+            Expanded(
+              child: InkWell(
+                onTap: () => _showBillDetails(sale),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left Column: Invoice, Time, Customer, Created by
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Invoice : ',
+                                  style: TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w500,
+                                    color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                  ),
+                                ),
+                                Text(
+                                  '${sale.billNo}',
+                                  style: TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                                  ),
+                                ),
+                                if (sale.isEdited) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.shade100,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      'EDITED',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.amber.shade900,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Time : ${timeFormat.format(sale.createdAt.toLocal())}',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Text(
+                                  'Customer : ',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    customerDisplay,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white70 : const Color(0xFF334155),
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Created by $staffOrAdmin',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Right Column: Items, Total, Button
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Items : ',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                ),
+                              ),
+                              Text(
+                                '${sale.items.length}',
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Total : ',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                ),
+                              ),
+                              Text(
+                                sale.total.toStringAsFixed(2),
+                                style: TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          if (isUnsettled)
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFD97706),
+                                side: BorderSide(
+                                  color: isDark ? Colors.amber.shade700 : const Color(0xFFCBD5E1),
+                                  width: 1,
+                                ),
+                                backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              icon: const Icon(Icons.payments_outlined, size: 15, color: Color(0xFFD97706)),
+                              label: const Text(
+                                'Settle bill',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () => _settleBill(sale),
+                            )
+                          else
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                                side: BorderSide(
+                                  color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+                                  width: 1,
+                                ),
+                                backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              icon: Icon(
+                                Icons.receipt_outlined,
+                                size: 15,
+                                color: isDark ? Colors.white70 : const Color(0xFF1E3A8A),
+                              ),
+                              label: const Text(
+                                'Receipt',
+                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () => _showBillDetails(sale),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('dd MMM, hh:mm a');
+    final timeFormat = DateFormat('dd MMM yyyy h:mm a');
     final filtered = _filteredSales;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('बिल हिस्ट्री / Bills History', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: AppColors.primary,
+        elevation: 0,
+        centerTitle: true,
+        automaticallyImplyLeading: false,
+        title: Text(
+          context.tr('bill_history'),
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white, letterSpacing: 0.3),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'रिफ्रेश करें',
             onPressed: _loadSales,
           ),
@@ -653,111 +1141,207 @@ class _BillsScreenState extends State<BillsScreen> {
       ),
       body: Column(
         children: [
-          // 1. Search Bar (Search by Bill #, Customer Name, Customer Phone)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: TextField(
-              controller: _searchCtrl,
-              decoration: InputDecoration(
-                hintText: 'बिल नंबर या ग्राहक का नाम / फोन खोजें...',
-                hintStyle: const TextStyle(fontSize: 12.5),
-                prefixIcon: const Icon(Icons.search, size: 20),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
-                        onPressed: () {
-                          _searchCtrl.clear();
-                          setState(() => _searchQuery = '');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
+          // Top Controls Bar (Date Dropdown + Search + Filter + Export)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              border: Border(
+                bottom: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
               ),
-              onChanged: (val) => setState(() => _searchQuery = val.trim()),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Left: Date filter dropdown
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _dateFilter,
+                      isDense: true,
+                      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'all',
+                          child: Text(
+                            'All Time',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'today',
+                          child: Text(
+                            'Today',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'yesterday',
+                          child: Text(
+                            'Yesterday',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'this_week',
+                          child: Text(
+                            'This Week',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'custom',
+                          child: Text(
+                            _customSelectedDate != null
+                                ? DateFormat('dd MMM yyyy').format(_customSelectedDate!)
+                                : 'Pick Date...',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val == 'custom') {
+                          _pickCustomDate();
+                        } else if (val != null) {
+                          setState(() {
+                            _dateFilter = val;
+                            _customSelectedDate = null;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ),
+
+                // Right: Action Icons (Search, Filter, Export)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(
+                        Icons.search,
+                        color: _showSearch || _searchQuery.isNotEmpty ? AppColors.primary : (isDark ? Colors.white70 : const Color(0xFF64748B)),
+                      ),
+                      tooltip: 'Search',
+                      onPressed: () => setState(() => _showSearch = !_showSearch),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                        Icons.tune_rounded,
+                        color: _filter != 'all' ? AppColors.primary : (isDark ? Colors.white70 : const Color(0xFF64748B)),
+                      ),
+                      tooltip: 'Payment Filter',
+                      onPressed: _showPaymentFilterSheet,
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.file_download_outlined, color: isDark ? Colors.white70 : const Color(0xFF64748B)),
+                      tooltip: 'Export',
+                      onPressed: _exportReport,
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
 
-          // 2. Date Quick Filters Row (All, Today, Yesterday, This Week, Pick Date)
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-            child: Row(
-              children: [
-                _buildDateChip('all', 'सभी दिन (All)'),
-                const SizedBox(width: 6),
-                _buildDateChip('today', 'आज (Today)'),
-                const SizedBox(width: 6),
-                _buildDateChip('yesterday', 'कल (Yesterday)'),
-                const SizedBox(width: 6),
-                _buildDateChip('this_week', 'इस हफ्ते (This Week)'),
-                const SizedBox(width: 6),
-                ActionChip(
-                  avatar: Icon(
-                    Icons.calendar_month_rounded,
-                    size: 15,
-                    color: _dateFilter == 'custom' ? Colors.white : AppColors.primary,
+          // Search Bar (if opened)
+          if (_showSearch || _searchQuery.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              child: TextField(
+                controller: _searchCtrl,
+                autofocus: _showSearch && _searchQuery.isEmpty,
+                decoration: InputDecoration(
+                  hintText: 'Search by bill # or customer name...',
+                  hintStyle: const TextStyle(fontSize: 12.5),
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear, size: 18),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                   ),
-                  label: Text(
-                    _dateFilter == 'custom' && _customSelectedDate != null
-                        ? DateFormat('dd MMM yyyy').format(_customSelectedDate!)
-                        : '📅 तारीख चुनें',
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                   ),
-                  backgroundColor: _dateFilter == 'custom' ? AppColors.primary : Colors.grey.shade100,
-                  labelStyle: TextStyle(
-                    color: _dateFilter == 'custom' ? Colors.white : AppColors.primaryDark,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11.5,
-                  ),
-                  onPressed: _pickCustomDate,
                 ),
-                if (_dateFilter == 'custom') ...[
-                  const SizedBox(width: 4),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 16, color: Colors.grey),
-                    tooltip: 'तारीख फिल्टर हटाएं',
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
-                    onPressed: () {
-                      setState(() {
-                        _dateFilter = 'all';
-                        _customSelectedDate = null;
-                      });
-                    },
+                onChanged: (val) => setState(() => _searchQuery = val.trim()),
+              ),
+            ),
+
+          // Active filter indicator chip
+          if (_filter != 'all')
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primarySurface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Filter: ${_filter.toUpperCase()}',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
+                        ),
+                        const SizedBox(width: 4),
+                        InkWell(
+                          onTap: () => setState(() => _filter = 'all'),
+                          child: const Icon(Icons.close, size: 14, color: AppColors.primaryDark),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              ],
+              ),
             ),
-          ),
 
-          // 3. Payment Mode Filter Chips
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
-            child: Row(
-              children: [
-                _buildFilterChip('all', 'All Bills (${filtered.length})'),
-                const SizedBox(width: 6),
-                _buildFilterChip('cash', 'Cash'),
-                const SizedBox(width: 6),
-                _buildFilterChip('online', 'UPI Online'),
-                const SizedBox(width: 6),
-                _buildFilterChip('credit', 'उधार (Credit)'),
-              ],
-            ),
-          ),
-
-          // 4. Sales List with Date Section Headers
+          // Sales List with Date Section Headers
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -774,7 +1358,7 @@ class _BillsScreenState extends State<BillsScreen> {
                                   children: [
                                     Icon(Icons.receipt_long_outlined, size: 48, color: AppColors.lightTextSecondary),
                                     SizedBox(height: 8),
-                                    Text('कोई बिल नहीं मिला (No bills found)', style: TextStyle(color: AppColors.lightTextSecondary)),
+                                    Text('No bills found', style: TextStyle(color: AppColors.lightTextSecondary)),
                                   ],
                                 ),
                               ),
@@ -789,47 +1373,30 @@ class _BillsScreenState extends State<BillsScreen> {
 
                               return ListView.builder(
                                 physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+                                padding: const EdgeInsets.only(bottom: 20),
                                 itemCount: itemCount,
                                 itemBuilder: (context, i) {
                                   if (i == displayedCount) {
-                                    return Card(
-                                      color: AppColors.primarySurface.withValues(alpha: 0.5),
-                                      margin: const EdgeInsets.symmetric(vertical: 8),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        child: Column(
-                                          children: [
-                                            Text(
-                                              'दिखाए जा रहे हैं: $displayedCount में से $totalCount कुल बिल',
-                                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.lightTextPrimary),
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppColors.primary,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                             ),
-                                            const SizedBox(height: 8),
-                                            Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                ElevatedButton.icon(
-                                                  icon: const Icon(Icons.expand_more, size: 18),
-                                                  label: const Text('+50 और लोड करें'),
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _visibleCount += 50;
-                                                    });
-                                                  },
-                                                ),
-                                                const SizedBox(width: 12),
-                                                OutlinedButton(
-                                                  child: const Text('सभी बिल लोड करें (All)'),
-                                                  onPressed: () {
-                                                    setState(() {
-                                                      _visibleCount = totalCount;
-                                                    });
-                                                  },
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
+                                            icon: const Icon(Icons.expand_more, size: 18),
+                                            label: const Text('Load More (+50)'),
+                                            onPressed: () {
+                                              setState(() {
+                                                _visibleCount += 50;
+                                              });
+                                            },
+                                          ),
+                                        ],
                                       ),
                                     );
                                   }
@@ -848,117 +1415,10 @@ class _BillsScreenState extends State<BillsScreen> {
                                     final daySales = filtered
                                         .where((s) => _isSameDay(s.createdAt.toLocal(), dayDate))
                                         .toList();
-                                    final dayTotal = daySales.fold<double>(0.0, (sum, s) => sum + s.total);
-                                    dateHeaderWidget = _buildDateHeader(dayDate, daySales.length, dayTotal);
+                                    dateHeaderWidget = _buildDateHeader(dayDate, daySales.length, isDark);
                                   }
 
-                                  final hasCustName = sale.customerName != null && sale.customerName!.trim().isNotEmpty;
-                                  final displayName = hasCustName ? sale.customerName!.trim() : 'Walk-in Customer (नकद)';
-
-                                  final billCard = Card(
-                                    margin: const EdgeInsets.symmetric(vertical: 4),
-                                    child: ListTile(
-                                      leading: CircleAvatar(
-                                        backgroundColor: sale.due > 0 ? AppColors.error.withValues(alpha: 0.15) : AppColors.primarySurface,
-                                        child: Icon(
-                                          sale.due > 0 ? Icons.book : Icons.receipt,
-                                          color: sale.due > 0 ? AppColors.error : AppColors.primary,
-                                        ),
-                                      ),
-                                      title: Row(
-                                        children: [
-                                          Text('#${sale.billNo}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                          if (sale.isEdited) ...[
-                                            const SizedBox(width: 6),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: Colors.amber.shade100,
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: Colors.amber.shade600, width: 0.8),
-                                              ),
-                                              child: Text(
-                                                sale.editedTagText,
-                                                style: TextStyle(
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w800,
-                                                  color: Colors.amber.shade900,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              displayName,
-                                              style: TextStyle(
-                                                fontSize: 13,
-                                                fontWeight: hasCustName ? FontWeight.bold : FontWeight.w500,
-                                                color: hasCustName ? AppColors.lightTextPrimary : AppColors.lightTextSecondary,
-                                              ),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      subtitle: Padding(
-                                        padding: const EdgeInsets.only(top: 2),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            if (sale.customerPhone != null && sale.customerPhone!.trim().isNotEmpty)
-                                              Padding(
-                                                padding: const EdgeInsets.only(bottom: 2),
-                                                child: Text(
-                                                  '📞 ${sale.customerPhone}',
-                                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
-                                                ),
-                                              ),
-                                            Text(
-                                              '${sale.items.length} items · ${dateFormat.format(sale.createdAt.toLocal())} · ${sale.paymentMode.toUpperCase()}',
-                                              style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      trailing: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            crossAxisAlignment: CrossAxisAlignment.end,
-                                            children: [
-                                              Text(
-                                                CurrencyFormatter.format(sale.total),
-                                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                              ),
-                                              if (sale.effectiveUpiPayable > 0.009)
-                                                Text(
-                                                  'UPI Pending: ${CurrencyFormatter.format(sale.effectiveUpiPayable)}',
-                                                  style: TextStyle(color: Colors.amber.shade800, fontSize: 11, fontWeight: FontWeight.bold),
-                                                )
-                                              else if (sale.due > 0)
-                                                Text(
-                                                  'Due: ${CurrencyFormatter.format(sale.due)}',
-                                                  style: const TextStyle(color: AppColors.error, fontSize: 11, fontWeight: FontWeight.bold),
-                                                ),
-                                            ],
-                                          ),
-                                          if (!context.read<AuthProvider>().isStaffSession) ...[
-                                            const SizedBox(width: 4),
-                                            IconButton(
-                                              icon: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
-                                              tooltip: 'Cart में एडिट करें',
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                                              onPressed: () => _editBillInCart(sale),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                      onTap: () => _showBillDetails(sale),
-                                    ),
-                                  );
+                                  final billCard = _buildBillCard(sale, timeFormat, isDark);
 
                                   if (dateHeaderWidget != null) {
                                     return Column(
@@ -978,82 +1438,6 @@ class _BillsScreenState extends State<BillsScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDateHeader(DateTime date, int count, double total) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(2, 10, 2, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.primarySurface.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.calendar_today_outlined, size: 13, color: AppColors.primary),
-              const SizedBox(width: 6),
-              Text(
-                _getDateHeaderTitle(date),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryDark,
-                ),
-              ),
-            ],
-          ),
-          Text(
-            '$count बिल  •  ${CurrencyFormatter.format(total)}',
-            style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateChip(String key, String label) {
-    final isSelected = _dateFilter == key;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      selectedColor: AppColors.primarySurface,
-      labelStyle: TextStyle(
-        color: isSelected ? AppColors.primary : AppColors.lightTextSecondary,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 11.5,
-      ),
-      onSelected: (_) {
-        setState(() {
-          _dateFilter = key;
-          if (key != 'custom') _customSelectedDate = null;
-        });
-      },
-    );
-  }
-
-  Widget _buildFilterChip(String key, String label) {
-    final isSelected = _filter == key;
-    return ChoiceChip(
-      label: Text(label),
-      selected: isSelected,
-      selectedColor: AppColors.primarySurface,
-      labelStyle: TextStyle(
-        color: isSelected ? AppColors.primary : AppColors.lightTextSecondary,
-        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        fontSize: 11.5,
-      ),
-      onSelected: (_) {
-        setState(() => _filter = key);
-      },
     );
   }
 }
