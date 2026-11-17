@@ -1,38 +1,18 @@
-import 'dart:convert';
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:qr_flutter/qr_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/services/update_service.dart';
-import '../../core/services/backup_service.dart';
 import '../../core/services/sound_service.dart';
-import '../../core/services/receipt_print_service.dart';
-import '../../core/services/bluetooth_printer_service.dart';
-import '../../core/services/printer_settings_service.dart';
-import '../../core/services/payment_notification_service.dart';
-import '../../core/utils/payment_qr_helper.dart';
-import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
-import '../../data/models/sale.dart';
-import '../../data/models/cart_item.dart';
-import '../../data/models/shop.dart';
-import '../../data/services/upi_service.dart';
-import '../../data/services/phonepe_service.dart';
 import '../../data/services/supabase_service.dart';
-import '../../providers/shop_provider.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/product_provider.dart';
-import '../../providers/customer_provider.dart';
+import '../../providers/cart_provider.dart';
+import '../../providers/menu_visibility_provider.dart';
+import '../../providers/shop_provider.dart';
 import '../auth/login_screen.dart';
+import 'business_details_screen.dart';
+import 'feature_settings_screen.dart';
 import 'printer_settings_screen.dart';
-import 'weighing_scale_settings_screen.dart';
-import 'ai_vision_settings_screen.dart';
-import '../../providers/weighing_scale_provider.dart';
-import '../../providers/ai_vision_provider.dart';
+import 'receipt_settings_screen.dart';
+import 'tax_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -42,262 +22,8 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late TextEditingController _nameCtrl;
-  late TextEditingController _phoneCtrl;
-  late TextEditingController _addressCtrl;
-  late TextEditingController _gstinCtrl;
-  late TextEditingController _upiIdCtrl;
-  late TextEditingController _upiNameCtrl;
-  late TextEditingController _googleReviewUrlCtrl;
-  late TextEditingController _footerCtrl;
-  late String _paperSize;
-  late bool _allowNegativeStock;
-  String? _qrImageUrl;
-
-  late bool _phonePeEnabled;
-  late TextEditingController _phonePeMobileCtrl;
-  late TextEditingController _phonePeMidCtrl;
-  late TextEditingController _phonePeStoreNameCtrl;
-  late String _phonePeEnvironment;
-  bool _isConnectingPhonePe = false;
-
-  String? _btPrinterName;
-  String? _btPrinterMac;
-  bool _btIsConnected = false;
-  bool _isConnectingBt = false;
-  bool _isSyncingCloud = false;
-
-  bool _autoVerifyEnabled = true;
-  bool _cloudRelayEnabled = false;
-  bool _notificationPermissionGranted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _autoVerifyEnabled = PaymentNotificationService.instance.isAutoVerifyEnabled;
-    _cloudRelayEnabled = PaymentNotificationService.instance.isCloudRelayEnabled;
-    _checkNotificationPermission();
-    final shop = context.read<ShopProvider>().shop;
-    _nameCtrl = TextEditingController(text: shop.name);
-    _phoneCtrl = TextEditingController(text: shop.phone ?? '');
-    _addressCtrl = TextEditingController(text: shop.address ?? '');
-    _gstinCtrl = TextEditingController(text: shop.gstin ?? '');
-    _upiIdCtrl = TextEditingController(text: shop.upiId ?? '');
-    _upiNameCtrl = TextEditingController(text: shop.upiPayeeName ?? '');
-    _googleReviewUrlCtrl = TextEditingController(text: shop.googleReviewUrl ?? '');
-    _footerCtrl = TextEditingController(text: shop.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏');
-    _paperSize = shop.printPaperSize;
-    _allowNegativeStock = shop.allowNegativeStock;
-    _qrImageUrl = shop.qrImageUrl;
-
-    _phonePeEnabled = shop.phonePeEnabled;
-    _phonePeMobileCtrl = TextEditingController(text: shop.phonePeMobileNumber ?? shop.phone ?? '');
-    _phonePeMidCtrl = TextEditingController(text: shop.phonePeMerchantId ?? '');
-    _phonePeStoreNameCtrl = TextEditingController(text: shop.phonePeStoreName ?? shop.name);
-    _phonePeEnvironment = shop.phonePeEnvironment;
-
-    _upiIdCtrl.addListener(() => setState(() {}));
-    _upiNameCtrl.addListener(() => setState(() {}));
-    _googleReviewUrlCtrl.addListener(() => setState(() {}));
-    _phonePeMobileCtrl.addListener(() => setState(() {}));
-    _phonePeMidCtrl.addListener(() => setState(() {}));
-
-    void attachTypeSound(TextEditingController ctrl) {
-      String prev = ctrl.text;
-      ctrl.addListener(() {
-        if (ctrl.text != prev) {
-          prev = ctrl.text;
-          SoundService.instance.playTypeKey();
-        }
-      });
-    }
-
-    attachTypeSound(_nameCtrl);
-    attachTypeSound(_phoneCtrl);
-    attachTypeSound(_addressCtrl);
-    attachTypeSound(_gstinCtrl);
-    attachTypeSound(_upiIdCtrl);
-    attachTypeSound(_upiNameCtrl);
-    attachTypeSound(_googleReviewUrlCtrl);
-    attachTypeSound(_footerCtrl);
-
-    _loadBtPrinterInfo();
-  }
-
-  Future<void> _checkNotificationPermission() async {
-    final granted = await PaymentNotificationService.instance.checkPermission();
-    if (mounted) {
-      setState(() {
-        _notificationPermissionGranted = granted;
-      });
-    }
-  }
-
-  Future<void> _loadBtPrinterInfo() async {
-    final mac = await BluetoothPrinterService.getSavedPrinterMac();
-    final name = await BluetoothPrinterService.getSavedPrinterName();
-    final connected = await BluetoothPrinterService.isConnected();
-    if (mounted) {
-      setState(() {
-        _btPrinterMac = mac;
-        _btPrinterName = name;
-        _btIsConnected = connected;
-      });
-    }
-  }
-
-  Future<void> _selectBluetoothPrinter() async {
-    setState(() => _isConnectingBt = true);
-
-    // 1. Request Android Nearby Devices / Bluetooth permission prompt
-    try {
-      await BluetoothPrinterService.isPermissionGranted();
-    } catch (_) {}
-
-    // 2. Fetch paired devices
-    List<BluetoothInfo> devices = [];
-    try {
-      devices = await BluetoothPrinterService.getPairedDevices();
-    } catch (e) {
-      debugPrint("Error fetching devices: $e");
-    }
-
-    if (mounted) {
-      setState(() => _isConnectingBt = false);
-    }
-    if (!mounted) return;
-
-    if (devices.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.bluetooth_searching, color: AppColors.primary),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Niyama BT-58 प्रिंटर नहीं मिला',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ),
-            ],
-          ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Niyama BT-58 प्रिंटर को कनेक्ट करने का आसान तरीका:\n',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              Text(
-                '1. अपने Niyama प्रिंटर का पावर बटन ऑन करें (Green light ऑन होगी)।\n'
-                '2. अपने फ़ोन / टैबलेट की Bluetooth Settings खोलें।\n'
-                '3. "Pair new device" में "BT-58" या "Niyama" दिखेगा, उस पर टैप करके Pair करें (PIN: 0000 या 1234 डालें)।\n'
-                '4. फ़ोन में Pair होने के बाद वापस इस ऐप में आकर "प्रिंटर खोजें" दबाएं।',
-                style: TextStyle(fontSize: 12, height: 1.4, color: AppColors.lightTextPrimary),
-              ),
-            ],
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('समझ गया (OK)'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.print, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  const Text('उपलब्ध ब्लूटूथ प्रिंटर चुनें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const Spacer(),
-                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                ],
-              ),
-              const Divider(),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 280),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: devices.length,
-                  itemBuilder: (ctx, i) {
-                    final d = devices[i];
-                    final isSelected = d.macAdress == _btPrinterMac;
-                    return ListTile(
-                      leading: Icon(Icons.bluetooth, color: isSelected ? AppColors.primary : Colors.grey),
-                      title: Text(d.name.isNotEmpty ? d.name : 'Unknown Thermal Printer', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text(d.macAdress, style: const TextStyle(fontSize: 11)),
-                      trailing: isSelected
-                          ? const Chip(label: Text('चुना हुआ', style: TextStyle(fontSize: 11, color: Colors.green)), backgroundColor: Color(0xFFE8F5E9))
-                          : const Icon(Icons.chevron_right),
-                      onTap: () async {
-                        Navigator.pop(ctx);
-                        setState(() => _isConnectingBt = true);
-                        final ok = await BluetoothPrinterService.connectPrinter(d.macAdress);
-                        await BluetoothPrinterService.saveSelectedPrinter(d.macAdress, d.name);
-                        if (ok) {
-                          SoundService.instance.playSuccess();
-                        } else {
-                          SoundService.instance.playButtonClick();
-                        }
-                        if (mounted) {
-                          setState(() {
-                            _btPrinterMac = d.macAdress;
-                            _btPrinterName = d.name;
-                            _btIsConnected = ok;
-                            _isConnectingBt = false;
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: ok ? AppColors.primary : AppColors.warning,
-                              content: Text(ok ? '${d.name} प्रिंटर सफलतापूर्वक कनेक्ट हो गया!' : '${d.name} सेव हो गया (प्रिंट करते समय कनेक्ट होगा)'),
-                            ),
-                          );
-                        }
-                      },
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _phoneCtrl.dispose();
-    _addressCtrl.dispose();
-    _gstinCtrl.dispose();
-    _upiIdCtrl.dispose();
-    _upiNameCtrl.dispose();
-    _googleReviewUrlCtrl.dispose();
-    _footerCtrl.dispose();
-    _phonePeMobileCtrl.dispose();
-    _phonePeMidCtrl.dispose();
-    _phonePeStoreNameCtrl.dispose();
-    super.dispose();
-  }
+  // App Version
+  static const String _appVersion = 'V 1.5.7';
 
   void _confirmLogout(BuildContext context) {
     SoundService.instance.playButtonClick();
@@ -322,2851 +48,543 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.shade50,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.logout_rounded, color: Colors.red, size: 28),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'लॉगआउट करें? (Confirm Logout)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'क्या आप वाकई "${shop.name}" के खाते से लॉगआउट करना चाहते हैं?',
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF00875A).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.cloud_done_rounded, color: Color(0xFF00875A), size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'चिंता न करें! आपका सारा डेटा (बिल, स्टॉक, खाता) क्लाउड पर सुरक्षित है।',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00875A)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () => Navigator.pop(ctx),
-                    child: const Text('रद्द करें (Cancel)', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      await authProvider.signOut();
-                      if (context.mounted) {
-                        Navigator.pushAndRemoveUntil(
-                          context,
-                          MaterialPageRoute(builder: (_) => const LoginScreen()),
-                          (route) => false,
-                        );
-                      }
-                    },
-                    child: const Text('हाँ, लॉगआउट करें', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-    },
-  );
-  }
-
-  void _showStaffPairingQrDialog(BuildContext context, Shop shop) {
-    final qrData = 'shoppos://pair?phone=${Uri.encodeComponent(shop.phone ?? '')}&pin=${shop.displayShareCode}&shopId=${shop.id}&name=${Uri.encodeComponent(shop.name)}';
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.qr_code_2_rounded, color: AppColors.primary, size: 24),
-            ),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'स्टाफ पेयरिंग QR कोड',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  Text(
-                    'Staff Instant Pairing QR',
-                    style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: QrImageView(
-                data: qrData,
-                version: QrVersions.auto,
-                size: 200,
-                backgroundColor: Colors.white,
-                eyeStyle: const QrEyeStyle(
-                  eyeShape: QrEyeShape.square,
-                  color: AppColors.primaryDark,
-                ),
-                dataModuleStyle: const QrDataModuleStyle(
-                  dataModuleShape: QrDataModuleShape.square,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppColors.primarySurface.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    shop.name,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppColors.primaryDark),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'शॉप मोबाइल: ${shop.phone ?? "सेट नहीं"}  •  पिन: ${shop.displayShareCode}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'स्टाफ अपने फोन के लॉगिन स्क्रीन पर "स्टाफ लॉगिन" में जाकर यह कोड स्कैन या दर्ज कर सकता है।',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('ठीक है (Done)'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStoreModeCard(BuildContext context, ShopProvider shopProvider) {
-    final currentType = shopProvider.storeType;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final modes = [
-      {
-        'id': 'vegetable',
-        'title': 'फल व सब्ज़ी स्टोर (Produce Store)',
-        'subtitle': 'तौल-आधारित (Kg/Gram), टच-स्क्रीन काउंटर',
-        'icon': '🥕',
-        'tag': 'टच फर्स्ट',
-        'color': const Color(0xFF00875A),
-      },
-      {
-        'id': 'kirana',
-        'title': 'किराना व जनरल स्टोर (Kirana & Grocery)',
-        'subtitle': 'बारकोड गन स्कैन, 2026 MRP, पैकेट वैरिएंट',
-        'icon': '🛒',
-        'tag': 'बारकोड & MRP',
-        'color': const Color(0xFF2563EB),
-      },
-      {
-        'id': 'mix',
-        'title': 'मिक्स सुपरमार्ट (Produce + Grocery)',
-        'subtitle': 'किराना सामान + ताज़ा फल-सब्ज़ी एक ही बिल में',
-        'icon': '🏪',
-        'tag': 'ऑल-इन-वन',
-        'color': const Color(0xFF7C3AED),
-      },
-    ];
-
-    final currentMode = modes.firstWhere((m) => m['id'] == currentType, orElse: () => modes[0]);
-    final activeColor = currentMode['color'] as Color;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: activeColor.withValues(alpha: 0.35),
-          width: 1.5,
-        ),
-        boxShadow: [
-          // 3D Soft Elevation Box Shadow
-          BoxShadow(
-            color: activeColor.withValues(alpha: isDark ? 0.2 : 0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-            spreadRadius: 1,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: activeColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    currentMode['icon'] as String,
-                    style: const TextStyle(fontSize: 22),
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.logout_rounded, color: Colors.red, size: 28),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'लॉगआउट करें? (Confirm Logout)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'क्या आप वाकई "${shop.name}" के खाते से लॉगआउट करना चाहते हैं?',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00875A).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
+                  ),
+                  child: const Row(
                     children: [
-                      const Text(
-                        'दुकान का प्रकार (Store Business Mode)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        currentMode['subtitle'] as String,
-                        style: const TextStyle(fontSize: 11, color: Colors.grey),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Icon(Icons.cloud_done_rounded, color: Color(0xFF00875A), size: 20),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'चिंता न करें! आपका सारा डेटा (बिल, स्टॉक, खाता) क्लाउड पर सुरक्षित है।',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00875A)),
+                        ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text('रद्द करें (Cancel)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await authProvider.signOut();
+                          if (context.mounted) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          }
+                        },
+                        child: const Text('हाँ, लॉगआउट करें', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-
-            // Dropdown Selector with 3D Pill Design
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: activeColor.withValues(alpha: 0.4), width: 1.2),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: currentType,
-                  isExpanded: true,
-                  icon: Icon(Icons.keyboard_arrow_down_rounded, color: activeColor, size: 24),
-                  items: modes.map((m) {
-                    final color = m['color'] as Color;
-                    return DropdownMenuItem<String>(
-                      value: m['id'] as String,
-                      child: Row(
-                        children: [
-                          Text(m['icon'] as String, style: const TextStyle(fontSize: 18)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              m['title'] as String,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                                color: currentType == m['id'] ? color : null,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              m['tag'] as String,
-                              style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: color),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (val) async {
-                    if (val != null && val != currentType) {
-                      SoundService.instance.playButtonClick();
-                      await shopProvider.setStoreType(val);
-                      if (context.mounted) {
-                        final sel = modes.firstWhere((m) => m['id'] == val);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            backgroundColor: sel['color'] as Color,
-                            behavior: SnackBarBehavior.floating,
-                            duration: const Duration(seconds: 2),
-                            content: Row(
-                              children: [
-                                Text(sel['icon'] as String, style: const TextStyle(fontSize: 18)),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text('मोड बदला गया: "${sel['title'] as String}" सक्रिय है!')),
-                              ],
-                            ),
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
-  Future<void> _saveSettings() async {
-    FocusScope.of(context).unfocus();
+  void _confirmResetShop(BuildContext context) {
+    SoundService.instance.playButtonClick();
     final auth = context.read<AuthProvider>();
     if (auth.isStaffSession) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           backgroundColor: AppColors.error,
-          content: Text('सुरक्षा नियम: केवल दुकान मालिक दुकान की जानकारी या UPI बदल सकते हैं।'),
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक शॉप डेटा रीसेट कर सकते हैं।'),
         ),
       );
       return;
     }
-    final reviewUrl = _googleReviewUrlCtrl.text.trim();
-    if (reviewUrl.isNotEmpty && !PaymentQrHelper.isValidGoogleReviewUrl(reviewUrl)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          backgroundColor: AppColors.error,
-          content: Text('कृपया मान्य Google Maps Review URL दर्ज करें (https:// से शुरू)।'),
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.restart_alt_rounded, color: Color(0xFFD32F2F), size: 24),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Reset Shop Data?',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              ),
+            ),
+          ],
         ),
-      );
-      return;
-    }
-    final currentShop = context.read<ShopProvider>().shop;
-    final updated = currentShop.copyWith(
-      name: _nameCtrl.text.trim().isEmpty ? 'BillZo POS' : _nameCtrl.text.trim(),
-      phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
-      clearPhone: _phoneCtrl.text.trim().isEmpty,
-      address: _addressCtrl.text.trim().isEmpty ? null : _addressCtrl.text.trim(),
-      clearAddress: _addressCtrl.text.trim().isEmpty,
-      gstin: _gstinCtrl.text.trim().isEmpty ? null : _gstinCtrl.text.trim(),
-      clearGstin: _gstinCtrl.text.trim().isEmpty,
-      upiId: _upiIdCtrl.text.trim().isEmpty ? null : _upiIdCtrl.text.trim(),
-      clearUpiId: _upiIdCtrl.text.trim().isEmpty,
-      upiPayeeName: _upiNameCtrl.text.trim().isEmpty ? null : _upiNameCtrl.text.trim(),
-      clearUpiPayeeName: _upiNameCtrl.text.trim().isEmpty,
-      googleReviewUrl: reviewUrl.isEmpty ? null : reviewUrl,
-      clearGoogleReviewUrl: reviewUrl.isEmpty,
-      receiptFooter: _footerCtrl.text.trim(),
-      printPaperSize: _paperSize,
-      allowNegativeStock: _allowNegativeStock,
-      qrImageUrl: (_qrImageUrl != null && _qrImageUrl!.trim().isNotEmpty) ? _qrImageUrl : null,
-      clearQrImageUrl: _qrImageUrl == null || _qrImageUrl!.trim().isEmpty,
-      phonePeEnabled: _phonePeEnabled,
-      phonePeMobileNumber: _phonePeMobileCtrl.text.trim().isEmpty ? null : _phonePeMobileCtrl.text.trim(),
-      clearPhonePeMobileNumber: _phonePeMobileCtrl.text.trim().isEmpty,
-      phonePeMerchantId: _phonePeMidCtrl.text.trim().isEmpty ? null : _phonePeMidCtrl.text.trim(),
-      clearPhonePeMerchantId: _phonePeMidCtrl.text.trim().isEmpty,
-      phonePeStoreName: _phonePeStoreNameCtrl.text.trim().isEmpty ? null : _phonePeStoreNameCtrl.text.trim(),
-      clearPhonePeStoreName: _phonePeStoreNameCtrl.text.trim().isEmpty,
-      phonePeEnvironment: _phonePeEnvironment,
-    );
-
-    await context.read<ShopProvider>().updateShop(updated);
-    SoundService.instance.playSuccess();
-
-    if (mounted) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-          contentPadding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00875A).withValues(alpha: 0.12),
-                  shape: BoxShape.circle,
+        content: const Text(
+          'क्या आप वाकई अपनी दुकान का टेस्ट डेटा रीसेट करना चाहते हैं?\n\nइससे वर्तमान कार्ट और अस्थायी टेस्ट बिल साफ हो जाएंगे।',
+          style: TextStyle(fontSize: 13, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('रद्द करें (Cancel)'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFD32F2F),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<CartProvider>().clear();
+              SupabaseService.instance.resetLocalData();
+              SoundService.instance.playSuccess();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  backgroundColor: Color(0xFF00875A),
+                  content: Text('शॉप का टेस्ट डेटा सफलतापूर्वक रीसेट कर दिया गया है।'),
                 ),
-                child: const Icon(Icons.check_circle_rounded, color: Color(0xFF00875A), size: 48),
+              );
+            },
+            child: const Text('हाँ, रीसेट करें (Reset)', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLanguageSheet(BuildContext context) {
+    SoundService.instance.playButtonClick();
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                'All Details Saved Successfully! 🎉',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                  color: Color(0xFF00875A),
-                ),
+              const Text('Select Language / भाषा चुनें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Text('🇮🇳', style: TextStyle(fontSize: 24)),
+                title: const Text('हिन्दी (Hindi)', style: TextStyle(fontWeight: FontWeight.w600)),
+                trailing: const Icon(Icons.check_circle_rounded, color: Color(0xFF00875A)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('हिन्दी भाषा सेट की गई है।')),
+                  );
+                },
               ),
-              const SizedBox(height: 8),
-              const Text(
-                'दुकान की सभी जानकारी व सेटिंग्स सफलतापूर्वक सुरक्षित कर ली गई हैं।',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.grey, height: 1.35),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Text('🇬🇧', style: TextStyle(fontSize: 24)),
+                title: const Text('English', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('English language selected.')),
+                  );
+                },
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF00875A),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('ठीक है (Done)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Text('🇮🇳', style: TextStyle(fontSize: 24)),
+                title: const Text('Hinglish (हिंग्लिश)', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Hinglish selected.')),
+                  );
+                },
               ),
             ],
           ),
         ),
-      );
-    }
+      ),
+    );
   }
 
-  Future<void> _handleManualCloudSync() async {
-    setState(() => _isSyncingCloud = true);
-    try {
-      final auth = context.read<AuthProvider>();
-      final shopProvider = context.read<ShopProvider>();
-      final productProvider = context.read<ProductProvider>();
-      final customerProvider = context.read<CustomerProvider>();
+  void _showThemeSheet(BuildContext context, ShopProvider shopProvider) {
+    SoundService.instance.playButtonClick();
+    final currentTheme = shopProvider.themeMode;
 
-      Shop targetShop = shopProvider.shop;
-      final u = auth.user;
-      if (u != null) {
-        targetShop = await SupabaseService.instance.syncUserShop(
-          userId: u.id,
-          userEmail: u.email ?? '',
-          fallback: targetShop,
-        );
-        if (targetShop.id != shopProvider.shop.id) {
-          await shopProvider.setShop(targetShop);
-        }
-      }
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text('Theme / थीम चुनें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.wb_sunny_outlined, color: Colors.amber),
+                title: const Text('Light Theme (हल्की थीम)', style: TextStyle(fontWeight: FontWeight.w600)),
+                trailing: currentTheme == ThemeMode.light
+                    ? const Icon(Icons.check_circle_rounded, color: Color(0xFF00875A))
+                    : null,
+                onTap: () {
+                  shopProvider.setThemeMode(ThemeMode.light);
+                  Navigator.pop(ctx);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.nightlight_round, color: Colors.indigo),
+                title: const Text('Dark Theme (गहरी थीम)', style: TextStyle(fontWeight: FontWeight.w600)),
+                trailing: currentTheme == ThemeMode.dark
+                    ? const Icon(Icons.check_circle_rounded, color: Color(0xFF00875A))
+                    : null,
+                onTap: () {
+                  shopProvider.setThemeMode(ThemeMode.dark);
+                  Navigator.pop(ctx);
+                },
+              ),
+              const Divider(height: 1),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.settings_brightness_outlined),
+                title: const Text('System Default (सिस्टम के अनुसार)', style: TextStyle(fontWeight: FontWeight.w600)),
+                trailing: currentTheme == ThemeMode.system
+                    ? const Icon(Icons.check_circle_rounded, color: Color(0xFF00875A))
+                    : null,
+                onTap: () {
+                  shopProvider.setThemeMode(ThemeMode.system);
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-      final summary = await SupabaseService.instance.syncAllCloudData(targetShop.id);
-      await productProvider.loadProducts(targetShop.id);
-      await customerProvider.loadCustomers(targetShop.id);
+  Widget _buildSettingTile({
+    required BuildContext context,
+    required String title,
+    required String subtitle,
+    VoidCallback? onTap,
+    Widget? trailing,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-      if (mounted) {
-        SoundService.instance.playSuccess();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: Colors.green.shade700,
-            content: Row(
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+            child: Row(
               children: [
-                const Icon(Icons.cloud_done, color: Colors.white),
-                const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'क्लाउड सिंक सफल! प्रोडक्ट्स: ${summary['products']}, ग्राहक: ${summary['customers']}, बिल: ${summary['sales']}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? Colors.white : const Color(0xFF212121),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: isDark ? Colors.grey.shade400 : const Color(0xFF757575),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
+                trailing ??
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 15,
+                      color: isDark ? Colors.grey.shade400 : const Color(0xFF212121),
+                    ),
               ],
             ),
           ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.error,
-            content: Text('सिंक एरर: $e'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSyncingCloud = false);
-      }
-    }
+        ),
+        Divider(
+          height: 1,
+          thickness: 0.8,
+          color: isDark ? Colors.grey.shade800 : const Color(0xFFEEEEEE),
+        ),
+      ],
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final shopProvider = context.watch<ShopProvider>();
-    final authProvider = context.watch<AuthProvider>();
-    final currentShop = shopProvider.shop;
-
-    final upiId = _upiIdCtrl.text.trim();
-    final payeeName = _upiNameCtrl.text.trim().isNotEmpty ? _upiNameCtrl.text.trim() : currentShop.name;
-    final hasValidUpi = upiId.isNotEmpty && upiId.contains('@');
-    final upiUri = hasValidUpi
-        ? UpiService.generateUpiUri(upiId: upiId, payeeName: payeeName, amount: 100.0, note: 'POS Payment Test')
-        : '';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       appBar: AppBar(
-        title: const Text('सेटिंग्स / Shop Settings', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          if (!authProvider.isStaffSession)
-            TextButton.icon(
-              icon: const Icon(Icons.check, size: 18),
-              label: const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: _saveSettings,
-            ),
-        ],
+        backgroundColor: const Color(0xFF0D47A1), // Exact deep navy/blue from screenshot
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white),
+          tooltip: 'Menu',
+          onPressed: () {
+            if (Scaffold.maybeOf(context)?.hasDrawer ?? false) {
+              Scaffold.of(context).openDrawer();
+            } else {
+              context.read<MenuVisibilityProvider>().toggleMenu();
+            }
+          },
+        ),
+        title: const Text(
+          'Settings',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            letterSpacing: 0.3,
+          ),
+        ),
       ),
       body: SingleChildScrollView(
-        padding: EdgeInsets.fromLTRB(16, 16, 16, 40 + MediaQuery.of(context).viewPadding.bottom),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // User Account Profile Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      backgroundColor: authProvider.isStaffSession ? const Color(0xFFE8F5E9) : AppColors.primarySurface,
-                      radius: 22,
-                      child: Icon(
-                        authProvider.isStaffSession ? Icons.storefront_rounded : Icons.person,
-                        color: authProvider.isStaffSession ? const Color(0xFF00875A) : AppColors.primary,
-                        size: 26,
-                      ),
+            // 1. Business Details
+            _buildSettingTile(
+              context: context,
+              title: 'Business Details',
+              subtitle: 'Business Name, Location, Email etc.',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const BusinessDetailsScreen()),
+                );
+              },
+            ),
+
+            // 2. Receipt
+            _buildSettingTile(
+              context: context,
+              title: 'Receipt',
+              subtitle: 'Customize Thermal and PDF Receipt',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ReceiptSettingsScreen()),
+                );
+              },
+            ),
+
+            // 3. TAX / VAT
+            _buildSettingTile(
+              context: context,
+              title: 'TAX / VAT',
+              subtitle: 'Create and Customize Tax Details',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const TaxSettingsScreen()),
+                );
+              },
+            ),
+
+            // 4. Printer Setup
+            _buildSettingTile(
+              context: context,
+              title: 'Printer Setup',
+              subtitle: 'Configure your Printer settings',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
+                );
+              },
+            ),
+
+            // 5. Feature Settings
+            _buildSettingTile(
+              context: context,
+              title: 'Feature Settings',
+              subtitle: 'Manage App features',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FeatureSettingsScreen()),
+                );
+              },
+            ),
+
+            // 6. Languages
+            _buildSettingTile(
+              context: context,
+              title: 'Languages',
+              subtitle: 'Select your preferred Language',
+              onTap: () => _showLanguageSheet(context),
+            ),
+
+            // 7. Theme
+            _buildSettingTile(
+              context: context,
+              title: 'Theme',
+              subtitle: 'Choose your preferred Theme for your App',
+              onTap: () => _showThemeSheet(context, shopProvider),
+            ),
+
+            // 8. Reset with Reset Shop button
+            _buildSettingTile(
+              context: context,
+              title: 'Reset',
+              subtitle: 'If you have completed testing, you can\nreset your data now',
+              trailing: OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFD32F2F),
+                  side: BorderSide(
+                    color: const Color(0xFFD32F2F).withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                onPressed: () => _confirmResetShop(context),
+                child: const Text(
+                  'Reset Shop',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Color(0xFFD32F2F),
+                  ),
+                ),
+              ),
+              onTap: () => _confirmResetShop(context),
+            ),
+
+            // Bottom Footer: Version & Sign Out Button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 36, 20, 32),
+              child: Column(
+                children: [
+                  const Text(
+                    _appVersion,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF757575),
+                      fontWeight: FontWeight.w500,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            authProvider.isStaffSession
-                                ? shopProvider.shop.name
-                                : authProvider.displayName,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 2),
-                          if (authProvider.isStaffSession)
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF00875A).withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(5),
-                                  ),
-                                  child: Text(
-                                    authProvider.staffRole ?? 'कैशियर',
-                                    style: const TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF00875A),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    'स्टाफ: ${authProvider.staffName ?? "स्टाफ"}',
-                                    style: const TextStyle(fontSize: 11.5, color: AppColors.lightTextSecondary, fontWeight: FontWeight.w500),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            )
-                          else
-                            Text(
-                              authProvider.email ?? (authProvider.isGuestMode ? 'ऑफ़लाइन मोड (Guest)' : 'लॉगिन नहीं है'),
-                              style: const TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                            ),
-                        ],
-                      ),
-                    ),
-                    OutlinedButton(
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.error,
-                        side: const BorderSide(color: AppColors.error),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        visualDensity: VisualDensity.compact,
+                        foregroundColor: const Color(0xFFD32F2F),
+                        side: const BorderSide(color: Color(0xFFD32F2F), width: 1.2),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                       onPressed: () => _confirmLogout(context),
-                      child: const Text('लॉगआउट', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 🏪 3-Door Store Mode Switcher Card
-            _buildStoreModeCard(context, shopProvider),
-            const SizedBox(height: 12),
-
-            // 🖨️ Dedicated Printer Settings Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
-              ),
-              child: ListTile(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00875A).withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.print_rounded, color: Color(0xFF00875A), size: 24),
-                ),
-                title: const Text(
-                  '🖨️ प्रिंटर सेटिंग्स (Printer Settings)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                ),
-                subtitle: const Text(
-                  'ब्लूटूथ प्रिंटर, फ़ॉन्ट साइज़ और बिल लेआउट कस्टमाइज़ करें',
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF00875A)),
-                onTap: () {
-                  SoundService.instance.playButtonClick();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()),
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // ⚖️ Electronic Weighing Scale (इलेक्ट्रॉनिक कांटा) Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(color: const Color(0xFF2563EB).withValues(alpha: 0.3)),
-              ),
-              child: Consumer<WeighingScaleProvider>(
-                builder: (context, scale, _) {
-                  return ListTile(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                    leading: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.scale_rounded, color: Color(0xFF2563EB), size: 24),
-                    ),
-                    title: Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            '⚖️ इलेक्ट्रॉनिक कांटा (Scale)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: (scale.isConnected ? const Color(0xFF10B981) : Colors.grey)
-                                .withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            scale.isConnected ? '🟢 कनेक्ट' : 'डिस्कनेक्ट',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.bold,
-                              color: scale.isConnected ? const Color(0xFF10B981) : Colors.grey.shade600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    subtitle: Text(
-                      scale.isConnected
-                          ? 'Scale • ${scale.scaleName ?? "Scale"} • Live: ${scale.liveWeight.toStringAsFixed(3)} ${scale.unit}'
-                          : 'Scale • ब्लूटूथ कांटा कनेक्ट करें',
-                      style: const TextStyle(fontSize: 11.5, color: Colors.grey),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF2563EB)),
-                    onTap: () {
-                      SoundService.instance.playButtonClick();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const WeighingScaleSettingsScreen()),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 📷 AI Produce Vision & Camera Settings Card
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              child: Consumer<AiVisionProvider>(
-                builder: (context, ai, _) {
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    leading: Container(
-                      padding: const EdgeInsets.all(9),
-                      decoration: BoxDecoration(
-                        color: ai.isAiVisionActive
-                            ? const Color(0xFF06B6D4).withValues(alpha: 0.15)
-                            : Colors.grey.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.camera_alt_rounded,
-                        color: ai.isAiVisionActive ? const Color(0xFF06B6D4) : Colors.grey,
-                        size: 22,
-                      ),
-                    ),
-                    title: Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'AI विज़न व स्मार्ट कैमरा',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: ai.isAiVisionActive
-                                ? const Color(0xFF06B6D4).withValues(alpha: 0.15)
-                                : Colors.grey.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            ai.isAiVisionActive ? '🟢 ON' : 'OFF',
-                            style: TextStyle(
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.bold,
-                              color: ai.isAiVisionActive ? const Color(0xFF06B6D4) : Colors.grey,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    subtitle: Text(
-                      ai.isAiVisionActive
-                          ? 'कांटे पर ऑटो पहचान चालू • ${ai.voiceFeedbackEnabled ? "वॉइस ऑन" : "वॉइस बंद"}'
-                          : 'कांटे पर फल-सब्जी ऑटोमैटिक पहचान व बिलिंग',
-                      style: const TextStyle(fontSize: 11.5, color: Colors.grey),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: Color(0xFF06B6D4)),
-                    onTap: () {
-                      SoundService.instance.playButtonClick();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const AiVisionSettingsScreen()),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-            const SizedBox(height: 12),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(
-                  color: (currentShop.id.length >= 30)
-                      ? Colors.green.shade400
-                      : Colors.orange.shade400,
-                  width: 1.2,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.cloud_sync,
-                          color: (currentShop.id.length >= 30)
-                              ? Colors.green.shade700
-                              : Colors.orange.shade800,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'मल्टी-डिवाइस क्लाउड सिंक स्थिति',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: Theme.of(context).textTheme.titleMedium?.color,
-                            ),
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: (currentShop.id.length >= 30)
-                                ? Colors.green.shade50
-                                : Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: (currentShop.id.length >= 30)
-                                  ? Colors.green.shade300
-                                  : Colors.orange.shade300,
-                            ),
-                          ),
-                          child: Text(
-                            (currentShop.id.length >= 30) ? '🟢 लाइव सिंक' : '🟠 ऑफ़लाइन / डेमो',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: (currentShop.id.length >= 30)
-                                  ? Colors.green.shade800
-                                  : Colors.orange.shade900,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.black26
-                            : Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                authProvider.isStaffSession ? 'स्टाफ लॉगिन: ' : 'लॉगिन ईमेल: ',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  authProvider.isStaffSession
-                                      ? '${authProvider.staffName ?? "स्टाफ"} (${authProvider.staffRole ?? "कैशियर"})'
-                                      : (authProvider.email ?? 'लॉगिन नहीं है (Guest Mode)'),
-                                  style: const TextStyle(fontSize: 12),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        onPressed: _isSyncingCloud
-                            ? null
-                            : () {
-                                SoundService.instance.playButtonClick();
-                                _handleManualCloudSync();
-                              },
-                        icon: _isSyncingCloud
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                              )
-                            : const Icon(Icons.sync, size: 18),
-                        label: Text(
-                          _isSyncingCloud ? 'सिंक हो रहा है...' : 'Sync Data (डेटा सिंक)',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      child: const Text(
+                        'Sign Out',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          color: Color(0xFFD32F2F),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Family & Staff Sharing Card (Bhai / Father Access) - ONLY FOR OWNER
-            if (!authProvider.isStaffSession) ...[
-              Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.people_alt_rounded, color: AppColors.primary, size: 20),
-                        ),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'दुकान शेयरिंग / Family & Staff Access',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                              ),
-                              Text(
-                                '5-Layer सुरक्षित मल्टी-डिवाइस एक्सेस',
-                                style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    const Text(
-                      'अपने भाई, पार्टनर या स्टाफ को दुकान का एक्सेस देने के लिए यह विवरण दें:',
-                      style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary, height: 1.3),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Modern Details Container: Phone + PIN
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.35), width: 1.5),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: [
-                          // Row 1: Shop Phone
-                          Row(
-                            children: [
-                              const Icon(Icons.phone_android_rounded, size: 18, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'दुकान मोबाइल: ',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.lightTextSecondary),
-                              ),
-                              Expanded(
-                                child: Text(
-                                  currentShop.phone != null && currentShop.phone!.isNotEmpty
-                                      ? currentShop.phone!
-                                      : 'सेट नहीं (नीचे प्रोफ़ाइल में दर्ज करें)',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: currentShop.phone != null ? AppColors.primaryDark : Colors.orange,
-                                  ),
-                                ),
-                              ),
-                              if (currentShop.phone != null)
-                                InkWell(
-                                  onTap: () {
-                                    Clipboard.setData(ClipboardData(text: currentShop.phone!));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('मोबाइल नंबर कॉपी हुआ!')),
-                                    );
-                                  },
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(4),
-                                    child: Icon(Icons.copy, size: 16, color: AppColors.primary),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Divider(height: 1),
-                          ),
-
-                          // Row 2: 6-Digit Staff PIN (Guaranteed No Text Wrapping)
-                          Row(
-                            children: [
-                              const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'स्टाफ पिन: ',
-                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.lightTextSecondary),
-                              ),
-                              Expanded(
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  alignment: Alignment.centerLeft,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                                    ),
-                                    child: Text(
-                                      currentShop.displayShareCode.split('').join(' '),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 20,
-                                        letterSpacing: 3,
-                                        color: AppColors.primaryDark,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.copy, size: 18, color: AppColors.primary),
-                                tooltip: 'पिन कॉपी करें',
-                                onPressed: () {
-                                  Clipboard.setData(ClipboardData(text: currentShop.displayShareCode));
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('स्टाफ पिन "${currentShop.displayShareCode}" कॉपी हो गया!')),
-                                  );
-                                },
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.share, size: 18, color: Colors.green),
-                                tooltip: 'WhatsApp पर शेयर करें',
-                                onPressed: () async {
-                                  final phone = currentShop.phone ?? '';
-                                  final pin = currentShop.displayShareCode;
-                                  final text = '🏪 *${currentShop.name}*\n'
-                                      '👥 *स्टाफ लॉगिन एक्सेस (Staff Access)*\n\n'
-                                      '📞 दुकान मोबाइल: *$phone*\n'
-                                      '🔑 6-अंकीय स्टाफ पिन: *$pin*\n\n'
-                                      '📲 ShopPOS ऐप खोलें -> "Staff Login" पर क्लिक करें और मोबाइल व पिन दर्ज करके सीधे दुकान चलाएं!';
-                                  final uri = Uri.parse('whatsapp://send?text=${Uri.encodeComponent(text)}');
-                                  if (await canLaunchUrl(uri)) {
-                                    await launchUrl(uri);
-                                  } else {
-                                    Clipboard.setData(ClipboardData(text: text));
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('शेयरिंग विवरण कॉपी हो गया!')),
-                                      );
-                                    }
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Action Buttons Row: Show QR Code & Generate New PIN
-                    Row(
-                      children: [
-                        // Button 1: Show QR Code
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.qr_code_2_rounded, size: 17),
-                            label: const Text('📷 QR कोड दिखाएं', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              elevation: 1,
-                            ),
-                            onPressed: () => _showStaffPairingQrDialog(context, currentShop),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-
-                        // Button 2: Generate New PIN (Clean single icon)
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.refresh_rounded, size: 16),
-                          label: const Text('नया पिन', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.primary,
-                            side: BorderSide(color: AppColors.primary.withValues(alpha: 0.4)),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                          onPressed: () async {
-                            final newCode = await shopProvider.generateNewShareCode();
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  backgroundColor: AppColors.primary,
-                                  content: Text('नया 6-अंकीय स्टाफ पिन सेट हुआ: $newCode'),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-
-            // Store Profile Details
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text('दुकान की जानकारी / Store Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        if (authProvider.isStaffSession) ...[
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFF59E0B)),
-                            ),
-                            child: const Text('🔒 केवल मालिक', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
-                          ),
-                        ],
-                      ],
-                    ),
-                    if (authProvider.isStaffSession) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.lock_rounded, size: 15, color: Color(0xFFD97706)),
-                            SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'सुरक्षा नियम: केवल दुकान मालिक दुकान का नाम व पता बदल सकते हैं।',
-                                style: TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _nameCtrl,
-                      readOnly: authProvider.isStaffSession,
-                      decoration: const InputDecoration(labelText: 'दुकान का नाम *', prefixIcon: Icon(Icons.storefront)),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _phoneCtrl,
-                      readOnly: authProvider.isStaffSession,
-                      keyboardType: TextInputType.phone,
-                      decoration: const InputDecoration(labelText: 'मोबाइल नंबर', prefixIcon: Icon(Icons.phone)),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _addressCtrl,
-                      readOnly: authProvider.isStaffSession,
-                      decoration: const InputDecoration(labelText: 'पता (Address)', prefixIcon: Icon(Icons.location_on_outlined)),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _gstinCtrl,
-                      readOnly: authProvider.isStaffSession,
-                      decoration: const InputDecoration(labelText: 'GSTIN (वैकल्पिक)', prefixIcon: Icon(Icons.receipt_outlined)),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // UPI QR Code Settings with Live QR & Custom QR upload
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.qr_code, color: AppColors.primary),
-                        const SizedBox(width: 8),
-                        const Expanded(
-                          child: Text('UPI पेमेंट सेटिंग्स व QR कोड', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                        ),
-                        if (authProvider.isStaffSession)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFEF3C7),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFFF59E0B)),
-                            ),
-                            child: const Text('🔒 केवल मालिक', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFF92400E))),
-                          ),
-                      ],
-                    ),
-                    if (authProvider.isStaffSession) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFEF3C7),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Row(
-                          children: [
-                            Icon(Icons.lock_rounded, size: 15, color: Color(0xFFD97706)),
-                            SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'सुरक्षा नियम: केवल दुकान मालिक UPI ID और QR कोड बदल सकते हैं।',
-                                style: TextStyle(fontSize: 11, color: Color(0xFF92400E), fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    const Text(
-                      'बिलिंग के समय ग्राहक सीधे आपके UPI QR कोड को स्कैन कर के भुगतान कर सकते हैं।',
-                      style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: _upiIdCtrl,
-                      readOnly: authProvider.isStaffSession,
-                      decoration: const InputDecoration(
-                        labelText: 'दुकानदार की UPI ID * (उदा. 9876543210@paytm, shop@okhdfcbank)',
-                        prefixIcon: Icon(Icons.payment),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: _upiNameCtrl,
-                      readOnly: authProvider.isStaffSession,
-                      decoration: const InputDecoration(
-                        labelText: 'Payee Name (दुकान या खाताधारक का नाम)',
-                        prefixIcon: Icon(Icons.person_pin_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // QR Code Options & Live Preview Section
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.primarySurface.withOpacity(0.3),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.2)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'दुकान का QR कोड (QR Code Preview)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'आप ऑटोमैटिक UPI QR उपयोग कर सकते हैं या अपनी दुकान का स्टैंडी QR फोटो लगा सकते हैं:',
-                            style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                          ),
-                          const SizedBox(height: 10),
-
-                          // QR Image Upload Action Buttons - ONLY FOR OWNER
-                          if (!authProvider.isStaffSession)
-                            Wrap(
-                            spacing: 8,
-                            runSpacing: 6,
-                            children: [
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.photo_camera, size: 14),
-                                label: const Text('कैमरा से QR फोटो लें', style: TextStyle(fontSize: 11)),
-                                style: ElevatedButton.styleFrom(visualDensity: VisualDensity.compact),
-                                onPressed: () async {
-                                  try {
-                                    final img = await ImagePicker().pickImage(
-                                      source: ImageSource.camera,
-                                      maxWidth: 800,
-                                      maxHeight: 800,
-                                    );
-                                    if (img != null) {
-                                      final bytes = await img.readAsBytes();
-                                      final shop = context.read<ShopProvider>().shop;
-                                      final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
-                                        shopId: shop.id,
-                                        folder: 'qr',
-                                        fileName: 'shop_qr_${DateTime.now().millisecondsSinceEpoch}.jpg',
-                                        bytes: bytes,
-                                      );
-                                      setState(() => _qrImageUrl = uploadedUrl);
-                                      SoundService.instance.playSuccess();
-                                    }
-                                  } catch (e) {
-                                    debugPrint("QR Pick Camera error: $e");
-                                  }
-                                },
-                              ),
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.photo_library, size: 14),
-                                label: const Text('गैलरी से QR चुनें', style: TextStyle(fontSize: 11)),
-                                style: ElevatedButton.styleFrom(visualDensity: VisualDensity.compact),
-                                onPressed: () async {
-                                  try {
-                                    final img = await ImagePicker().pickImage(
-                                      source: ImageSource.gallery,
-                                      maxWidth: 800,
-                                      maxHeight: 800,
-                                    );
-                                    if (img != null) {
-                                      final bytes = await img.readAsBytes();
-                                      final shop = context.read<ShopProvider>().shop;
-                                      final uploadedUrl = await SupabaseService.instance.uploadImageBytes(
-                                        shopId: shop.id,
-                                        folder: 'qr',
-                                        fileName: 'shop_qr_${DateTime.now().millisecondsSinceEpoch}.jpg',
-                                        bytes: bytes,
-                                      );
-                                      setState(() => _qrImageUrl = uploadedUrl);
-                                      SoundService.instance.playSuccess();
-                                    }
-                                  } catch (e) {
-                                    debugPrint("QR Pick Gallery error: $e");
-                                  }
-                                },
-                              ),
-                              OutlinedButton.icon(
-                                icon: const Icon(Icons.link, size: 14),
-                                label: const Text('QR इमेज लिंक (URL)', style: TextStyle(fontSize: 11)),
-                                style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                                onPressed: () {
-                                  final urlCtrl = TextEditingController(text: _qrImageUrl?.startsWith('http') == true ? _qrImageUrl : '');
-                                  showDialog(
-                                    context: context,
-                                    builder: (uCtx) => AlertDialog(
-                                      title: const Text('QR कोड इमेज URL दर्ज करें', style: TextStyle(fontSize: 14)),
-                                      content: TextField(
-                                        controller: urlCtrl,
-                                        decoration: const InputDecoration(
-                                          hintText: 'https://example.com/shop-qr.png',
-                                          prefixIcon: Icon(Icons.link),
-                                        ),
-                                      ),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(uCtx), child: const Text('Cancel')),
-                                        ElevatedButton(
-                                          onPressed: () {
-                                            final val = urlCtrl.text.trim();
-                                            if (val.isNotEmpty) {
-                                              setState(() => _qrImageUrl = val);
-                                              SoundService.instance.playSuccess();
-                                            }
-                                            Navigator.pop(uCtx);
-                                          },
-                                          child: const Text('Set QR'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                              if (_qrImageUrl != null && _qrImageUrl!.isNotEmpty)
-                                TextButton.icon(
-                                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 14),
-                                  label: const Text('फोटो हटाएं', style: TextStyle(color: AppColors.error, fontSize: 11)),
-                                  onPressed: () {
-                                    SoundService.instance.playDelete();
-                                    setState(() => _qrImageUrl = null);
-                                  },
-                                ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          // QR Preview Box
-                          Center(
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: AppColors.lightBorder),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.04),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (_qrImageUrl != null && _qrImageUrl!.isNotEmpty) ...[
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: _qrImageUrl!.startsWith('data:image')
-                                          ? Image.memory(
-                                              base64Decode(_qrImageUrl!.split(',').last),
-                                              width: 150,
-                                              height: 150,
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 80, color: AppColors.error),
-                                            )
-                                          : _qrImageUrl!.startsWith('http')
-                                              ? Image.network(
-                                                  _qrImageUrl!,
-                                                  width: 150,
-                                                  height: 150,
-                                                  fit: BoxFit.contain,
-                                                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 80, color: AppColors.error),
-                                                )
-                                              : (!kIsWeb
-                                                  ? Image.file(
-                                                      File(_qrImageUrl!),
-                                                      width: 150,
-                                                      height: 150,
-                                                      fit: BoxFit.contain,
-                                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, size: 80, color: AppColors.error),
-                                                    )
-                                                  : const Icon(Icons.qr_code_2, size: 100, color: AppColors.primary)),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    const Text('दुकान का स्टैंडी QR फोटो सेट है', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
-                                  ] else if (hasValidUpi) ...[
-                                    QrImageView(
-                                      data: upiUri,
-                                      version: QrVersions.auto,
-                                      size: 150.0,
-                                      backgroundColor: Colors.white,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      payeeName,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppColors.lightTextPrimary),
-                                    ),
-                                    Text(
-                                      upiId,
-                                      style: const TextStyle(fontSize: 10, color: AppColors.lightTextSecondary),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: Colors.green.shade50,
-                                        borderRadius: BorderRadius.circular(4),
-                                        border: Border.all(color: Colors.green.shade200),
-                                      ),
-                                      child: const Text('✓ लाइव UPI QR एक्टिव है', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ] else ...[
-                                    const Icon(Icons.qr_code_2, size: 80, color: AppColors.lightTextSecondary),
-                                    const SizedBox(height: 6),
-                                    const Text('ऊपर UPI ID दर्ज करें या QR फोटो लगाएं', style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
-                                  ],
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          const Divider(),
-                          const SizedBox(height: 10),
-                          const Row(
-                            children: [
-                              Icon(Icons.star_rate_rounded, color: Color(0xFFD97706), size: 18),
-                              SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  'Google Maps Review URL (भुगतान पूर्ण होने के बाद बिल QR)',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'जब ग्राहक का पूरा पेमेंट प्राप्त (Verified) हो जाएगा, तो बिल में पेमेंट QR की जगह आपका Google Review QR दिखेगा। खाली होने पर कोई नकली लिंक नहीं बनेगा।',
-                            style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                          ),
-                          const SizedBox(height: 10),
-                          TextField(
-                            controller: _googleReviewUrlCtrl,
-                            readOnly: authProvider.isStaffSession,
-                            keyboardType: TextInputType.url,
-                            decoration: InputDecoration(
-                              labelText: 'Google Maps Review Link (https://g.page/r/...)',
-                              hintText: 'https://g.page/r/YOUR_STORE_ID/review',
-                              prefixIcon: const Icon(Icons.rate_review_outlined),
-                              suffixIcon: _googleReviewUrlCtrl.text.trim().isNotEmpty && !authProvider.isStaffSession
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear, size: 18),
-                                      onPressed: () => _googleReviewUrlCtrl.clear(),
-                                    )
-                                  : null,
-                            ),
-                          ),
-                          if (PaymentQrHelper.isValidGoogleReviewUrl(_googleReviewUrlCtrl.text)) ...[
-                            const SizedBox(height: 10),
-                            Center(
-                              child: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: Colors.amber.shade300),
-                                ),
-                                child: Column(
-                                  children: [
-                                    QrImageView(
-                                      data: _googleReviewUrlCtrl.text.trim(),
-                                      version: QrVersions.auto,
-                                      size: 110,
-                                      backgroundColor: Colors.white,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    const Text(
-                                      PaymentQrHelper.googleReviewInstructionHindi,
-                                      textAlign: TextAlign.center,
-                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF92400E)),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // D-Mart Style Auto-Payment Verification Card
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(
-                  color: _autoVerifyEnabled ? const Color(0xFF00875A) : Colors.grey.shade300,
-                  width: _autoVerifyEnabled ? 1.6 : 1.0,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF00875A).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.flash_on_rounded, color: Color(0xFF00875A), size: 22),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'D-Mart स्टाइल ऑटो-पेमेंट वेरिफिकेशन',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                  SizedBox(width: 6),
-                                  Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                    decoration: BoxDecoration(
-                                      color: Color(0xFF00875A),
-                                      borderRadius: BorderRadius.all(Radius.circular(4)),
-                                    ),
-                                    child: Text(
-                                      'AUTO-PRINT',
-                                      style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w900, color: Colors.white),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                _autoVerifyEnabled
-                                    ? '✓ सक्रिय: PhonePe, Paytm, GPay या बैंक SMS आते ही बिल खुद पास व प्रिंट होगा'
-                                    : 'बंद: कैशियर को हाथ से कन्फर्म करना होगा',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _autoVerifyEnabled ? const Color(0xFF00875A) : AppColors.lightTextSecondary,
-                                  fontWeight: _autoVerifyEnabled ? FontWeight.w600 : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _autoVerifyEnabled,
-                          activeThumbColor: const Color(0xFF00875A),
-                          onChanged: authProvider.isStaffSession
-                              ? null
-                              : (val) async {
-                                  setState(() => _autoVerifyEnabled = val);
-                                  await PaymentNotificationService.instance.setAutoVerifyEnabled(val);
-                                  SoundService.instance.playClick();
-                                },
-                        ),
-                      ],
-                    ),
-                    if (_autoVerifyEnabled) ...[
-                      const Divider(height: 18),
-                      // Permission status row
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _notificationPermissionGranted ? const Color(0xFFF0FDF4) : const Color(0xFFFFFBEB),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: _notificationPermissionGranted ? const Color(0xFF86EFAC) : const Color(0xFFFDE68A),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _notificationPermissionGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-                              size: 18,
-                              color: _notificationPermissionGranted ? const Color(0xFF16A34A) : const Color(0xFFD97706),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                _notificationPermissionGranted
-                                    ? 'Notification Access: चालू है (PhonePe/Paytm अलर्ट लाइव)'
-                                    : 'Notification Access: बंद है (ऑटो-वेरिफिकेशन के लिए चालू करें)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: _notificationPermissionGranted ? const Color(0xFF15803D) : const Color(0xFFB45309),
-                                ),
-                              ),
-                            ),
-                            if (!_notificationPermissionGranted && PaymentNotificationService.instance.isAndroidSupported)
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF00875A),
-                                  foregroundColor: Colors.white,
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                ),
-                                onPressed: () async {
-                                  await PaymentNotificationService.instance.openSettings();
-                                  Future.delayed(const Duration(seconds: 2), _checkNotificationPermission);
-                                },
-                                child: const Text('चालू करें', style: TextStyle(fontSize: 11)),
-                              ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      // Cloud Relay for multi-device tablet/laptop
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        dense: true,
-                        title: const Text(
-                          '📡 क्लाउड रिले (Owner Phone -> Counter Tablet/PC)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                        ),
-                        subtitle: const Text(
-                          'यदि आप इस फोन के पेमेंट अलर्ट को दुकान के टैबलेट/लैपटॉप पर भेजना चाहते हैं',
-                          style: TextStyle(fontSize: 10.5, color: Colors.grey),
-                        ),
-                        value: _cloudRelayEnabled,
-                        activeThumbColor: const Color(0xFF00875A),
-                        onChanged: (val) async {
-                          setState(() => _cloudRelayEnabled = val);
-                          await PaymentNotificationService.instance.setCloudRelayEnabled(val);
-                          SoundService.instance.playClick();
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      // Test Auto-Print Action Button
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF00875A),
-                            side: const BorderSide(color: Color(0xFF00875A)),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          icon: const Icon(Icons.print_rounded, size: 15),
-                          label: const Text('🧪 ₹1 का टेस्ट पेमेंट चलाएं (Test Auto-Print)'),
-                          onPressed: () async {
-                            SoundService.instance.playButtonClick();
-                            await PaymentNotificationService.instance.simulatePayment(
-                              amount: 1.0,
-                              appName: 'PhonePe',
-                            );
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  backgroundColor: Color(0xFF00875A),
-                                  content: Text('✓ ₹1.00 का टेस्ट पेमेंट भेजा गया! चेकआउट स्क्रीन पर लाइव दिखेगा।'),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // PhonePe Auto-Verification Card
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-                side: BorderSide(
-                  color: _phonePeEnabled ? const Color(0xFF5F259F) : Colors.grey.shade300,
-                  width: _phonePeEnabled ? 1.6 : 1.0,
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF5F259F).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.bolt_rounded, color: Color(0xFF5F259F), size: 22),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Row(
-                                children: [
-                                  Text(
-                                    'PhonePe ऑटो-पेमेंट वेरिफिकेशन',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                  SizedBox(width: 6),
-                                  Text(
-                                    'PRO',
-                                    style: TextStyle(
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w900,
-                                      color: Color(0xFF5F259F),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                _phonePeEnabled
-                                    ? '✓ PhonePe कनेक्टेड (Dynamic QR व ऑटो बिलिंग चालू)'
-                                    : 'Dynamic QR से भुगतान मिलते ही बिल अपने आप पास होगा',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: _phonePeEnabled ? const Color(0xFF00875A) : AppColors.lightTextSecondary,
-                                  fontWeight: _phonePeEnabled ? FontWeight.w600 : FontWeight.normal,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Switch(
-                          value: _phonePeEnabled,
-                          activeThumbColor: const Color(0xFF5F259F),
-                          onChanged: authProvider.isStaffSession
-                              ? null
-                              : (val) {
-                                  setState(() {
-                                    _phonePeEnabled = val;
-                                  });
-                                  SoundService.instance.playClick();
-                                },
-                        ),
-                      ],
-                    ),
-                    if (_phonePeEnabled) ...[
-                      const Divider(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFBF8FF),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFE9D5FF)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'PhonePe बिज़नेस क्रेडेंशियल्स',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Color(0xFF4C1D95)),
-                            ),
-                            const SizedBox(height: 8),
-                            TextField(
-                              controller: _phonePeMobileCtrl,
-                              readOnly: authProvider.isStaffSession,
-                              keyboardType: TextInputType.phone,
-                              decoration: const InputDecoration(
-                                labelText: 'PhonePe Business रजिस्टर्ड मोबाइल नंबर *',
-                                prefixIcon: Icon(Icons.phone_android, color: Color(0xFF5F259F)),
-                                hintText: '9876543210',
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            TextField(
-                              controller: _phonePeMidCtrl,
-                              readOnly: authProvider.isStaffSession,
-                              decoration: const InputDecoration(
-                                labelText: 'Merchant ID / MID (वैकल्पिक - खाली रहने पर ऑटो बनेगी)',
-                                prefixIcon: Icon(Icons.storefront_outlined, color: Color(0xFF5F259F)),
-                                hintText: 'MYADAVVEGGIE या M9876543210',
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                const Text('पर्यावरण (Mode): ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                const SizedBox(width: 8),
-                                ChoiceChip(
-                                  label: const Text('Sandbox (UAT टेस्ट)', style: TextStyle(fontSize: 11)),
-                                  selected: _phonePeEnvironment == 'sandbox',
-                                  onSelected: authProvider.isStaffSession
-                                      ? null
-                                      : (sel) {
-                                          if (sel) setState(() => _phonePeEnvironment = 'sandbox');
-                                        },
-                                ),
-                                const SizedBox(width: 6),
-                                ChoiceChip(
-                                  label: const Text('Live (प्रोडक्शन)', style: TextStyle(fontSize: 11)),
-                                  selected: _phonePeEnvironment == 'production',
-                                  onSelected: authProvider.isStaffSession
-                                      ? null
-                                      : (sel) {
-                                          if (sel) setState(() => _phonePeEnvironment = 'production');
-                                        },
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF5F259F),
-                                    foregroundColor: Colors.white,
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  icon: _isConnectingPhonePe
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                        )
-                                      : const Icon(Icons.check_circle_outline, size: 16),
-                                  label: const Text('PhonePe से जोड़ें (Verify & Connect)'),
-                                  onPressed: _isConnectingPhonePe || authProvider.isStaffSession
-                                      ? null
-                                      : () async {
-                                          final phone = _phonePeMobileCtrl.text.trim();
-                                          if (phone.length < 10) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(
-                                                backgroundColor: AppColors.error,
-                                                content: Text('कृपया 10 अंकों का मान्य PhonePe मोबाइल नंबर दर्ज करें।'),
-                                              ),
-                                            );
-                                            return;
-                                          }
-                                          final messenger = ScaffoldMessenger.of(context);
-                                          final shopProv = context.read<ShopProvider>();
-                                          setState(() => _isConnectingPhonePe = true);
-                                          final res = await PhonePeService.instance.connectMerchant(
-                                            shop: shopProv.shop,
-                                            mobileNumber: phone,
-                                            merchantId: _phonePeMidCtrl.text.trim(),
-                                            environment: _phonePeEnvironment,
-                                          );
-                                          if (!mounted) return;
-                                          setState(() => _isConnectingPhonePe = false);
-                                          if (res['success'] == true) {
-                                            SoundService.instance.playSuccess();
-                                            messenger.showSnackBar(
-                                              const SnackBar(
-                                                backgroundColor: Color(0xFF00875A),
-                                                content: Text('✓ PhonePe Merchant सफलतापूर्वक लिंक हो गया!'),
-                                              ),
-                                            );
-                                            await _saveSettings();
-                                          }
-                                        },
-                                ),
-                                OutlinedButton.icon(
-                                  icon: const Icon(Icons.qr_code, size: 16, color: Color(0xFF5F259F)),
-                                  label: const Text('₹1 का टेस्ट Dynamic QR बनाएं'),
-                                  style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
-                                  onPressed: () async {
-                                    final currentShop = context.read<ShopProvider>().shop;
-                                    final tx = await PhonePeService.instance.createPaymentOrder(
-                                      shop: currentShop,
-                                      billNo: 9999,
-                                      amount: 1.0,
-                                      clientRef: 'test_123',
-                                    );
-                                    if (!mounted) return;
-                                    showDialog(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('PhonePe Dynamic QR (₹1.00 Test)', style: TextStyle(fontSize: 14)),
-                                          content: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              QrImageView(
-                                                data: tx.qrData ?? 'upi://pay?pa=phonepe@merchant&am=1.00',
-                                                version: QrVersions.auto,
-                                                size: 160,
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Text('Tx ID: ${tx.merchantTransactionId}', style: const TextStyle(fontSize: 10)),
-                                            ],
-                                          ),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-                                          ],
-                                        ),
-                                      );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Thermal Printer & Negative Stock (RESPONSIVE FIX FOR 58mm/80mm)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.print, color: AppColors.primary, size: 20),
-                        SizedBox(width: 8),
-                        Text('थर्मल प्रिंटर और बिल सेटिंग्स', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Interactive Bluetooth Printer Setup Box
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: _btPrinterMac != null ? Colors.green.shade50 : Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _btPrinterMac != null ? Colors.green.shade200 : Colors.blue.shade200,
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                _btPrinterMac != null ? Icons.bluetooth_connected : Icons.bluetooth,
-                                color: _btPrinterMac != null ? Colors.green.shade800 : Colors.blue.shade800,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _btPrinterMac != null
-                                      ? 'प्रिंटर: ${_btPrinterName ?? "Thermal Printer"}'
-                                      : 'ब्लूटूथ थर्मल प्रिंटर सेट करें (Direct Print)',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: _btPrinterMac != null ? Colors.green.shade900 : Colors.blue.shade900,
-                                  ),
-                                ),
-                              ),
-                              if (_btPrinterMac != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.shade100,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    _btIsConnected ? 'कनेक्टेड / Online' : 'सक्रिय / Saved',
-                                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          if (_btPrinterMac != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'MAC Address: $_btPrinterMac',
-                              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
-                            ),
-                          ],
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              ElevatedButton.icon(
-                                icon: _isConnectingBt
-                                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : const Icon(Icons.bluetooth_searching, size: 16),
-                                label: Text(_btPrinterMac == null ? 'प्रिंटर खोजें व कनेक्ट करें' : 'प्रिंटर बदलें'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                onPressed: _isConnectingBt ? null : _selectBluetoothPrinter,
-                              ),
-                              if (_btPrinterMac != null)
-                                OutlinedButton.icon(
-                                  icon: const Icon(Icons.link_off, size: 16, color: Colors.red),
-                                  label: const Text('हटाएं', style: TextStyle(color: Colors.red, fontSize: 12)),
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: Colors.red),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                  ),
-                                  onPressed: () async {
-                                    await BluetoothPrinterService.forgetPrinter();
-                                    setState(() {
-                                      _btPrinterMac = null;
-                                      _btPrinterName = null;
-                                      _btIsConnected = false;
-                                    });
-                                  },
-                                ),
-                              ElevatedButton.icon(
-                                icon: const Icon(Icons.print, size: 16),
-                                label: const Text('टेस्ट प्रिंट (Slip)'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.teal,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                                onPressed: () async {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('प्रिंटर को टेस्ट प्रिंट भेजा जा रहा है...')),
-                                  );
-                                  final directOk = await BluetoothPrinterService.printTestReceipt(
-                                    currentShop.copyWith(printPaperSize: _paperSize),
-                                  );
-                                  if (directOk && mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        backgroundColor: Colors.green,
-                                        content: Text('✅ टेस्ट प्रिंट सफलतापूर्वक निकल गया!'),
-                                      ),
-                                    );
-                                  } else if (mounted) {
-                                    // Fallback to receipt print
-                                    final testSale = Sale(
-                                      id: 'test-print-${DateTime.now().millisecondsSinceEpoch}',
-                                      shopId: currentShop.id,
-                                      billNo: 101,
-                                      createdAt: DateTime.now(),
-                                      paymentMode: 'cash',
-                                      subtotal: 140.0,
-                                      discount: 0.0,
-                                      total: 140.0,
-                                      paid: 140.0,
-                                      due: 0.0,
-                                      items: [
-                                        CartItem(productId: 'test-1', name: 'चावल (Rice 1kg)', unit: 'kg', price: 90.0, qty: 1),
-                                        CartItem(productId: 'test-2', name: 'चीनी (Sugar 1kg)', unit: 'kg', price: 50.0, qty: 1),
-                                      ],
-                                    );
-                                    await ReceiptPrintService.printReceipt(
-                                      sale: testSale,
-                                      shop: currentShop.copyWith(printPaperSize: _paperSize),
-                                      shopEmail: authProvider.email,
-                                    );
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Clean responsive full-width segmented button for 58mm / 80mm
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'थर्मल पेपर साइज / Thermal Paper Size:',
-                          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(height: 8),
-                        SizedBox(
-                          width: double.infinity,
-                          child: SegmentedButton<String>(
-                            segments: const [
-                              ButtonSegment(
-                                value: '58mm',
-                                icon: Icon(Icons.receipt_outlined, size: 16),
-                                label: Text('58 mm (छोटा रोल)'),
-                              ),
-                              ButtonSegment(
-                                value: '80mm',
-                                icon: Icon(Icons.receipt_long_outlined, size: 16),
-                                label: Text('80 mm (बड़ा रोल)'),
-                              ),
-                            ],
-                            selected: {_paperSize},
-                            onSelectionChanged: (val) {
-                              setState(() => _paperSize = val.first);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: PrinterSettingsService.instance.autoPrintOnPayment,
-                      activeThumbColor: AppColors.primary,
-                      title: const Text(
-                        'D-Mart स्टाइल ऑटो-प्रिंट (Auto-Print on Bill)',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: const Text(
-                        'भुगतान पूरा होते ही थर्मल प्रिंटर से बिल अपने आप बाहर निकलेगा',
-                        style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                      ),
-                      onChanged: authProvider.isStaffSession
-                          ? null
-                          : (val) async {
-                              await PrinterSettingsService.instance.setAutoPrintOnPayment(val);
-                              setState(() {});
-                            },
-                    ),
-                    const SizedBox(height: 10),
-
-                    TextField(
-                      controller: _footerCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'रसीद पर नीचे का संदेश (Receipt Footer)',
-                        prefixIcon: Icon(Icons.format_quote),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    SwitchListTile(
-                      title: const Text('नेगेटिव स्टॉक की अनुमति (Negative Stock)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      subtitle: const Text('स्टॉक 0 होने पर भी बिल बनाने की अनुमति दें', style: TextStyle(fontSize: 11)),
-                      value: _allowNegativeStock,
-                      contentPadding: EdgeInsets.zero,
-                      onChanged: (val) {
-                        SoundService.instance.playButtonClick();
-                        setState(() => _allowNegativeStock = val);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            // 🔊 POS Sound & Haptics Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: const [
-                        Icon(Icons.volume_up_rounded, color: AppColors.primary),
-                        SizedBox(width: 8),
-                        Text(
-                          'साउंड व टच इफेक्ट्स / POS Sound & Haptics',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    const Text(
-                      'बिलिंग काउंटर पर प्रोडक्ट जोड़ने, कीपैड टच करने और बिल पेमेंट पूरा होने पर आवाज़ व वाइब्रेशन पाएं।',
-                      style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                    ),
-                    const SizedBox(height: 10),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('बिलिंग साउंड इफेक्ट्स (Beep & Cash Sound)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      subtitle: Text(
-                        SoundService.instance.isSoundEnabled ? 'चालू (Enabled)' : 'बंद (Muted)',
-                        style: TextStyle(fontSize: 11, color: SoundService.instance.isSoundEnabled ? Colors.green : Colors.grey),
-                      ),
-                      value: SoundService.instance.isSoundEnabled,
-                      onChanged: (val) async {
-                        await SoundService.instance.setSoundEnabled(val);
-                        if (val) {
-                          SoundService.instance.playBeep();
-                        }
-                        setState(() {});
-                      },
-                    ),
-                    if (SoundService.instance.isSoundEnabled) ...[
-                      const Divider(height: 16),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.qr_code_scanner, size: 16),
-                            label: const Text('स्कैनर बीप (Beep)', style: TextStyle(fontSize: 12)),
-                            onPressed: () => SoundService.instance.playBeep(),
-                          ),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.touch_app, size: 16),
-                            label: const Text('कीपैड टैप (Click)', style: TextStyle(fontSize: 12)),
-                            onPressed: () => SoundService.instance.playClick(),
-                          ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green.shade700,
-                              foregroundColor: Colors.white,
-                            ),
-                            icon: const Icon(Icons.monetization_on, size: 16),
-                            label: const Text('बिल सफलता (Cha-Ching)', style: TextStyle(fontSize: 12)),
-                            onPressed: () => SoundService.instance.playSuccess(),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Theme Mode Toggle
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('थीम / Appearance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Center(child: Text('☀️ Light')),
-                            selected: shopProvider.themeMode == ThemeMode.light,
-                            onSelected: (_) => shopProvider.setThemeMode(ThemeMode.light),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Center(child: Text('🌙 Dark')),
-                            selected: shopProvider.themeMode == ThemeMode.dark,
-                            onSelected: (_) => shopProvider.setThemeMode(ThemeMode.dark),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: ChoiceChip(
-                            label: const Center(child: Text('⚙️ Auto')),
-                            selected: shopProvider.themeMode == ThemeMode.system,
-                            onSelected: (_) => shopProvider.setThemeMode(ThemeMode.system),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Double-Layer Storage & Phone Backup Card
-            const _DoubleLayerBackupCard(),
-            const SizedBox(height: 12),
-
-            // App Update Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: const [
-                            Icon(Icons.system_update_alt, color: AppColors.primary),
-                            SizedBox(width: 8),
-                            Text('ऐप अपडेट / App Updates', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: AppColors.primarySurface,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'v${UpdateService.currentVersion}',
-                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'नया अपडेट आने पर ऐप आपको खुद सूचित कर देगा। आप यहाँ से भी जांच सकते हैं।',
-                      style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('Check for Updates (अपडेट जांचें)'),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(40),
-                      ),
-                      onPressed: () {
-                        SoundService.instance.playButtonClick();
-                        UpdateService.showUpdateDialogIfNeeded(context, showIfNoUpdate: true);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            if (!authProvider.isStaffSession) ...[
-              const SizedBox(height: 20),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-              onPressed: () {
-                SoundService.instance.playButtonClick();
-                _saveSettings();
-              },
-              child: const Text('Save All Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            ),
-          ],
-        ],
-      ),
-    ),
-  );
-  }
-}
-
-class _DoubleLayerBackupCard extends StatefulWidget {
-  const _DoubleLayerBackupCard();
-
-  @override
-  State<_DoubleLayerBackupCard> createState() => _DoubleLayerBackupCardState();
-}
-
-class _DoubleLayerBackupCardState extends State<_DoubleLayerBackupCard> {
-  bool _autoBackup = true;
-  bool _busy = false;
-  String? _lastBackupAt;
-  Map<String, dynamic> _stats = const {};
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshStatus();
-  }
-
-  Future<void> _refreshStatus() async {
-    final shopId = mounted
-        ? context.read<ShopProvider>().shop.id
-        : SupabaseService.instance.currentShop.id;
-    final auto = await BackupService.isAutoBackupEnabled();
-    final info = await BackupService.getLastBackupInfo();
-    final stats = await SupabaseService.instance.getLocalStorageStats(shopId);
-    if (!mounted) return;
-    setState(() {
-      _autoBackup = auto;
-      _lastBackupAt = info['lastAt'];
-      _stats = stats;
-    });
-  }
-
-  Future<void> _syncNow() async {
-    final shopId = context.read<ShopProvider>().shop.id;
-    final productProv = context.read<ProductProvider>();
-    final customerProv = context.read<CustomerProvider>();
-    setState(() => _busy = true);
-    try {
-      final flushed = await SupabaseService.instance.flushSyncOutbox(shopId);
-      await productProv.loadProducts(shopId);
-      await customerProv.loadCustomers(shopId);
-      await _refreshStatus();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: AppColors.primary,
-          content: Text(
-            flushed > 0
-                ? 'क्लाउड सिंक पूरा हुआ ($flushed बदलाव अपलोड किए गए) ✓'
-                : 'लोकल SQLite और क्लाउड दोनों डेटा पूरी तरह सिंक हैं ✓',
-          ),
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Sync error: $e'), backgroundColor: AppColors.error),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _exportBackup() async {
-    setState(() => _busy = true);
-    try {
-      final shopProv = context.read<ShopProvider>();
-      final prodProv = context.read<ProductProvider>();
-      final custProv = context.read<CustomerProvider>();
-
-      // Ensure latest sales are read from Local SQLite / Cloud
-      final sales = await SupabaseService.instance.getSales(shopProv.shop.id);
-      final result = await BackupService.exportBackupToPhone(
-        shop: shopProv.shop,
-        products: prodProv.products,
-        customers: custProv.customers,
-        sales: sales,
-        categoriesConfig: prodProv.exportCategoriesConfig(),
-      );
-      await _refreshStatus();
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
-            children: [
-              Icon(Icons.check_circle, color: AppColors.primary),
-              SizedBox(width: 8),
-              Expanded(
-                child: Text('बैकअप फ़ोन में सेव हो गया!',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '• आइटम्स: ${result.productsCount}\n'
-                '• ग्राहक (Khata): ${result.customersCount}\n'
-                '• कुल बिल: ${result.salesCount}',
-                style: const TextStyle(fontSize: 13),
-              ),
-              const SizedBox(height: 10),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  result.path,
-                  style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('ठीक है'),
-            ),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.share, size: 16),
-              label: const Text('Drive / WhatsApp पर भेजें'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                Navigator.pop(ctx);
-                BackupService.shareBackupFile(result.file);
-              },
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.error,
-            content: Text('बैकअप सेव करने में त्रुटि: $e'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _restoreBackup() async {
-    setState(() => _busy = true);
-    try {
-      final snapshot = await BackupService.pickBackupFile();
-      if (snapshot == null || !mounted) {
-        setState(() => _busy = false);
-        return;
-      }
-
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('बैकअप रीस्टोर करें?'),
-          content: Text(
-            'क्या आप इस बैकअप को रीस्टोर करना चाहते हैं?\n\n'
-            '• दुकान: ${snapshot.shop?.name ?? "-"}\n'
-            '• आइटम्स: ${snapshot.products.length}\n'
-            '• ग्राहक: ${snapshot.customers.length}\n'
-            '• बिल: ${snapshot.sales.length}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('रद्द करें'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('रीस्टोर करें'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed != true || !mounted) {
-        setState(() => _busy = false);
-        return;
-      }
-
-      await BackupService.applyBackupSnapshot(snapshot);
-      if (!mounted) return;
-      final shopProv = context.read<ShopProvider>();
-      final prodProv = context.read<ProductProvider>();
-      final custProv = context.read<CustomerProvider>();
-
-      if (snapshot.shop != null) {
-        await shopProv.updateShop(snapshot.shop!.copyWith(id: shopProv.shop.id));
-      }
-      if (snapshot.categoriesConfig.isNotEmpty) {
-        await prodProv.restoreCategoriesConfig(snapshot.categoriesConfig);
-      }
-      await prodProv.loadProducts(shopProv.shop.id);
-      await custProv.loadCustomers(shopProv.shop.id);
-      await _refreshStatus();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            backgroundColor: AppColors.primary,
-            content: Text('बैकअप सफलतापूर्वक रीस्टोर और सिंक हो गया ✓'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            backgroundColor: AppColors.error,
-            content: Text('रीस्टोर त्रुटि: $e'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final pending = (_stats['pendingSyncCount'] as int?) ?? 0;
-    final billsCount = (_stats['salesCount'] as int?) ?? 0;
-    final prodsCount = (_stats['productsCount'] as int?) ?? 0;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.storage_rounded, color: AppColors.primary),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'डबल-लेयर स्टोरेज & फोन बैकअप',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.primarySurface,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    pending > 0 ? '$pending Sync Pending' : 'SQLite + Cloud ✓',
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.bold,
-                      color: pending > 0 ? Colors.orange.shade800 : AppColors.primary,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'आपका सारा डेटा फ़ोन की स्थायी SQLite मेमोरी ($prodsCount आइटम, $billsCount बिल) और Cloud दोनों में सुरक्षित रहता है।',
-              style: const TextStyle(fontSize: 11.5, color: AppColors.lightTextSecondary),
-            ),
-            if (_lastBackupAt != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                'आखिरी फोन बैकअप: ${_lastBackupAt!.split(".").first.replaceAll("T", " ")}',
-                style: const TextStyle(fontSize: 10.5, color: AppColors.lightTextSecondary),
+                ],
               ),
-            ],
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: const Text('ऑटो फोन बैकअप (Auto-Backup)',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              subtitle: const Text('हर बिल या बदलाव पर फ़ोन में सुरक्षित कॉपी अपडेट करें',
-                  style: TextStyle(fontSize: 11)),
-              value: _autoBackup,
-              onChanged: (v) async {
-                await BackupService.setAutoBackupEnabled(v);
-                if (mounted) setState(() => _autoBackup = v);
-              },
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _busy ? null : _exportBackup,
-                    icon: const Icon(Icons.save_alt, size: 16),
-                    label: const Text('बैकअप सेव करें', style: TextStyle(fontSize: 12)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _busy ? null : _restoreBackup,
-                    icon: const Icon(Icons.restore, size: 16),
-                    label: const Text('फ़ाइल से रीस्टोर', style: TextStyle(fontSize: 12)),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _busy ? null : _syncNow,
-              icon: _busy
-                  ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.cloud_sync, size: 16),
-              label: Text(
-                pending > 0
-                    ? 'अभी क्लाउड सिंक करें ($pending बाकी)'
-                    : 'क्लाउड & लोकल सिंक जांचें (Sync Now)',
-                style: const TextStyle(fontSize: 12),
-              ),
-              style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(38)),
             ),
           ],
         ),

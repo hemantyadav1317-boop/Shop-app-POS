@@ -1315,10 +1315,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                           ),
                                           icon: const Icon(Icons.flash_on_rounded, size: 14),
-                                          label: Text('🧪 ₹${upiAmount.toStringAsFixed(2)} टेस्ट पे (Test Auto-Print)', style: const TextStyle(fontSize: 11)),
+                                          label: Text('🧪 ₹${checkoutUpiAmount.toStringAsFixed(2)} टेस्ट पे (Test Auto-Print)', style: const TextStyle(fontSize: 11)),
                                           onPressed: () {
                                             PaymentNotificationService.instance.simulatePayment(
-                                              amount: upiAmount,
+                                              amount: checkoutUpiAmount,
                                               appName: 'PhonePe',
                                             );
                                           },
