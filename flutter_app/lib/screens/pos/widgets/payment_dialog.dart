@@ -61,6 +61,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   String? _detectedPaymentApp;
   String? _detectedUtr;
   Timer? _phonePeTimer;
+  Timer? _qrDebounceTimer;
   int _phonePeRemainingSeconds = 180;
 
   @override
@@ -269,10 +270,46 @@ class _PaymentDialogState extends State<PaymentDialog> {
   void dispose() {
     _phonePeSub?.cancel();
     _phonePeTimer?.cancel();
+    _qrDebounceTimer?.cancel();
     _paymentNotifSub?.cancel();
     _paidController.dispose();
     _upiController.dispose();
     super.dispose();
+  }
+
+  void _onCashChanged(String val, CartProvider cart) {
+    if (_paymentMode != 'split') {
+      setState(() {});
+      return;
+    }
+    final cash = double.tryParse(val.trim()) ?? 0.0;
+    final remainingUpi = math.max(0.0, PaymentQrHelper.round2(cart.total - cash));
+    final formattedUpi = remainingUpi % 1 == 0 ? remainingUpi.toInt().toString() : remainingUpi.toStringAsFixed(2);
+    _upiController.text = formattedUpi;
+    setState(() {});
+    _triggerUpiQrDebounced();
+  }
+
+  void _onUpiChanged(String val, CartProvider cart) {
+    if (_paymentMode != 'split') {
+      setState(() {});
+      return;
+    }
+    final upi = double.tryParse(val.trim()) ?? 0.0;
+    final remainingCash = math.max(0.0, PaymentQrHelper.round2(cart.total - upi));
+    final formattedCash = remainingCash % 1 == 0 ? remainingCash.toInt().toString() : remainingCash.toStringAsFixed(2);
+    _paidController.text = formattedCash;
+    setState(() {});
+    _triggerUpiQrDebounced();
+  }
+
+  void _triggerUpiQrDebounced() {
+    _qrDebounceTimer?.cancel();
+    _qrDebounceTimer = Timer(const Duration(milliseconds: 400), () {
+      if (mounted && (_paymentMode == 'online' || _paymentMode == 'split')) {
+        _initPhonePePayment();
+      }
+    });
   }
 
   void _onModeChanged(String mode) {
@@ -1454,7 +1491,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                 prefixText: '₹ ',
                                 contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                               ),
-                              onChanged: (_) => setState(() {}),
+                              onChanged: (val) => _onCashChanged(val, cart),
                             ),
                           ],
                         ),
@@ -1478,7 +1515,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                   prefixText: '₹ ',
                                   contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                 ),
-                                onChanged: (_) => setState(() {}),
+                                onChanged: (val) => _onUpiChanged(val, cart),
                               ),
                             ],
                           ),
@@ -1586,6 +1623,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   upiPayeeName: shop.upiPayeeName,
                   googleReviewUrl: shop.googleReviewUrl,
                   editCount: cart.isEditingBill ? (cart.editingSale!.editCount + 1) : 0,
+                  showQr: false, // Only 1 live real-time QR code at the top of checkout!
                 ),
                 const SizedBox(height: 12),
               ],

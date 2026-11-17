@@ -453,7 +453,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       keyboardType: TextInputType.phone,
                       decoration: InputDecoration(
                         labelText: 'दुकानदार का मोबाइल नंबर *',
-                        hintText: 'उदा. 9529419047',
+                        hintText: '10-अंकीय मोबाइल नंबर',
                         prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF00875A)),
                         prefixText: '+91 ',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -474,7 +474,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                       decoration: InputDecoration(
                         counterText: '',
                         labelText: '6-अंकीय स्टाफ पिन (Staff PIN) *',
-                        hintText: 'उदा. 666091',
+                        hintText: '6-अंकीय पिन दर्ज करें',
                         prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF00875A)),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         focusedBorder: OutlineInputBorder(
@@ -537,10 +537,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                               if (phoneMatch != null) phone = phoneMatch.group(1)!;
                               final pinMatch = RegExp(r'\b(\d{6})\b').firstMatch(pasted);
                               if (pinMatch != null) pin = pinMatch.group(1)!;
+
+                              if (pin.isEmpty && RegExp(r'^\d{6}$').hasMatch(pasted)) {
+                                pin = pasted;
+                              }
                             }
 
                             if (phone.isEmpty && pin.isEmpty && qr == null) {
-                              setDialogState(() => errorMsg = 'कृपया मोबाइल नंबर और पिन दर्ज करें।');
+                              setDialogState(() => errorMsg = 'कृपया दुकान का मोबाइल नंबर या स्टाफ पिन दर्ज करें।');
+                              return;
+                            }
+                            if (pin.isNotEmpty && pin.length != 6) {
+                              setDialogState(() => errorMsg = 'स्टाफ पिन ठीक 6 अंकों का होना चाहिए।');
                               return;
                             }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
+import '../../core/services/update_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
@@ -25,7 +26,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   // App Version
-  static const String _appVersion = 'V 1.6.1';
+  static String get _appVersion => 'V ${UpdateService.currentVersion}';
 
   void _confirmLogout(BuildContext context) {
     SoundService.instance.playButtonClick();
@@ -746,9 +747,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.fromLTRB(20, 36, 20, 32),
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     _appVersion,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF757575),
                       fontWeight: FontWeight.w500,

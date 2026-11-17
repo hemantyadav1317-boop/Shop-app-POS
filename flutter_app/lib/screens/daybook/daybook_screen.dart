@@ -23,11 +23,22 @@ class DaybookScreen extends StatefulWidget {
 class _DaybookScreenState extends State<DaybookScreen> {
   List<Sale> _todaySales = [];
   List<Expense> _todayExpenses = [];
-  bool _isLoading = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
+    final now = DateTime.now();
+    _todaySales = SupabaseService.instance.currentLocalSales.where((s) {
+      return s.createdAt.year == now.year &&
+          s.createdAt.month == now.month &&
+          s.createdAt.day == now.day;
+    }).toList();
+    _todayExpenses = SupabaseService.instance.currentLocalExpenses.where((e) {
+      return e.spentOn.year == now.year &&
+          e.spentOn.month == now.month &&
+          e.spentOn.day == now.day;
+    }).toList();
     _loadDaybook();
   }
 

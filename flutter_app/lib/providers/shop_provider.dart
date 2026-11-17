@@ -318,4 +318,14 @@ class ShopProvider extends ChangeNotifier {
     await prefs.setString(key, jsonEncode(_shop.toJson()));
     return code;
   }
+
+  Future<void> setCustomShareCode(String code) async {
+    final clean = code.trim();
+    await SupabaseService.instance.updateShopShareCode(_shop.id, clean);
+    _shop = _shop.copyWith(shareCode: clean);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    final key = _shopStorageKey(_currentUserId);
+    await prefs.setString(key, jsonEncode(_shop.toJson()));
+  }
 }

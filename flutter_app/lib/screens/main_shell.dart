@@ -278,43 +278,7 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
-      body: Stack(
-        children: [
-          _screens[_currentIndex],
-          if (isMenuHidden)
-            Positioned(
-              bottom: 16,
-              left: 16,
-              child: Material(
-                elevation: 6,
-                borderRadius: BorderRadius.circular(24),
-                color: AppColors.primary,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(24),
-                  onTap: () => menuVisibility.toggleMenu(),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.menu_rounded, color: Colors.white, size: 18),
-                        SizedBox(width: 6),
-                        Text(
-                          'मेन्यू दिखाएं',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
+      body: _screens[_currentIndex],
       bottomNavigationBar: isMenuHidden
           ? null
           : Container(
@@ -330,27 +294,28 @@ class _MainShellState extends State<MainShell> {
               ),
               child: NavigationBarTheme(
                 data: NavigationBarThemeData(
-                  height: 60,
+                  height: 58,
                   indicatorColor: const Color(0xFFE0F2FE),
                   indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   iconTheme: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.selected)) {
-                      return const IconThemeData(color: Color(0xFF1A4B8E), size: 21);
+                      return const IconThemeData(color: Color(0xFF1A4B8E), size: 20);
                     }
-                    return const IconThemeData(size: 21);
+                    return const IconThemeData(size: 20);
                   }),
                   labelTextStyle: WidgetStateProperty.resolveWith((states) {
                     final isSel = states.contains(WidgetState.selected);
                     return TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 9.5,
                       fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
                       color: isSel ? const Color(0xFF1A4B8E) : null,
-                      letterSpacing: -0.2,
+                      letterSpacing: -0.3,
+                      overflow: TextOverflow.ellipsis,
                     );
                   }),
                 ),
                 child: NavigationBar(
-                  height: 60,
+                  height: 58,
                   elevation: 0,
                   backgroundColor: Colors.transparent,
                   selectedIndex: _currentIndex,

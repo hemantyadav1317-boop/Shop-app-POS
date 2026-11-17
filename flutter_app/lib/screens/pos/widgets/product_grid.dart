@@ -410,22 +410,43 @@ class _ProductGridState extends State<ProductGrid> {
             ? SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.inventory_2_outlined, size: 54, color: Colors.grey),
-                      const SizedBox(height: 10),
-                      Text(
-                        productProvider.searchQuery.isNotEmpty
-                            ? 'No products found for "${productProvider.searchQuery}"'
-                            : (productProvider.products.isEmpty
-                                ? 'दुकान में कोई सामान नहीं है\n(स्टॉक सेक्शन में जाकर सामान जोड़ें)'
-                                : 'इस कैटेगरी में कोई सामान नहीं है'),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.grey, fontSize: 13),
-                      ),
-                    ],
-                  ),
+                  child: productProvider.isLoading && productProvider.products.isEmpty
+                      ? const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(
+                              width: 36,
+                              height: 36,
+                              child: CircularProgressIndicator(strokeWidth: 3, color: Color(0xFF00875A)),
+                            ),
+                            SizedBox(height: 14),
+                            Text(
+                              'दुकान का सामान लोड हो रहा है...',
+                              style: TextStyle(color: Color(0xFF00875A), fontWeight: FontWeight.bold, fontSize: 14),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'कृपया प्रतीक्षा करें',
+                              style: TextStyle(color: Colors.grey, fontSize: 12),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.inventory_2_outlined, size: 54, color: Colors.grey),
+                            const SizedBox(height: 10),
+                            Text(
+                              productProvider.searchQuery.isNotEmpty
+                                  ? 'No products found for "${productProvider.searchQuery}"'
+                                  : (productProvider.products.isEmpty
+                                      ? 'दुकान में कोई सामान नहीं है\n(स्टॉक सेक्शन में जाकर सामान जोड़ें)'
+                                      : 'इस कैटेगरी में कोई सामान नहीं है'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(color: Colors.grey, fontSize: 13),
+                            ),
+                          ],
+                        ),
                 ),
               )
             : SliverPadding(

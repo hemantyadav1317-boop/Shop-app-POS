@@ -864,13 +864,16 @@ class LocalDbService {
 
   // ===================== ATOMIC BILL COUNTERS =====================
 
-  /// Peeks the upcoming bill number without incrementing
+  /// Peeks the upcoming bill number without incrementing.
+  /// Automatically heals 5-digit outlier bugs (> 5000) back to true sequential series.
   Future<int> peekNextBillNo(String shopId) async {
     final db = await _ensureDb();
     if (db == null) {
       try {
         final prefs = await SharedPreferences.getInstance();
-        return (prefs.getInt('shop_last_bill_no_$shopId') ?? 0) + 1;
+        var last = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
+        if (last >= 5000) last = 0;
+        return last + 1;
       } catch (_) {
         return 1;
       }
@@ -880,22 +883,26 @@ class LocalDbService {
       where: 'shop_id = ?',
       whereArgs: [shopId],
     );
-    // Ignore 5-digit millisecond timestamps (> 50,000) that were created by old random fallback bug
+    // Ignore 5-digit millisecond timestamps (> 5,000) that were created by old random fallback bug
     final sRows = await db.rawQuery(
-      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 50000',
+      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 5000',
       [shopId],
     );
     final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
     int current = 0;
     if (rows.isNotEmpty) {
       current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
+      // Auto-heal: If counter was poisoned with 5-digit outlier (> 5000), heal to legitimate sales
+      if (current >= 5000) {
+        current = maxSales;
+      }
     }
     int peekNo = (current > 0) ? (current + 1) : (maxSales + 1);
 
-    // Guarantee candidate number has no collisions with existing sales
+    // Guarantee candidate number has no collisions with legitimate sales (< 5000)
     while (true) {
       final existing = await db.rawQuery(
-        'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? LIMIT 1',
+        'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 5000 LIMIT 1',
         [shopId, peekNo],
       );
       if (existing.isEmpty) break;
@@ -911,7 +918,8 @@ class LocalDbService {
     if (db == null) {
       try {
         final prefs = await SharedPreferences.getInstance();
-        final last = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
+        var last = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
+        if (last >= 5000) last = 0;
         final next = last + 1;
         await prefs.setInt('shop_last_bill_no_$shopId', next);
         return next;
@@ -925,22 +933,26 @@ class LocalDbService {
         where: 'shop_id = ?',
         whereArgs: [shopId],
       );
-      // Ignore 5-digit millisecond timestamps (> 50,000) from old fallback bug
+      // Ignore 5-digit millisecond timestamps (> 5,000) from old fallback bug
       final sRows = await txn.rawQuery(
-        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 50000',
+        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 5000',
         [shopId],
       );
       final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
       int current = 0;
       if (rows.isNotEmpty) {
         current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
+        // Auto-heal if counter was poisoned with > 5000
+        if (current >= 5000) {
+          current = maxSales;
+        }
       }
       int nextNo = (current > 0) ? (current + 1) : (maxSales + 1);
 
-      // Guarantee candidate number has no collisions with existing sales
+      // Guarantee candidate number has no collisions with legitimate sales
       while (true) {
         final existing = await txn.rawQuery(
-          'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? LIMIT 1',
+          'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 5000 LIMIT 1',
           [shopId, nextNo],
         );
         if (existing.isEmpty) break;
@@ -965,6 +977,10 @@ class LocalDbService {
 
   Future<void> setLastBillNo(String shopId, int lastBillNo) async {
     final db = await _ensureDb();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('shop_last_bill_no_$shopId', lastBillNo);
+    } catch (_) {}
     if (db == null) return;
     await db.insert(
       'shop_bill_counters',

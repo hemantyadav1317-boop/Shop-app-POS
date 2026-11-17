@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/backup_service.dart';
 import '../../core/services/payment_notification_service.dart';
@@ -150,6 +152,111 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _generateNewStaffPin(BuildContext context) async {
+    SoundService.instance.playButtonClick();
+    final shopProv = context.read<ShopProvider>();
+    final newCode = await shopProv.generateNewShareCode();
+    SoundService.instance.playSuccess();
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: AppColors.primary,
+          content: Text('✓ नया स्टाफ पिन जारी किया गया: $newCode'),
+        ),
+      );
+    }
+  }
+
+  void _showChangePinDialog(BuildContext context, Shop shop) {
+    SoundService.instance.playButtonClick();
+    final pinCtrl = TextEditingController(text: shop.displayShareCode);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.pin_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text('स्टाफ पिन बदलें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'काउंटर पर स्टाफ या परिवार के लिए 6-अंकीय कस्टम पिन सेट करें:',
+              style: TextStyle(fontSize: 12.5, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: pinCtrl,
+              keyboardType: TextInputType.number,
+              maxLength: 6,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, letterSpacing: 4),
+              decoration: InputDecoration(
+                counterText: '',
+                labelText: '6-अंकीय पिन दर्ज करें *',
+                prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppColors.primary),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('रद्द करें'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+            onPressed: () async {
+              final newPin = pinCtrl.text.trim();
+              if (newPin.length != 6 || int.tryParse(newPin) == null) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(backgroundColor: Colors.red, content: Text('कृपया ठीक 6 अंकों का संख्यात्मक पिन दर्ज करें')),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              await context.read<ShopProvider>().setCustomShareCode(newPin);
+              SoundService.instance.playSuccess();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(backgroundColor: AppColors.primary, content: Text('✓ नया स्टाफ पिन सुरक्षित हो गया: $newPin')),
+                );
+              }
+            },
+            child: const Text('पिन सुरक्षित करें'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _shareStaffAccess(Shop shop) async {
+    SoundService.instance.playButtonClick();
+    final msg = '''🏬 *${shop.name}* में स्टाफ बिलिंग एक्सेस:
+📱 दुकान मोबाइल: ${shop.phone ?? 'दर्ज नहीं'}
+🔑 6-अंकीय स्टाफ पिन: ${shop.displayShareCode}
+🔗 सीधा लॉगिन लिंक: shoppos://pair?phone=${Uri.encodeComponent(shop.phone ?? '')}&pin=${shop.displayShareCode}
+
+ऐप खोलकर 'स्टाफ लॉगिन' में यह मैसेज या पिन डालें और दुकान तुरंत कनेक्ट हो जाएगी!''';
+
+    await Share.share(msg, subject: '${shop.name} Staff Access');
+  }
+
+  Future<void> _copyStaffPin(BuildContext context, String pin) async {
+    SoundService.instance.playButtonClick();
+    await Clipboard.setData(ClipboardData(text: pin));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(backgroundColor: AppColors.primary, content: Text('✓ स्टाफ पिन कॉपी किया गया: $pin')),
+      );
+    }
   }
 
   Future<void> _exportBackupToPhone() async {
@@ -449,19 +556,30 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
                   Text('काउंटर पर भाई, पिताजी या कर्मचारी को केवल बिलिंग अधिकार दें', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                   const SizedBox(height: 14),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('6-Digit Staff PIN:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        Text(
-                          shop.displayShareCode,
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: 2, color: AppColors.primary),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('6-Digit Staff PIN:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 2),
+                            Text(
+                              shop.displayShareCode,
+                              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 22, letterSpacing: 3, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.copy_rounded, size: 20),
+                          tooltip: 'पिन कॉपी करें',
+                          onPressed: () => _copyStaffPin(context, shop.displayShareCode),
                         ),
                       ],
                     ),
@@ -471,8 +589,41 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('नया पिन बनाएं'),
+                          onPressed: () => _generateNewStaffPin(context),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.edit_rounded, size: 18),
+                          label: const Text('पिन बदलें'),
+                          onPressed: () => _showChangePinDialog(context, shop),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF25D366),
+                            foregroundColor: Colors.white,
+                            elevation: 1,
+                          ),
+                          icon: const Icon(Icons.share_rounded, size: 18),
+                          label: const Text('WhatsApp शेयर', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () => _shareStaffAccess(shop),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
                           icon: const Icon(Icons.qr_code_2_rounded, size: 18),
-                          label: const Text('Show Pairing QR'),
+                          label: const Text('Pairing QR'),
                           onPressed: () => _showStaffPairingQrDialog(context, shop),
                         ),
                       ),
