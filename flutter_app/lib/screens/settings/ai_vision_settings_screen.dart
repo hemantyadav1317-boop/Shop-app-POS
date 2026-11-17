@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import '../../core/constants/app_colors.dart';
 import '../../core/services/ai_speech_service.dart';
 import '../../core/services/ai_vision_catalog.dart';
 import '../../core/services/remote_camera_service.dart';

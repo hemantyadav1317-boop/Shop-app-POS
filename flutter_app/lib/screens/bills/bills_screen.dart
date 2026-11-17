@@ -748,11 +748,11 @@ class _BillsScreenState extends State<BillsScreen> {
                 await SupabaseService.instance.updateSale(updatedSale);
                 if (sale.customerId != null && sale.customerId!.isNotEmpty) {
                   try {
-                    await SupabaseService.instance.addCustomerTransaction(
-                      customerId: sale.customerId!,
-                      amount: payAmt,
-                      type: 'payment',
-                      description: 'Bill #${sale.billNo} Settlement',
+                    await context.read<CustomerProvider>().recordPayment(
+                      sale.customerId!,
+                      payAmt,
+                      mode: paymentMethod,
+                      note: 'Bill #${sale.billNo} Settlement',
                     );
                   } catch (_) {}
                 }
