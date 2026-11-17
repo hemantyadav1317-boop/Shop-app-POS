@@ -225,7 +225,7 @@ class _PosScreenState extends State<PosScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-      bottomNavigationBar: _buildBottomTabBar(isDark, cart),
+      bottomNavigationBar: isTablet ? null : _buildBottomTabBar(isDark, cart),
       body: SafeArea(
         top: true,
         child: Stack(
@@ -387,6 +387,39 @@ class _PosScreenState extends State<PosScreen> {
                               );
                             },
                           ),
+                          if (isTablet) ...[
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.all(3),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildTabletHeaderTab(
+                                    index: 0,
+                                    label: 'Sale',
+                                    icon: Icons.storefront_rounded,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  _buildTabletHeaderTab(
+                                    index: 1,
+                                    label: 'Quick Sale',
+                                    icon: Icons.flash_on_rounded,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  _buildTabletHeaderTab(
+                                    index: 2,
+                                    label: 'Saved (${cart.savedCarts.length})',
+                                    icon: Icons.bookmark_rounded,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                           const SizedBox(width: 8),
                           Consumer<AiVisionProvider>(
                             builder: (context, aiProvider, _) {
@@ -655,6 +688,48 @@ class _PosScreenState extends State<PosScreen> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildTabletHeaderTab({
+    required int index,
+    required String label,
+    required IconData icon,
+  }) {
+    final isSelected = _activeTab == index;
+    return InkWell(
+      onTap: () {
+        SoundService.instance.playButtonClick();
+        setState(() => _activeTab = index);
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF4ADE80) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isSelected ? const Color(0xFF022C16) : Colors.white70,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? const Color(0xFF022C16) : Colors.white,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                fontSize: 11.5,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

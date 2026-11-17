@@ -145,93 +145,132 @@ class _MainShellState extends State<MainShell> {
 
     if (isTablet) {
       return Scaffold(
-        body: Row(
+        body: Stack(
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: isMenuHidden ? 52 : 84,
-              child: NavigationRail(
-                selectedIndex: _currentIndex,
-                onDestinationSelected: _onNavigationChanged,
-                minWidth: isMenuHidden ? 52 : 84,
-                labelType: isMenuHidden
-                    ? NavigationRailLabelType.none
-                    : NavigationRailLabelType.all,
-                leading: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(10),
+            Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  width: isMenuHidden ? 0 : 84,
+                  child: ClipRect(
+                    child: OverflowBox(
+                      minWidth: 84,
+                      maxWidth: 84,
+                      alignment: Alignment.centerLeft,
+                      child: NavigationRail(
+                        selectedIndex: _currentIndex,
+                        onDestinationSelected: _onNavigationChanged,
+                        minWidth: 84,
+                        labelType: NavigationRailLabelType.all,
+                        leading: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(7),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.storefront, color: Colors.white, size: 22),
+                              ),
+                              const SizedBox(height: 8),
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.fullscreen_rounded,
+                                  size: 20,
+                                  color: AppColors.primary,
+                                ),
+                                tooltip: 'फुलस्क्रीन (Hide Menu)',
+                                onPressed: () => menuVisibility.toggleMenu(),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Icon(Icons.storefront, color: Colors.white, size: 22),
-                      ),
-                      const SizedBox(height: 8),
-                      IconButton(
-                        icon: Icon(
-                          isMenuHidden
-                              ? Icons.chevron_right_rounded
-                              : Icons.chevron_left_rounded,
-                          size: 20,
+                        selectedIconTheme: const IconThemeData(color: AppColors.primary),
+                        selectedLabelTextStyle: const TextStyle(
                           color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
                         ),
-                        tooltip: isMenuHidden
-                            ? 'मेन्यू फैलाएं (Expand Menu)'
-                            : 'मेन्यू सिकोड़ें (Collapse Menu)',
-                        onPressed: () => menuVisibility.toggleMenu(),
+                        unselectedLabelTextStyle: const TextStyle(
+                          color: AppColors.lightTextSecondary,
+                          fontSize: 11,
+                        ),
+                        destinations: const [
+                          NavigationRailDestination(
+                            icon: Icon(Icons.point_of_sale_outlined),
+                            selectedIcon: Icon(Icons.point_of_sale),
+                            label: Text('Billing'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.receipt_long_outlined),
+                            selectedIcon: Icon(Icons.receipt_long),
+                            label: Text('Bills'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.people_outline),
+                            selectedIcon: Icon(Icons.people),
+                            label: Text('Khata'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.inventory_2_outlined),
+                            selectedIcon: Icon(Icons.inventory_2),
+                            label: Text('Stock'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.account_balance_wallet_outlined),
+                            selectedIcon: Icon(Icons.account_balance_wallet),
+                            label: Text('Daybook'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.settings_outlined),
+                            selectedIcon: Icon(Icons.settings),
+                            label: Text('Settings'),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
-                selectedIconTheme: const IconThemeData(color: AppColors.primary),
-                selectedLabelTextStyle: const TextStyle(
-                  color: AppColors.primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 11,
-                ),
-                unselectedLabelTextStyle: const TextStyle(
-                  color: AppColors.lightTextSecondary,
-                  fontSize: 11,
-                ),
-                destinations: const [
-                  NavigationRailDestination(
-                    icon: Icon(Icons.point_of_sale_outlined),
-                    selectedIcon: Icon(Icons.point_of_sale),
-                    label: Text('Billing'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.receipt_long_outlined),
-                    selectedIcon: Icon(Icons.receipt_long),
-                    label: Text('Bills'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.people_outline),
-                    selectedIcon: Icon(Icons.people),
-                    label: Text('Khata'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.inventory_2_outlined),
-                    selectedIcon: Icon(Icons.inventory_2),
-                    label: Text('Stock'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.account_balance_wallet_outlined),
-                    selectedIcon: Icon(Icons.account_balance_wallet),
-                    label: Text('Daybook'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.settings_outlined),
-                    selectedIcon: Icon(Icons.settings),
-                    label: Text('Settings'),
-                  ),
-                ],
-              ),
+                if (!isMenuHidden)
+                  VerticalDivider(width: 1, color: Theme.of(context).dividerColor),
+                Expanded(child: _screens[_currentIndex]),
+              ],
             ),
-            VerticalDivider(width: 1, color: Theme.of(context).dividerColor),
-            Expanded(child: _screens[_currentIndex]),
+            if (isMenuHidden)
+              Positioned(
+                bottom: 16,
+                left: 16,
+                child: Material(
+                  elevation: 6,
+                  borderRadius: BorderRadius.circular(24),
+                  color: AppColors.primary,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(24),
+                    onTap: () => menuVisibility.toggleMenu(),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.menu_rounded, color: Colors.white, size: 18),
+                          SizedBox(width: 6),
+                          Text(
+                            'मेन्यू दिखाएं',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       );

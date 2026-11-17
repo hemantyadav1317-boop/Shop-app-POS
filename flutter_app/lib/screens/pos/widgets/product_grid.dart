@@ -475,8 +475,8 @@ class _ProductGridState extends State<ProductGrid> {
                           mainAxisSpacing: 6,
                         )
                       : const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 145,
-                          childAspectRatio: 0.86,
+                          maxCrossAxisExtent: 130,
+                          childAspectRatio: 0.88,
                           crossAxisSpacing: 8,
                           mainAxisSpacing: 8,
                         ),
