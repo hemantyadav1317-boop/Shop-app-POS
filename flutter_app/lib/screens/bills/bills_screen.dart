@@ -767,60 +767,29 @@ class _BillsScreenState extends State<BillsScreen> {
     );
   }
 
-  void _showPaymentFilterSheet() {
-    SoundService.instance.playButtonClick();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text('Filter by Payment Mode', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 14),
-              _buildFilterOption(ctx, 'all', 'All Bills (सभी बिल)', Icons.receipt_long),
-              _buildFilterOption(ctx, 'cash', 'Cash (नकद)', Icons.payments_outlined),
-              _buildFilterOption(ctx, 'online', 'UPI Online (ऑनलाइन)', Icons.qr_code_2),
-              _buildFilterOption(ctx, 'credit', 'Unsettled / Credit (उधार बाकी)', Icons.book_outlined),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterOption(BuildContext ctx, String key, String title, IconData icon) {
+  PopupMenuItem<String> _buildFilterPopupItem(String key, String title, IconData icon, bool isDark) {
     final isSelected = _filter == key;
-    final isDark = Theme.of(ctx).brightness == Brightness.dark;
-
-    return ListTile(
-      leading: Icon(icon, color: isSelected ? AppColors.primary : Colors.grey),
-      title: Text(
-        title,
-        style: TextStyle(
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          color: isSelected ? AppColors.primary : (isDark ? Colors.white : Colors.black87),
-        ),
+    return PopupMenuItem<String>(
+      value: key,
+      height: 42,
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: isSelected ? AppColors.primary : Colors.grey),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? AppColors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
+              ),
+            ),
+          ),
+          if (isSelected)
+            const Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
+        ],
       ),
-      trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppColors.primary) : null,
-      onTap: () {
-        setState(() => _filter = key);
-        Navigator.pop(ctx);
-      },
     );
   }
 
@@ -1251,13 +1220,33 @@ class _BillsScreenState extends State<BillsScreen> {
                       tooltip: 'Search',
                       onPressed: () => setState(() => _showSearch = !_showSearch),
                     ),
-                    IconButton(
+                    PopupMenuButton<String>(
+                      tooltip: 'Payment Filter',
+                      offset: const Offset(0, 44),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                      ),
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      elevation: 6,
+                      initialValue: _filter,
                       icon: Icon(
                         Icons.tune_rounded,
                         color: _filter != 'all' ? AppColors.primary : (isDark ? Colors.white70 : const Color(0xFF64748B)),
                       ),
-                      tooltip: 'Payment Filter',
-                      onPressed: _showPaymentFilterSheet,
+                      onSelected: (key) {
+                        SoundService.instance.playButtonClick();
+                        setState(() => _filter = key);
+                      },
+                      itemBuilder: (ctx) => [
+                        _buildFilterPopupItem('all', 'All Bills (सभी बिल)', Icons.receipt_long, isDark),
+                        const PopupMenuDivider(height: 1),
+                        _buildFilterPopupItem('cash', 'Cash (नकद बिल)', Icons.payments_outlined, isDark),
+                        const PopupMenuDivider(height: 1),
+                        _buildFilterPopupItem('online', 'UPI Online (ऑनलाइन बिल)', Icons.qr_code_2, isDark),
+                        const PopupMenuDivider(height: 1),
+                        _buildFilterPopupItem('credit', 'Unsettled / Credit (उधार बाकी)', Icons.book_outlined, isDark),
+                      ],
                     ),
                     IconButton(
                       icon: Icon(Icons.file_download_outlined, color: isDark ? Colors.white70 : const Color(0xFF64748B)),

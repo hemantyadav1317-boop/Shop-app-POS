@@ -252,6 +252,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final pasteCtrl = TextEditingController();
     String selectedRole = 'कैशियर';
     bool isLoading = false;
+    bool obscurePin = true;
     String? errorMsg;
     int activeTab = 0; // 0 = Phone + PIN, 1 = Quick Paste
 
@@ -259,375 +260,798 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       context: context,
       barrierDismissible: !isLoading,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00875A).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+        builder: (ctx, setDialogState) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 420),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 28,
+                  offset: const Offset(0, 12),
                 ),
-                child: const Icon(Icons.badge_outlined, color: Color(0xFF00875A), size: 22),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'स्टाफ लॉगिन (Staff Login)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    Text(
-                      '5-Layer सुरक्षित दुकान एक्सेस',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Tab Switcher
+                  // 1. Top Store Branding Header matching Mockup
                   Container(
-                    margin: const EdgeInsets.only(bottom: 14),
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    color: Colors.white,
                     child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setDialogState(() {
-                              activeTab = 0;
-                              errorMsg = null;
-                            }),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 7),
-                              decoration: BoxDecoration(
-                                color: activeTab == 0 ? Colors.white : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: activeTab == 0
-                                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))]
-                                    : null,
+                        // Storefront shopping cart icon badge
+                        Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF2563EB).withValues(alpha: 0.28),
+                                blurRadius: 8,
+                                offset: const Offset(0, 3),
                               ),
-                              child: Center(
-                                child: Text(
-                                  '📱 मोबाइल व पिन',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: activeTab == 0 ? FontWeight.bold : FontWeight.normal,
-                                    color: activeTab == 0 ? const Color(0xFF00875A) : Colors.grey.shade700,
-                                  ),
-                                ),
+                            ],
+                          ),
+                          child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Container(
+                          width: 1.5,
+                          height: 36,
+                          color: const Color(0xFFE2E8F0),
+                        ),
+                        const SizedBox(width: 14),
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'मेरी दुकान',
+                              style: TextStyle(
+                                fontSize: 19,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF0F172A),
+                                letterSpacing: 0.2,
                               ),
                             ),
+                            SizedBox(height: 1),
+                            Text(
+                              'स्मार्ट दुकान, स्मार्ट प्रबंधन',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // 2. Curved Light Sky-Blue Avatar Banner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFEBF5FF), Color(0xFFDBEAFE)],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        // Avatar with Shield Badge and side accent lines
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF93C5FD),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 78,
+                              height: 78,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  // Circular Staff Avatar
+                                  Container(
+                                    width: 72,
+                                    height: 72,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: const Color(0xFFE0F2FE),
+                                      border: Border.all(color: Colors.white, width: 3),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(0xFF0284C7).withValues(alpha: 0.22),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.person_rounded,
+                                      size: 46,
+                                      color: Color(0xFF0284C7),
+                                    ),
+                                  ),
+                                  // Verified Shield Badge
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 2,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.white,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(3),
+                                        decoration: const BoxDecoration(
+                                          color: Color(0xFF0284C7),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.verified_rounded,
+                                          color: Colors.white,
+                                          size: 13,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              width: 36,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF93C5FD),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        // Title & Subtitle
+                        const Text(
+                          'स्टाफ़ लॉगिन',
+                          style: TextStyle(
+                            fontSize: 21,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFF0F172A),
+                            letterSpacing: 0.3,
                           ),
                         ),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setDialogState(() {
-                              activeTab = 1;
-                              errorMsg = null;
-                            }),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 7),
-                              decoration: BoxDecoration(
-                                color: activeTab == 1 ? Colors.white : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                                boxShadow: activeTab == 1
-                                    ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))]
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  '📋 लिंक/कोड पेस्ट',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: activeTab == 1 ? FontWeight.bold : FontWeight.normal,
-                                    color: activeTab == 1 ? const Color(0xFF00875A) : Colors.grey.shade700,
-                                  ),
-                                ),
-                              ),
-                            ),
+                        const SizedBox(height: 3),
+                        const Text(
+                          'कृपया अपनी जानकारी भरकर लॉगिन करें',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF64748B),
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
                     ),
                   ),
 
-                  if (errorMsg != null)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.red, size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              errorMsg!,
-                              style: const TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.w600),
-                            ),
+                  // 3. Form Body
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Tab Switcher (Direct vs Paste)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          padding: const EdgeInsets.all(3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                        ],
-                      ),
-                    ),
-
-                  // 1. Staff Personal Identity Fields (Name & Role)
-                  TextField(
-                    controller: staffNameCtrl,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      labelText: 'स्टाफ का नाम (Your Name) *',
-                      hintText: 'उदा. राहुल कुमार / सीमा जी',
-                      prefixIcon: const Icon(Icons.person_outline_rounded, color: Color(0xFF00875A)),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  DropdownButtonFormField<String>(
-                    value: selectedRole,
-                    decoration: InputDecoration(
-                      labelText: 'स्टाफ का पद / Role *',
-                      prefixIcon: const Icon(Icons.badge_outlined, color: Color(0xFF00875A)),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
-                      ),
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'कैशियर',
-                        child: Text('कैशियर (Billing / Cashier)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'सेल्समैन',
-                        child: Text('सेल्समैन (Salesman)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'स्टोर मैनेजर',
-                        child: Text('स्टोर मैनेजर (Store Manager)'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'हेल्पर',
-                        child: Text('हेल्पर (Helper)'),
-                      ),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) {
-                        setDialogState(() => selectedRole = val);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-
-                  if (activeTab == 0) ...[
-                    // Shop Mobile Number
-                    TextField(
-                      controller: phoneCtrl,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: 'दुकानदार का मोबाइल नंबर *',
-                        hintText: '10-अंकीय मोबाइल नंबर',
-                        prefixIcon: const Icon(Icons.phone_android_rounded, color: Color(0xFF00875A)),
-                        prefixText: '+91 ',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // 6-digit Staff PIN
-                    TextField(
-                      controller: pinCtrl,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, letterSpacing: 3),
-                      decoration: InputDecoration(
-                        counterText: '',
-                        labelText: '6-अंकीय स्टाफ पिन (Staff PIN) *',
-                        hintText: '6-अंकीय पिन दर्ज करें',
-                        prefixIcon: const Icon(Icons.lock_outline_rounded, color: Color(0xFF00875A)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    // Paste Payload / WhatsApp Link
-                    TextField(
-                      controller: pasteCtrl,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        labelText: 'WhatsApp शेयर मैसेज या कोड पेस्ट करें',
-                        hintText: 'दुकानदार द्वारा भेजा गया WhatsApp मैसेज या कोड यहाँ पेस्ट करें...',
-                        prefixIcon: const Icon(Icons.paste_rounded, color: Color(0xFF00875A)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: Color(0xFF00875A), width: 2),
-                        ),
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 18),
-
-                  // Submit Button
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00875A),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
-                    ),
-                    onPressed: isLoading
-                        ? null
-                        : () async {
-                            final staffName = staffNameCtrl.text.trim();
-                            if (staffName.isEmpty) {
-                              setDialogState(() => errorMsg = 'कृपया अपना नाम (स्टाफ का नाम) दर्ज करें।');
-                              return;
-                            }
-
-                            String phone = phoneCtrl.text.trim();
-                            String pin = pinCtrl.text.trim();
-                            String? qr;
-
-                            if (activeTab == 1) {
-                              final pasted = pasteCtrl.text.trim();
-                              if (pasted.isEmpty) {
-                                setDialogState(() => errorMsg = 'कृपया शेयर किया गया मैसेज या कोड पेस्ट करें।');
-                                return;
-                              }
-                              qr = pasted;
-                              // Auto-extract phone and pin if possible
-                              final phoneMatch = RegExp(r'(?:91)?([6-9]\d{9})').firstMatch(pasted);
-                              if (phoneMatch != null) phone = phoneMatch.group(1)!;
-                              final pinMatch = RegExp(r'\b(\d{6})\b').firstMatch(pasted);
-                              if (pinMatch != null) pin = pinMatch.group(1)!;
-
-                              if (pin.isEmpty && RegExp(r'^\d{6}$').hasMatch(pasted)) {
-                                pin = pasted;
-                              }
-                            }
-
-                            if (phone.isEmpty && pin.isEmpty && qr == null) {
-                              setDialogState(() => errorMsg = 'कृपया दुकान का मोबाइल नंबर या स्टाफ पिन दर्ज करें।');
-                              return;
-                            }
-                            if (pin.isNotEmpty && pin.length != 6) {
-                              setDialogState(() => errorMsg = 'स्टाफ पिन ठीक 6 अंकों का होना चाहिए।');
-                              return;
-                            }
-
-                            setDialogState(() {
-                              isLoading = true;
-                              errorMsg = null;
-                            });
-
-                            try {
-                              final auth = context.read<AuthProvider>();
-                              await auth.setStaffSession(
-                                staffName: staffName,
-                                staffRole: selectedRole,
-                              );
-
-                              final shopProv = context.read<ShopProvider>();
-                              final joined = await shopProv.joinShopAsStaff(
-                                phone: phone,
-                                pin: pin,
-                                qrPayload: qr,
-                                staffName: staffName,
-                                staffRole: selectedRole,
-                              );
-
-                              if (context.mounted) {
-                                await context.read<ProductProvider>().loadProducts(joined.id);
-                                if (context.mounted) {
-                                  await context.read<CustomerProvider>().loadCustomers(joined.id);
-                                  await SupabaseService.instance.getSales(joined.id);
-
-                                  final prefs = await SharedPreferences.getInstance();
-                                  await prefs.setBool('setup_done_guest', true);
-                                  await prefs.setString('selected_store_type', joined.storeType);
-
-                                  Navigator.pop(ctx);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      backgroundColor: const Color(0xFF00875A),
-                                      content: Text('दुकान "${joined.name}" से $staffName ($selectedRole) के रूप में जुड़ गए!'),
-                                    ),
-                                  );
-
-                                  // Direct jump to POS Shell (NEVER BusinessSetupScreen)
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(builder: (_) => const MainShell()),
-                                  );
-                                }
-                              }
-                            } catch (e) {
-                              setDialogState(() {
-                                isLoading = false;
-                                errorMsg = e.toString().replaceFirst('Exception: ', '');
-                              });
-                            }
-                          },
-                    child: isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+                          child: Row(
                             children: [
-                              Icon(Icons.login_rounded, size: 18),
-                              SizedBox(width: 8),
-                              Text(
-                                'दुकान खोलें (Login as Staff)',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => setDialogState(() {
+                                    activeTab = 0;
+                                    errorMsg = null;
+                                  }),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: activeTab == 0 ? Colors.white : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: activeTab == 0
+                                          ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))]
+                                          : null,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '📱 मोबाइल व पिन',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: activeTab == 0 ? FontWeight.bold : FontWeight.normal,
+                                          color: activeTab == 0 ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => setDialogState(() {
+                                    activeTab = 1;
+                                    errorMsg = null;
+                                  }),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: activeTab == 1 ? Colors.white : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(8),
+                                      boxShadow: activeTab == 1
+                                          ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 4, offset: const Offset(0, 2))]
+                                          : null,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        '📋 लिंक/कोड पेस्ट',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: activeTab == 1 ? FontWeight.bold : FontWeight.normal,
+                                          color: activeTab == 1 ? const Color(0xFF2563EB) : const Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
-                  ),
+                        ),
 
-                  const SizedBox(height: 6),
-                  TextButton(
-                    onPressed: isLoading ? null : () => Navigator.pop(ctx),
-                    child: const Text('रद्द करें (Cancel)', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                        if (errorMsg != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    errorMsg!,
+                                    style: const TextStyle(fontSize: 11.5, color: Colors.red, fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        if (activeTab == 0) ...[
+                          // Card 1: दुकान का मोबाइल नंबर (+91)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.phone_rounded, color: Color(0xFF2563EB), size: 19),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'दुकान का मोबाइल नंबर',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                      ),
+                                      TextField(
+                                        controller: phoneCtrl,
+                                        keyboardType: TextInputType.phone,
+                                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                          hintText: 'अपनी दुकान का मोबाइल नंबर दर्ज करें',
+                                          hintStyle: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                                          border: InputBorder.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '+91',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                      ),
+                                      Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: Color(0xFF64748B)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Card 2: स्टाफ़ का नाम (Staff Name - Replaced duplicate shop mobile!)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.person_rounded, color: Color(0xFF2563EB), size: 19),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'स्टाफ़ का नाम',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                      ),
+                                      TextField(
+                                        controller: staffNameCtrl,
+                                        textCapitalization: TextCapitalization.words,
+                                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                          hintText: 'अपना नाम दर्ज करें (उदा. राहुल कुमार)',
+                                          hintStyle: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                                          border: InputBorder.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Card 3: आपका PIN (with eye toggle)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.lock_rounded, color: Color(0xFF2563EB), size: 19),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'आपका PIN',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                      ),
+                                      TextField(
+                                        controller: pinCtrl,
+                                        keyboardType: TextInputType.number,
+                                        obscureText: obscurePin,
+                                        maxLength: 6,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 2,
+                                          color: Color(0xFF0F172A),
+                                        ),
+                                        decoration: const InputDecoration(
+                                          counterText: '',
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                          hintText: '4 या 6 अंकों का PIN दर्ज करें',
+                                          hintStyle: TextStyle(fontSize: 11.5, letterSpacing: 0, color: Color(0xFF94A3B8)),
+                                          border: InputBorder.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(
+                                    obscurePin ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                                    color: const Color(0xFF64748B),
+                                    size: 20,
+                                  ),
+                                  onPressed: () => setDialogState(() => obscurePin = !obscurePin),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Card 4: स्टाफ़ पोज़ीशन (Role Dropdown)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.work_rounded, color: Color(0xFF2563EB), size: 19),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'स्टाफ़ पोज़ीशन',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                      ),
+                                      DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          value: selectedRole,
+                                          isExpanded: true,
+                                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Color(0xFF64748B), size: 20),
+                                          style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: 'कैशियर',
+                                              child: Text('कैशियर (Billing / Cashier)'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'सेल्समैन',
+                                              child: Text('सेल्समैन (Salesman)'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'स्टोर मैनेजर',
+                                              child: Text('स्टोर मैनेजर (Store Manager)'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'हेल्पर',
+                                              child: Text('हेल्पर (Helper)'),
+                                            ),
+                                          ],
+                                          onChanged: (val) {
+                                            if (val != null) {
+                                              setDialogState(() => selectedRole = val);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ] else ...[
+                          // Quick Paste Field for WhatsApp Link or Join Code
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Row(
+                                  children: [
+                                    Icon(Icons.paste_rounded, color: Color(0xFF2563EB), size: 18),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'WhatsApp शेयर मैसेज या कोड पेस्ट करें',
+                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                TextField(
+                                  controller: pasteCtrl,
+                                  maxLines: 3,
+                                  style: const TextStyle(fontSize: 12.5),
+                                  decoration: const InputDecoration(
+                                    hintText: 'दुकानदार द्वारा भेजा गया WhatsApp मैसेज या कोड यहाँ पेस्ट करें...',
+                                    hintStyle: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                                    border: InputBorder.none,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          // Card for Staff Name in Paste Mode
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.person_rounded, color: Color(0xFF2563EB), size: 19),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'स्टाफ़ का नाम',
+                                        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                      ),
+                                      TextField(
+                                        controller: staffNameCtrl,
+                                        textCapitalization: TextCapitalization.words,
+                                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF0F172A)),
+                                        decoration: const InputDecoration(
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(vertical: 4),
+                                          hintText: 'अपना नाम दर्ज करें (उदा. राहुल कुमार)',
+                                          hintStyle: TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                                          border: InputBorder.none,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        const SizedBox(height: 18),
+
+                        // Vibrant Blue Action Button [ → लॉगिन करें ] matching Mockup
+                        SizedBox(
+                          height: 50,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF2563EB),
+                              foregroundColor: Colors.white,
+                              elevation: 3,
+                              shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
+                            onPressed: isLoading
+                                ? null
+                                : () async {
+                                    final staffName = staffNameCtrl.text.trim();
+                                    if (staffName.isEmpty) {
+                                      setDialogState(() => errorMsg = 'कृपया अपना नाम (स्टाफ़ का नाम) दर्ज करें।');
+                                      return;
+                                    }
+
+                                    String phone = phoneCtrl.text.trim();
+                                    String pin = pinCtrl.text.trim();
+                                    String? qr;
+
+                                    if (activeTab == 1) {
+                                      final pasted = pasteCtrl.text.trim();
+                                      if (pasted.isEmpty) {
+                                        setDialogState(() => errorMsg = 'कृपया शेयर किया गया मैसेज या कोड पेस्ट करें।');
+                                        return;
+                                      }
+                                      qr = pasted;
+                                      final phoneMatch = RegExp(r'(?:91)?([6-9]\d{9})').firstMatch(pasted);
+                                      if (phoneMatch != null) phone = phoneMatch.group(1)!;
+                                      final pinMatch = RegExp(r'\b(\d{4,6})\b').firstMatch(pasted);
+                                      if (pinMatch != null) pin = pinMatch.group(1)!;
+
+                                      if (pin.isEmpty && RegExp(r'^\d{4,6}$').hasMatch(pasted)) {
+                                        pin = pasted;
+                                      }
+                                    }
+
+                                    if (phone.isEmpty && pin.isEmpty && qr == null) {
+                                      setDialogState(() => errorMsg = 'कृपया दुकान का मोबाइल नंबर या स्टाफ़ पिन दर्ज करें।');
+                                      return;
+                                    }
+                                    if (pin.isNotEmpty && pin.length < 4) {
+                                      setDialogState(() => errorMsg = 'स्टाफ़ पिन कम से कम 4 अंकों का होना चाहिए।');
+                                      return;
+                                    }
+
+                                    setDialogState(() {
+                                      isLoading = true;
+                                      errorMsg = null;
+                                    });
+
+                                    try {
+                                      final auth = context.read<AuthProvider>();
+                                      await auth.setStaffSession(
+                                        staffName: staffName,
+                                        staffRole: selectedRole,
+                                      );
+
+                                      final shopProv = context.read<ShopProvider>();
+                                      final joined = await shopProv.joinShopAsStaff(
+                                        phone: phone,
+                                        pin: pin,
+                                        qrPayload: qr,
+                                        staffName: staffName,
+                                        staffRole: selectedRole,
+                                      );
+
+                                      if (context.mounted) {
+                                        await context.read<ProductProvider>().loadProducts(joined.id);
+                                        if (context.mounted) {
+                                          await context.read<CustomerProvider>().loadCustomers(joined.id);
+                                          await SupabaseService.instance.getSales(joined.id);
+
+                                          final prefs = await SharedPreferences.getInstance();
+                                          await prefs.setBool('setup_done_guest', true);
+                                          await prefs.setString('selected_store_type', joined.storeType);
+
+                                          Navigator.pop(ctx);
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              backgroundColor: const Color(0xFF2563EB),
+                                              content: Text('दुकान "${joined.name}" से $staffName ($selectedRole) के रूप में जुड़ गए!'),
+                                            ),
+                                          );
+
+                                          Navigator.pushReplacement(
+                                            context,
+                                            MaterialPageRoute(builder: (_) => const MainShell()),
+                                          );
+                                        }
+                                      }
+                                    } catch (e) {
+                                      setDialogState(() {
+                                        isLoading = false;
+                                        errorMsg = e.toString().replaceFirst('Exception: ', '');
+                                      });
+                                    }
+                                  },
+                            child: isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.arrow_forward_rounded, size: 20),
+                                      SizedBox(width: 8),
+                                      Text(
+                                        'लॉगिन करें',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // 4. Footer Trust Badge matching Mockup
+                        Row(
+                          children: [
+                            const Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(3),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEFF6FF),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: const Color(0xFFBFDBFE)),
+                                    ),
+                                    child: const Icon(Icons.shield_rounded, color: Color(0xFF2563EB), size: 14),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'सुरक्षित और विश्वसनीय प्रणाली',
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Color(0xFF64748B),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Expanded(child: Divider(color: Color(0xFFE2E8F0), thickness: 1)),
+                          ],
+                        ),
+
+                        const SizedBox(height: 8),
+                        Center(
+                          child: TextButton(
+                            onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                            child: const Text('रद्द करें (Cancel)', style: TextStyle(color: Color(0xFF64748B), fontSize: 13)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),

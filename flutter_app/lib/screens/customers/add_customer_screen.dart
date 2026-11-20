@@ -10,7 +10,14 @@ import '../../providers/customer_provider.dart';
 import '../../providers/shop_provider.dart';
 
 class AddCustomerScreen extends StatefulWidget {
-  const AddCustomerScreen({super.key});
+  final String? initialName;
+  final String? initialPhone;
+
+  const AddCustomerScreen({
+    super.key,
+    this.initialName,
+    this.initialPhone,
+  });
 
   @override
   State<AddCustomerScreen> createState() => _AddCustomerScreenState();
@@ -18,8 +25,8 @@ class AddCustomerScreen extends StatefulWidget {
 
 class _AddCustomerScreenState extends State<AddCustomerScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
+  late final TextEditingController _phoneCtrl;
+  late final TextEditingController _nameCtrl;
   final _emailCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _gstCtrl = TextEditingController();
@@ -30,6 +37,13 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
   bool _isSaving = false;
 
   final List<String> _genderOptions = ['Not Given', 'Male', 'Female', 'Other'];
+
+  @override
+  void initState() {
+    super.initState();
+    _phoneCtrl = TextEditingController(text: widget.initialPhone ?? '');
+    _nameCtrl = TextEditingController(text: widget.initialName ?? '');
+  }
 
   @override
   void dispose() {

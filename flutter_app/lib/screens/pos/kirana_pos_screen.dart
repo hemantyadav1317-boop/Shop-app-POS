@@ -337,6 +337,67 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
     );
   }
 
+  // 🖥️ Compact Utility Bar in Fullscreen Mode for Kirana POS (Preserves Scale & Exit button)
+  Widget _buildCompactFullscreenBar(
+    BuildContext context,
+    bool isDark,
+    CartProvider cart,
+    MenuVisibilityProvider menuProv,
+  ) {
+    return Container(
+      height: 42,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : const Color(0xFF042F1B),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.eco_rounded, color: Color(0xFF4ADE80), size: 18),
+          const SizedBox(width: 6),
+          const Text(
+            'Vegetable Mode',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+          const Spacer(),
+          // ⚖️ Electronic Weighing Scale Status Pill
+          _buildWeighingScalePill(context),
+          const SizedBox(width: 8),
+          // Exit Fullscreen Button
+          InkWell(
+            onTap: () {
+              SoundService.instance.playButtonClick();
+              menuProv.toggleMenu();
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.fullscreen_exit_rounded,
+                color: Color(0xFFFDE68A),
+                size: 17,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildScanAndSearchBar(bool isDark) {
     return Column(
       children: [
@@ -549,7 +610,10 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
         body: SafeArea(
           child: Column(
             children: [
-              if (!menuProv.isMenuHidden) _buildHeader(shop, cart, isDark),
+              if (!menuProv.isMenuHidden)
+                _buildHeader(shop, cart, isDark)
+              else
+                _buildCompactFullscreenBar(context, isDark, cart, menuProv),
               Expanded(
                 child: Row(
                   children: [
@@ -589,7 +653,10 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            if (!menuProv.isMenuHidden) _buildHeader(shop, cart, isDark),
+            if (!menuProv.isMenuHidden)
+              _buildHeader(shop, cart, isDark)
+            else
+              _buildCompactFullscreenBar(context, isDark, cart, menuProv),
             _buildScanAndSearchBar(isDark),
             _buildQuickPills(),
             Expanded(

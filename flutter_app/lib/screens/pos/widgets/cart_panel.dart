@@ -203,7 +203,8 @@ class _CartPanelState extends State<CartPanel> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add New Customer'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Add New Customer', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,

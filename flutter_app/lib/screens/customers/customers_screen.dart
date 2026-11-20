@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/contact_service.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/customer.dart';
@@ -81,57 +82,132 @@ class _CustomersScreenState extends State<CustomersScreen> {
     return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
   }
 
-  void _showSortModal() {
+  Future<void> _loadFromContactsDirectly() async {
     SoundService.instance.playButtonClick();
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'Sort Customers By',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.sort_by_alpha),
-                  title: const Text('Name (A to Z)'),
-                  trailing: _sortOption == 'name_asc' ? const Icon(Icons.check, color: AppColors.primary) : null,
-                  onTap: () {
-                    setState(() => _sortOption = 'name_asc');
-                    Navigator.pop(ctx);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.trending_down, color: AppColors.error),
-                  title: const Text('Due Balance (Highest First)'),
-                  trailing: _sortOption == 'balance_desc' ? const Icon(Icons.check, color: AppColors.primary) : null,
-                  onTap: () {
-                    setState(() => _sortOption = 'balance_desc');
-                    Navigator.pop(ctx);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.shopping_bag_outlined, color: AppColors.primary),
-                  title: const Text('Total Sale Amount (Highest First)'),
-                  trailing: _sortOption == 'sale_desc' ? const Icon(Icons.check, color: AppColors.primary) : null,
-                  onTap: () {
-                    setState(() => _sortOption = 'sale_desc');
-                    Navigator.pop(ctx);
-                  },
-                ),
-              ],
-            ),
+    final res = await ContactService.pickContact();
+    if (!mounted) return;
+    if (res != null) {
+      if (res.permissionDenied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('कॉन्टैक्ट चुनने के लिए कृपया सेटिंग्स में Contacts परमिशन चालू करें।'),
+            backgroundColor: AppColors.error,
           ),
         );
-      },
+        return;
+      }
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => AddCustomerScreen(
+            initialName: res.name,
+            initialPhone: res.phone,
+          ),
+        ),
+      ).then((added) {
+        if (added == true) {
+          final shop = context.read<ShopProvider>().shop;
+          context.read<CustomerProvider>().loadCustomers(shop.id);
+          _loadCustomerSales();
+        }
+      });
+    }
+  }
+
+  void _showAddCustomerChoice(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.person_add_rounded, color: AppColors.primary, size: 22),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'नया ग्राहक जोड़ें',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200),
+              ),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.perm_contact_calendar_rounded, color: Color(0xFF0284C7), size: 20),
+              ),
+              title: const Text(
+                'Phone Contacts से जोड़ें',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              subtitle: const Text(
+                'मोबाइल की फोनबुक से 1-टैप में चुनें',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+              onTap: () {
+                Navigator.pop(ctx);
+                _loadFromContactsDirectly();
+              },
+            ),
+            const SizedBox(height: 10),
+            ListTile(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200),
+              ),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
+              ),
+              title: const Text(
+                'नया ग्राहक खुद लिखें',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              subtitle: const Text(
+                'नाम, मोबाइल नंबर और उधारी दर्ज करें',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
+              onTap: () {
+                Navigator.pop(ctx);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddCustomerScreen()),
+                ).then((added) {
+                  if (added == true) {
+                    final shop = context.read<ShopProvider>().shop;
+                    context.read<CustomerProvider>().loadCustomers(shop.id);
+                    _loadCustomerSales();
+                  }
+                });
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -347,13 +423,95 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
 
-                // Sort Button Icon [ ≡⇡ ]
-                IconButton(
+                // Sort Dropdown Button [ ≡⇣ ] matching Billiez
+                PopupMenuButton<String>(
+                  tooltip: 'Sort Customers',
+                  offset: const Offset(0, 44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  ),
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  elevation: 6,
                   icon: const Icon(Icons.sort_rounded, size: 24, color: Color(0xFF64748B)),
-                  tooltip: 'Sort List',
-                  onPressed: _showSortModal,
+                  initialValue: _sortOption,
+                  onSelected: (val) {
+                    SoundService.instance.playButtonClick();
+                    setState(() => _sortOption = val);
+                  },
+                  itemBuilder: (ctx) => [
+                    PopupMenuItem(
+                      value: 'name_asc',
+                      height: 42,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Sort by Name',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: _sortOption == 'name_asc' ? FontWeight.bold : FontWeight.w500,
+                                color: _sortOption == 'name_asc' ? AppColors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                              ),
+                            ),
+                          ),
+                          if (_sortOption == 'name_asc')
+                            const Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(height: 1),
+                    PopupMenuItem(
+                      value: 'balance_desc',
+                      height: 42,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Sort by Credit',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: _sortOption == 'balance_desc' ? FontWeight.bold : FontWeight.w500,
+                                color: _sortOption == 'balance_desc' ? AppColors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                              ),
+                            ),
+                          ),
+                          if (_sortOption == 'balance_desc')
+                            const Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
+                        ],
+                      ),
+                    ),
+                    const PopupMenuDivider(height: 1),
+                    PopupMenuItem(
+                      value: 'sale_desc',
+                      height: 42,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Sort by Sales',
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                fontWeight: _sortOption == 'sale_desc' ? FontWeight.bold : FontWeight.w500,
+                                color: _sortOption == 'sale_desc' ? AppColors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                              ),
+                            ),
+                          ),
+                          if (_sortOption == 'sale_desc')
+                            const Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Load from Contacts Quick Button [ 👤+ ]
+                IconButton(
+                  icon: const Icon(Icons.perm_contact_calendar_outlined, size: 22, color: AppColors.primary),
+                  tooltip: 'Load from Contacts / फोन से ग्राहक जोड़ें',
+                  onPressed: _loadFromContactsDirectly,
                 ),
 
                 // Export Button Icon [ 📥 ]
@@ -519,21 +677,12 @@ class _CustomersScreenState extends State<CustomersScreen> {
           ),
         ],
       ),
-      // Central Floating Action Button (+) matching reference
+      // Central Floating Action Button (+) with Quick Choice
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           SoundService.instance.playButtonClick();
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const AddCustomerScreen()),
-          ).then((added) {
-            if (added == true) {
-              final shop = context.read<ShopProvider>().shop;
-              context.read<CustomerProvider>().loadCustomers(shop.id);
-              _loadCustomerSales();
-            }
-          });
+          _showAddCustomerChoice(context);
         },
         backgroundColor: AppColors.primary,
         elevation: 4,

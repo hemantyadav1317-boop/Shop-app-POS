@@ -118,49 +118,132 @@ class _DaybookScreenState extends State<DaybookScreen> {
     attachTypeSound(amtCtrl);
     attachTypeSound(noteCtrl);
 
+    final categories = ['☕ चाय-नाश्ता', '🏠 दुकान किराया', '⚡ बिजली बिल', '🚚 माल भाड़ा', '🧹 साफ-सफाई', '📦 अन्य खर्च'];
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('दुकान खर्च जोड़ें / Add Expense', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: catCtrl, decoration: const InputDecoration(labelText: 'खर्च का प्रकार / Category')),
-            const SizedBox(height: 10),
-            TextField(controller: amtCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'रुपया / Amount *', prefixText: '₹ ')),
-            const SizedBox(height: 10),
-            TextField(controller: noteCtrl, decoration: const InputDecoration(labelText: 'विवरण / Note')),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.receipt_long_rounded, color: AppColors.error, size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('दुकान खर्च जोड़ें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text('दैनिक खर्चे का हिसाब रखें', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('खर्च का प्रकार (Category):', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.grey)),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: categories.map((cat) {
+                    final isSel = catCtrl.text == cat;
+                    return InkWell(
+                      onTap: () {
+                        SoundService.instance.playButtonClick();
+                        setDlgState(() => catCtrl.text = cat);
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSel ? AppColors.primary.withValues(alpha: 0.15) : Colors.grey.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: isSel ? AppColors.primary : Colors.transparent),
+                        ),
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                            color: isSel ? AppColors.primary : null,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: amtCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  decoration: InputDecoration(
+                    labelText: 'रुपया / Amount *',
+                    prefixText: '₹ ',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: noteCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'विवरण / Note (Optional)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('रद्द करें (Cancel)'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                final amt = double.tryParse(amtCtrl.text) ?? 0.0;
+                if (amt <= 0) return;
+                final shop = context.read<ShopProvider>().shop;
+
+                await SupabaseService.instance.addExpense(
+                  Expense(
+                    id: const Uuid().v4(),
+                    shopId: shop.id,
+                    category: catCtrl.text.trim().isEmpty ? 'दुकान खर्च' : catCtrl.text.trim(),
+                    amount: amt,
+                    note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
+                    spentOn: DateTime.now(),
+                    createdAt: DateTime.now(),
+                  ),
+                );
+                SoundService.instance.playSuccess();
+
+                if (context.mounted) {
+                  Navigator.pop(ctx);
+                  _loadDaybook();
+                }
+              },
+              child: const Text('खर्च सेव करें (Save)'),
+            ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              final amt = double.tryParse(amtCtrl.text) ?? 0.0;
-              if (amt <= 0) return;
-              final shop = context.read<ShopProvider>().shop;
-
-              await SupabaseService.instance.addExpense(
-                Expense(
-                  id: const Uuid().v4(),
-                  shopId: shop.id,
-                  category: catCtrl.text.trim(),
-                  amount: amt,
-                  note: noteCtrl.text.trim().isEmpty ? null : noteCtrl.text.trim(),
-                  spentOn: DateTime.now(),
-                  createdAt: DateTime.now(),
-                ),
-              );
-              SoundService.instance.playSuccess();
-
-              if (context.mounted) {
-                Navigator.pop(ctx);
-                _loadDaybook();
-              }
-            },
-            child: const Text('Save Expense'),
-          ),
-        ],
       ),
     );
   }
