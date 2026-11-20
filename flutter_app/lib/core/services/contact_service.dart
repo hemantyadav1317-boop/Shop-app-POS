@@ -4,25 +4,63 @@ import 'package:flutter_contacts/flutter_contacts.dart';
 class ContactPickerResult {
   final String name;
   final String phone;
+  final bool permissionDenied;
+  final String? errorMessage;
 
-  const ContactPickerResult({required this.name, required this.phone});
+  const ContactPickerResult({
+    required this.name,
+    required this.phone,
+    this.permissionDenied = false,
+    this.errorMessage,
+  });
+
+  bool get hasData => name.isNotEmpty || phone.isNotEmpty;
 }
 
 class ContactService {
   /// Prompts the user to pick a contact from their device address book.
-  /// Automatically requests read permission if needed.
+  /// Automatically checks and requests read permission if needed.
   static Future<ContactPickerResult?> pickContact() async {
     try {
-      final status = await FlutterContacts.permissions.request(PermissionType.read);
-      if (status != PermissionStatus.granted && status != PermissionStatus.limited) {
-        debugPrint('[ContactService] Contact read permission not granted ($status).');
-        return null;
+      bool hasPermission = await FlutterContacts.permissions.has(PermissionType.read);
+      if (!hasPermission) {
+        final status = await FlutterContacts.permissions.request(PermissionType.read);
+        hasPermission = (status == PermissionStatus.granted || status == PermissionStatus.limited);
       }
 
-      final contact = await FlutterContacts.native.showPicker(
-        properties: {ContactProperty.phone, ContactProperty.name},
-      );
-      if (contact == null) return null;
+      if (!hasPermission) {
+        debugPrint('[ContactService] Contact read permission not granted.');
+        return const ContactPickerResult(
+          name: '',
+          phone: '',
+          permissionDenied: true,
+          errorMessage: 'Permission not granted',
+        );
+      }
+
+      Contact? contact;
+      try {
+        contact = await FlutterContacts.native.showPicker(
+          properties: {ContactProperty.phone, ContactProperty.name},
+        );
+      } catch (pickerErr) {
+        debugPrint('[ContactService] showPicker with properties failed: $pickerErr, fallback to default picker');
+        try {
+          contact = await FlutterContacts.native.showPicker();
+        } catch (e2) {
+          debugPrint('[ContactService] default showPicker failed: $e2');
+          return ContactPickerResult(
+            name: '',
+            phone: '',
+            errorMessage: e2.toString(),
+          );
+        }
+      }
+
+      if (contact == null) {
+        // User closed the picker without selecting a contact
+        return null;
+      }
 
       String name = (contact.displayName ?? '').trim();
       final n = contact.name;
@@ -33,29 +71,36 @@ class ContactService {
       String phone = '';
       if (contact.phones.isNotEmpty) {
         phone = cleanPhoneNumber(contact.phones.first.number);
-      } else {
-        // Fallback: If properties weren't returned by picker, fetch directly by ID
+      }
+
+      // If phone is still empty and we have contact id, query full contact by ID
+      if (phone.isEmpty && contact.id != null) {
         try {
-          final id = contact.id;
-          if (id != null) {
-            final full = await FlutterContacts.get(
-              id,
-              properties: {ContactProperty.phone, ContactProperty.name},
-            );
-            if (full != null && full.phones.isNotEmpty) {
+          final full = await FlutterContacts.get(
+            contact.id!,
+            properties: {ContactProperty.phone, ContactProperty.name},
+          );
+          if (full != null) {
+            if (full.phones.isNotEmpty) {
               phone = cleanPhoneNumber(full.phones.first.number);
-              if (name.isEmpty) {
-                name = (full.displayName ?? '').trim();
-              }
+            }
+            if (name.isEmpty) {
+              name = (full.displayName ?? '').trim();
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('[ContactService] Fallback get contact error: $e');
+        }
       }
 
       return ContactPickerResult(name: name, phone: phone);
     } catch (e) {
       debugPrint('[ContactService] Error picking contact: $e');
-      return null;
+      return ContactPickerResult(
+        name: '',
+        phone: '',
+        errorMessage: e.toString(),
+      );
     }
   }
 

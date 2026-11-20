@@ -45,7 +45,17 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
   Future<void> _pickContact() async {
     SoundService.instance.playButtonClick();
     final res = await ContactService.pickContact();
+    if (!mounted) return;
     if (res != null) {
+      if (res.permissionDenied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('कॉन्टैक्ट चुनने के लिए कृपया सेटिंग्स में Contacts परमिशन चालू करें।'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
       if (res.name.isNotEmpty) _nameCtrl.text = res.name;
       if (res.phone.isNotEmpty) {
         String p = res.phone.replaceAll(RegExp(r'[^0-9+]'), '');
@@ -53,6 +63,7 @@ class _AddCustomerScreenState extends State<AddCustomerScreen> {
         if (p.startsWith('0') && p.length > 1) p = p.substring(1);
         _phoneCtrl.text = p;
       }
+      setState(() {});
     }
   }
 

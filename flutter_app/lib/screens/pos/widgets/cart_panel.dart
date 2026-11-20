@@ -213,7 +213,17 @@ class _CartPanelState extends State<CartPanel> {
                 child: OutlinedButton.icon(
                   onPressed: () async {
                     final res = await ContactService.pickContact();
+                    if (!ctx.mounted) return;
                     if (res != null) {
+                      if (res.permissionDenied) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(
+                            content: Text('कॉन्टैक्ट चुनने के लिए कृपया Contacts परमिशन चालू करें।'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                        return;
+                      }
                       if (res.name.isNotEmpty) nameCtrl.text = res.name;
                       if (res.phone.isNotEmpty) phoneCtrl.text = res.phone;
                     }
