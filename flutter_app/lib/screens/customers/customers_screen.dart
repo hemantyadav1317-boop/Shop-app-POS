@@ -11,6 +11,7 @@ import '../../data/services/local_db_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/customer_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../main_shell.dart';
 import 'add_customer_screen.dart';
 import 'customer_details_screen.dart';
 
@@ -857,6 +858,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
         elevation: 0,
         centerTitle: false,
         automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Colors.white),
+          tooltip: 'मेन्यू',
+          onPressed: () {
+            SoundService.instance.playButtonClick();
+            MainShell.openDrawer(context);
+          },
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),

@@ -36,7 +36,7 @@ void main() {
     );
   }
 
-  group('🌟 v1.6.8 Daily Profit, Mandi Order & App Drawer Tests', () {
+  group('🌟 v1.6.9 Daily Profit, Mandi Order & App Drawer Tests', () {
     testWidgets('1. DailyProfitScreen renders date chips and profit cards', (tester) async {
       await tester.pumpWidget(buildTestableWidget(const DailyProfitScreen()));
       await tester.pumpAndSettle();
@@ -83,13 +83,14 @@ void main() {
       expect(find.text('मंडी / सप्लायर पर्ची'), findsOneWidget);
       expect(find.text('दुकान खर्च व गल्ला (Daybook)'), findsOneWidget);
       expect(find.text('पूरी दुकान सेटिंग्स'), findsOneWidget);
+      expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.text('BillZo POS v1.6.8'),
+        find.text('BillZo POS v1.6.9'),
         100,
         scrollable: find.byType(Scrollable).last,
       );
-      expect(find.text('BillZo POS v1.6.8'), findsOneWidget);
+      expect(find.text('BillZo POS v1.6.9'), findsOneWidget);
     });
   });
 }

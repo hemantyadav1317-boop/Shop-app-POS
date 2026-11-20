@@ -21,6 +21,20 @@ import 'widgets/app_drawer.dart';
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
+  static final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
+  /// Opens the root drawer from anywhere in the app reliably
+  static void openDrawer([BuildContext? context]) {
+    if (context != null) {
+      final state = Scaffold.maybeOf(context);
+      if (state != null && state.hasDrawer) {
+        state.openDrawer();
+        return;
+      }
+    }
+    scaffoldKey.currentState?.openDrawer();
+  }
+
   @override
   State<MainShell> createState() => _MainShellState();
 }
@@ -177,6 +191,8 @@ class _MainShellState extends State<MainShell> {
 
     if (isTablet) {
       return Scaffold(
+        key: MainShell.scaffoldKey,
+        drawer: const AppDrawer(),
         body: Stack(
           children: [
             Row(
@@ -309,6 +325,7 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
+      key: MainShell.scaffoldKey,
       drawer: const AppDrawer(),
       body: Stack(
         children: [

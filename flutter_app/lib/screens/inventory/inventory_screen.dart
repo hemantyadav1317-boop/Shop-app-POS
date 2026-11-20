@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../main_shell.dart';
 import 'add_edit_product_screen.dart';
 import 'mandi_order_screen.dart';
 import '../../core/constants/app_colors.dart';
@@ -717,6 +718,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
           foregroundColor: Colors.white,
           elevation: 0,
           automaticallyImplyLeading: false,
+          leading: IconButton(
+            icon: const Icon(Icons.menu_rounded, color: Colors.white),
+            tooltip: 'मेन्यू',
+            onPressed: () {
+              SoundService.instance.playButtonClick();
+              MainShell.openDrawer(context);
+            },
+          ),
           title: const Text('Inventory', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18)),
           bottom: TabBar(
             indicatorColor: Colors.white,

@@ -10,7 +10,9 @@ import '../../providers/shop_provider.dart';
 import '../../providers/weighing_scale_provider.dart';
 import '../../providers/ai_vision_provider.dart';
 import '../../providers/menu_visibility_provider.dart';
+import '../main_shell.dart';
 import '../settings/weighing_scale_settings_screen.dart';
+import '../widgets/app_drawer.dart';
 import 'widgets/product_grid.dart';
 import 'widgets/cart_panel.dart';
 import 'widgets/quick_sale_keypad.dart';
@@ -225,6 +227,7 @@ class _PosScreenState extends State<PosScreen> {
     }
 
     return Scaffold(
+      drawer: const AppDrawer(),
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       bottomNavigationBar: isTablet ? null : _buildBottomTabBar(isDark, cart),
       body: SafeArea(
@@ -278,62 +281,78 @@ class _PosScreenState extends State<PosScreen> {
                         builder: (btnCtx) => InkWell(
                           onTap: () {
                             SoundService.instance.playButtonClick();
-                            Scaffold.of(btnCtx).openDrawer();
+                            MainShell.openDrawer(btnCtx);
                           },
                           borderRadius: BorderRadius.circular(10),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.22),
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                               borderRadius: BorderRadius.circular(10),
                               border: Border.all(color: Colors.white30, width: 0.8),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
-                            child: const Icon(
-                              Icons.menu_rounded,
-                              color: Colors.white,
-                              size: 20,
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.menu_rounded, color: Colors.white, size: 20),
+                                SizedBox(width: 4),
+                                Text(
+                                  'मेन्यू',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              shop.name.isNotEmpty ? shop.name : 'Meri Dukan',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
-                                letterSpacing: 0.2,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: InkWell(
+                            onTap: () => _showQuickStoreModeSheet(context),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.white24, width: 0.8),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            InkWell(
-                              onTap: () => _showQuickStoreModeSheet(context),
-                              borderRadius: BorderRadius.circular(6),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
                                     shop.storeType == 'kirana'
-                                        ? '🛒 Kirana Mode'
-                                        : (shop.storeType == 'other' ? '📦 Other Retail' : '🥬 Vegetable Mode'),
+                                        ? '🛒 किराना मोड (Kirana)'
+                                        : (shop.storeType == 'other' ? '📦 जनरल स्टोर (Retail)' : '🥬 सब्जी व फल (Produce)'),
                                     style: const TextStyle(
                                       color: Color(0xFF4ADE80),
-                                      fontSize: 10.5,
+                                      fontSize: 11.5,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  const Icon(Icons.arrow_drop_down, color: Color(0xFF4ADE80), size: 14),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.arrow_drop_down, color: Color(0xFF4ADE80), size: 16),
                                 ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
                       Row(

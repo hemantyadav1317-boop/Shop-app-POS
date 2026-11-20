@@ -15,6 +15,7 @@ import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
+import '../main_shell.dart';
 import '../pos/widgets/bill_receipt_card.dart';
 import '../../core/services/ai_quote_service.dart';
 import '../../providers/locale_provider.dart';
@@ -1096,6 +1097,14 @@ class _BillsScreenState extends State<BillsScreen> {
         elevation: 0,
         centerTitle: true,
         automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.menu_rounded, color: Colors.white),
+          tooltip: 'मेन्यू',
+          onPressed: () {
+            SoundService.instance.playButtonClick();
+            MainShell.openDrawer(context);
+          },
+        ),
         title: Text(
           context.tr('bill_history'),
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white, letterSpacing: 0.3),

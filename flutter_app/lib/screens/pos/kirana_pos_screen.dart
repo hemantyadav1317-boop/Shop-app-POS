@@ -11,7 +11,9 @@ import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/menu_visibility_provider.dart';
 import '../../providers/weighing_scale_provider.dart';
+import '../main_shell.dart';
 import '../settings/weighing_scale_settings_screen.dart';
+import '../widgets/app_drawer.dart';
 import 'widgets/barcode_scanner_dialog.dart';
 import 'widgets/cart_panel.dart';
 import 'widgets/product_grid.dart';
@@ -165,11 +167,11 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
             builder: (btnCtx) => InkWell(
               onTap: () {
                 SoundService.instance.playButtonClick();
-                Scaffold.of(btnCtx).openDrawer();
+                MainShell.openDrawer(btnCtx);
               },
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
@@ -185,48 +187,57 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.menu_rounded, color: Colors.white, size: 20),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.menu_rounded, color: Colors.white, size: 20),
+                    SizedBox(width: 4),
+                    Text(
+                      'मेन्यू',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                Text(
-                  shop.name.isNotEmpty ? shop.name : 'Kirana Store',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 15,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF59E0B),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: const Text(
-                        'KIRANA & FMCG',
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.shopping_basket_rounded, size: 12, color: Color(0xFF0F172A)),
+                      SizedBox(width: 4),
+                      Text(
+                        'किराना व FMCG',
                         style: TextStyle(
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: FontWeight.w900,
                           color: Color(0xFF0F172A),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      '2026 Master Catalog Active',
-                      style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
-                    ),
-                  ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    '2026 Master Catalog',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -643,6 +654,7 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
 
     if (isTablet) {
       return Scaffold(
+        drawer: const AppDrawer(),
         backgroundColor: isDark ? const Color(0xFF0A0F1D) : const Color(0xFFF1F5F9),
         body: SafeArea(
           child: Column(
@@ -686,6 +698,7 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
 
     // Mobile Phone view
     return Scaffold(
+      drawer: const AppDrawer(),
       backgroundColor: isDark ? const Color(0xFF0A0F1D) : const Color(0xFFF1F5F9),
       body: SafeArea(
         child: Column(

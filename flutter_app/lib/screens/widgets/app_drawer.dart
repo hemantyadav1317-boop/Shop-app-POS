@@ -14,6 +14,7 @@ import '../../providers/shop_provider.dart';
 import '../daybook/daybook_screen.dart';
 import '../inventory/mandi_order_screen.dart';
 import '../reports/daily_profit_screen.dart';
+import '../settings/business_details_screen.dart';
 import '../settings/printer_settings_screen.dart';
 import '../settings/settings_screen.dart';
 import '../settings/weighing_scale_settings_screen.dart';
@@ -37,7 +38,7 @@ class AppDrawer extends StatelessWidget {
           children: [
             // 🏪 Top Shop Profile Header Card
             Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: isDark
@@ -57,48 +58,16 @@ class AppDrawer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Top Bar: Online/Offline Sync Pill + Close [✕] Button
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 26),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              shop.name.isNotEmpty ? shop.name : 'BillZo Store',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w900,
-                                fontSize: 16,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              shop.phone ?? 'फ़ोन नंबर सेट करें',
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.8),
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                       // Online / Offline Status Badge
                       ValueListenableBuilder<bool>(
                         valueListenable: NetworkSyncService.instance.onlineNotifier,
                         builder: (context, isOnline, _) {
                           return Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                             decoration: BoxDecoration(
                               color: isOnline
                                   ? const Color(0xFF10B981).withValues(alpha: 0.25)
@@ -119,7 +88,7 @@ class AppDrawer extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isOnline ? 'ऑनलाइन' : 'ऑफलाइन',
+                                  isOnline ? 'ऑनलाइन (Synced)' : 'ऑफलाइन (सुरक्षित)',
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
@@ -131,7 +100,75 @@ class AppDrawer extends StatelessWidget {
                           );
                         },
                       ),
+                      // Close Drawer Button
+                      InkWell(
+                        onTap: () => Navigator.pop(context),
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded, color: Colors.white, size: 18),
+                        ),
+                      ),
                     ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Store Identity Info
+                  InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const BusinessDetailsScreen()));
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(11),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.storefront_rounded, color: Colors.white, size: 28),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                shop.name.isNotEmpty ? shop.name : 'मेरी दुकान (BillZo POS)',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 16.5,
+                                  letterSpacing: 0.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                (shop.phone != null && shop.phone!.isNotEmpty)
+                                    ? '📞 ${shop.phone}'
+                                    : 'दुकान विवरण देखें / बदलें ➔',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 11.5,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded, color: Colors.white70, size: 20),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -146,7 +183,7 @@ class AppDrawer extends StatelessWidget {
                         _buildHeaderBadge('🛒 किराना व FMCG'),
                       if (shop.hasDairy)
                         _buildHeaderBadge('🥛 डेयरी व दूध'),
-                      _buildHeaderBadge(isStaff ? '👤 स्टाफ सत्र' : '👑 मालिक सत्र'),
+                      _buildHeaderBadge(isStaff ? '👤 स्टाफ सत्र' : '👑 दुकान मालिक सत्र'),
                     ],
                   ),
                 ],
@@ -296,7 +333,7 @@ class AppDrawer extends StatelessWidget {
 
                   ListTile(
                     leading: const Icon(Icons.system_update_rounded, color: Color(0xFF16A34A), size: 22),
-                    title: const Text('BillZo POS v1.6.8', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    title: const Text('BillZo POS v1.6.9', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     subtitle: const Text('सिस्टम अप टू डेट है ✓', style: TextStyle(fontSize: 11, color: Color(0xFF16A34A))),
                     onTap: () {
                       SoundService.instance.playButtonClick();
