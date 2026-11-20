@@ -8,6 +8,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../data/models/customer.dart';
 import '../../data/models/customer_payment.dart';
 import '../../data/models/sale.dart';
+import '../../data/services/local_db_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/customer_provider.dart';
@@ -50,25 +51,22 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
   late Customer _currentCustomer;
   List<Sale> _customerSales = [];
   List<CustomerPayment> _customerPayments = [];
-  bool _isLoading = true;
+  bool _isLoading = false; // ⚡ Instant 0ms load - never block user with full spinner
   String? _expandedSection; // 'bills', 'credit', 'ledger' or null
 
   @override
   void initState() {
     super.initState();
     _currentCustomer = widget.customer;
+    _initLocalData();
     _loadData();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    final shop = context.read<ShopProvider>().shop;
-
-    try {
-      final allSales = await SupabaseService.instance.getSales(shop.id);
-      final payments = await SupabaseService.instance.getCustomerPayments(_currentCustomer.id);
-
-      final filteredSales = allSales.where((s) {
+  void _initLocalData() {
+    // 1. Immediately read RAM cached sales for 0ms instant screen display
+    final cachedSales = SupabaseService.instance.currentLocalSales;
+    if (cachedSales.isNotEmpty) {
+      final filteredSales = cachedSales.where((s) {
         if (s.customerId != null && s.customerId == _currentCustomer.id) return true;
         if (_currentCustomer.phone != null &&
             _currentCustomer.phone!.isNotEmpty &&
@@ -77,12 +75,42 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
         }
         return false;
       }).toList();
-
       filteredSales.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      _customerSales = filteredSales;
+    }
+  }
+
+  Future<void> _loadData() async {
+    final shop = context.read<ShopProvider>().shop;
+
+    try {
+      // 1. If RAM cache was empty, check local SQLite database (offline-first, zero internet delay)
+      if (_customerSales.isEmpty) {
+        final dbSales = await LocalDbService.instance.getSales(shop.id);
+        if (dbSales.isNotEmpty && mounted) {
+          final filteredSales = dbSales.where((s) {
+            if (s.customerId != null && s.customerId == _currentCustomer.id) return true;
+            if (_currentCustomer.phone != null &&
+                _currentCustomer.phone!.isNotEmpty &&
+                s.customerPhone == _currentCustomer.phone) {
+              return true;
+            }
+            return false;
+          }).toList();
+          filteredSales.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          if (mounted && filteredSales.isNotEmpty) {
+            setState(() {
+              _customerSales = filteredSales;
+            });
+          }
+        }
+      }
+
+      // 2. Fetch payments for this specific customer
+      final payments = await SupabaseService.instance.getCustomerPayments(_currentCustomer.id);
 
       if (mounted) {
         setState(() {
-          _customerSales = filteredSales;
           _customerPayments = payments;
           _isLoading = false;
         });

@@ -233,7 +233,7 @@ class _PosScreenState extends State<PosScreen> {
           children: [
             Column(
               children: [
-            // Lush Organic Indian Store Header (Hidden in Fullscreen Mode for Maximum Billing Space)
+            // Lush Organic Indian Store Header (or Sleek Utility Bar in Fullscreen Mode)
             if (!menuProv.isMenuHidden)
               Stack(
               children: [
@@ -362,6 +362,9 @@ class _PosScreenState extends State<PosScreen> {
                             ),
                           ],
                           const SizedBox(width: 8),
+                          // ⚖️ Weighing Scale Live Status Pill
+                          _buildWeighingScalePill(context),
+                          const SizedBox(width: 8),
                           Consumer<AiVisionProvider>(
                             builder: (context, aiProvider, _) {
                               return InkWell(
@@ -469,7 +472,9 @@ class _PosScreenState extends State<PosScreen> {
                   ),
                 ),
               ],
-            ),
+            )
+            else
+              _buildFullscreenUtilityBar(context, isTablet, isDark, cart, menuProv),
 
             // Content Area: Tablet Split-screen OR Mobile with Floating Cart
             Expanded(
@@ -670,6 +675,217 @@ class _PosScreenState extends State<PosScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // ⚖️ Electronic Weighing Scale Status Pill (Green when live, Tap to open settings)
+  Widget _buildWeighingScalePill(BuildContext context) {
+    return Consumer<WeighingScaleProvider>(
+      builder: (context, scale, _) {
+        return InkWell(
+          onTap: () {
+            SoundService.instance.playButtonClick();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const WeighingScaleSettingsScreen(),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: scale.isConnected
+                  ? const Color(0xFF10B981).withValues(alpha: 0.25)
+                  : Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: scale.isConnected
+                    ? const Color(0xFF10B981)
+                    : Colors.white24,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.scale_rounded,
+                  color: scale.isConnected
+                      ? const Color(0xFF34D399)
+                      : Colors.white70,
+                  size: 14,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  scale.isConnected
+                      ? '${scale.liveWeight.toStringAsFixed(3)} kg'
+                      : 'Scale',
+                  style: TextStyle(
+                    color: scale.isConnected
+                        ? const Color(0xFF34D399)
+                        : Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    fontFamily: scale.isConnected ? 'monospace' : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // 🖥️ Compact Utility Bar in Fullscreen Mode (preserves Scale, Tablet tabs & Exit button)
+  Widget _buildFullscreenUtilityBar(
+    BuildContext context,
+    bool isTablet,
+    bool isDark,
+    CartProvider cart,
+    MenuVisibilityProvider menuProv,
+  ) {
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0F172A) : const Color(0xFF042F1B),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 4,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          if (isTablet) ...[
+            Container(
+              padding: const EdgeInsets.all(2),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildTabletHeaderTab(
+                    index: 0,
+                    label: 'Sale',
+                    icon: Icons.storefront_rounded,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildTabletHeaderTab(
+                    index: 1,
+                    label: 'Quick Sale',
+                    icon: Icons.flash_on_rounded,
+                  ),
+                  const SizedBox(width: 4),
+                  _buildTabletHeaderTab(
+                    index: 2,
+                    label: 'Saved (${cart.savedCarts.length})',
+                    icon: Icons.bookmark_rounded,
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.storefront_rounded, color: Color(0xFF4ADE80), size: 16),
+                const SizedBox(width: 5),
+                Text(
+                  _activeTab == 0 ? 'Sale' : (_activeTab == 1 ? 'Quick Sale' : 'Saved (${cart.savedCarts.length})'),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          const Spacer(),
+          // ⚖️ Live Weighing Scale Pill
+          _buildWeighingScalePill(context),
+          const SizedBox(width: 8),
+          // AI Vision Button
+          Consumer<AiVisionProvider>(
+            builder: (context, aiProvider, _) {
+              return InkWell(
+                onTap: () {
+                  SoundService.instance.playButtonClick();
+                  aiProvider.toggleAiVision();
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: aiProvider.isAiVisionActive
+                        ? const Color(0xFF06B6D4).withValues(alpha: 0.25)
+                        : Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: aiProvider.isAiVisionActive
+                          ? const Color(0xFF06B6D4)
+                          : Colors.white24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.camera_alt_rounded,
+                        color: aiProvider.isAiVisionActive
+                            ? const Color(0xFF22D3EE)
+                            : Colors.white70,
+                        size: 13,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        aiProvider.isAiVisionActive ? 'AI ON' : 'AI',
+                        style: TextStyle(
+                          color: aiProvider.isAiVisionActive
+                              ? const Color(0xFF22D3EE)
+                              : Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
+          // Exit Fullscreen Button
+          InkWell(
+            onTap: () {
+              SoundService.instance.playButtonClick();
+              menuProv.toggleMenu();
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.fullscreen_exit_rounded,
+                color: Color(0xFFFDE68A),
+                size: 17,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

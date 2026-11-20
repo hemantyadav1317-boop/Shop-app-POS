@@ -10,6 +10,8 @@ import '../../providers/cart_provider.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/menu_visibility_provider.dart';
+import '../../providers/weighing_scale_provider.dart';
+import '../settings/weighing_scale_settings_screen.dart';
 import 'widgets/barcode_scanner_dialog.dart';
 import 'widgets/cart_panel.dart';
 import 'widgets/product_grid.dart';
@@ -239,6 +241,9 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
             ),
           ),
           const SizedBox(width: 8),
+          // ⚖️ Electronic Weighing Scale Status Pill
+          _buildWeighingScalePill(context),
+          const SizedBox(width: 8),
           Consumer<MenuVisibilityProvider>(
             builder: (context, menuProv, _) {
               return InkWell(
@@ -268,6 +273,67 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ⚖️ Electronic Weighing Scale Status Pill (Tap to open settings)
+  Widget _buildWeighingScalePill(BuildContext context) {
+    return Consumer<WeighingScaleProvider>(
+      builder: (context, scale, _) {
+        return InkWell(
+          onTap: () {
+            SoundService.instance.playButtonClick();
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const WeighingScaleSettingsScreen(),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: scale.isConnected
+                  ? const Color(0xFF10B981).withValues(alpha: 0.25)
+                  : Colors.white.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: scale.isConnected
+                    ? const Color(0xFF10B981)
+                    : Colors.white24,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.scale_rounded,
+                  color: scale.isConnected
+                      ? const Color(0xFF34D399)
+                      : Colors.white70,
+                  size: 15,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  scale.isConnected
+                      ? '${scale.liveWeight.toStringAsFixed(3)} kg'
+                      : 'Scale',
+                  style: TextStyle(
+                    color: scale.isConnected
+                        ? const Color(0xFF34D399)
+                        : Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    fontFamily: scale.isConnected ? 'monospace' : null,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

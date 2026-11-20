@@ -332,19 +332,26 @@ class SupabaseService {
         final localReviewUrl = (bestShop.googleReviewUrl != null && bestShop.googleReviewUrl!.trim().isNotEmpty)
             ? bestShop.googleReviewUrl
             : (_localShop.googleReviewUrl ?? prefs.getString('shop_google_review_url'));
+        final localPayee = (bestShop.upiPayeeName != null && bestShop.upiPayeeName!.trim().isNotEmpty)
+            ? bestShop.upiPayeeName
+            : (_localShop.upiPayeeName ?? prefs.getString('shop_upi_payee_name'));
 
         final resolvedShop = bestShop.copyWith(
           upiId: localUpi,
           qrImageUrl: localQr,
           googleReviewUrl: localReviewUrl,
-          upiPayeeName: (bestShop.upiPayeeName != null && bestShop.upiPayeeName!.trim().isNotEmpty)
-              ? bestShop.upiPayeeName
-              : (_localShop.upiPayeeName ?? prefs.getString('shop_upi_payee_name')),
+          upiPayeeName: localPayee,
         );
 
         _localShop = resolvedShop;
         await prefs.setString('saved_shop_data', jsonEncode(resolvedShop.toJson()));
         await prefs.setString('saved_shop_data_$userId', jsonEncode(resolvedShop.toJson()));
+        if (localUpi != null && localUpi.trim().isNotEmpty) {
+          await prefs.setString('shop_upi_id', localUpi.trim());
+        }
+        if (localPayee != null && localPayee.trim().isNotEmpty) {
+          await prefs.setString('shop_upi_payee_name', localPayee.trim());
+        }
         debugPrint("Successfully resolved and linked user's shop: ${resolvedShop.id} (${resolvedShop.name})");
         return resolvedShop;
       }
@@ -1644,6 +1651,8 @@ class SupabaseService {
           'phone': shop.phone,
           'address': shop.address,
           'gst_number': shop.gstin,
+          'upi_id': shop.upiId,
+          'upi_payee_name': shop.upiPayeeName,
           'updated_at': DateTime.now().toIso8601String(),
         };
 
@@ -1738,6 +1747,8 @@ class SupabaseService {
                   phone: updated['phone'] ?? _localShop.phone,
                   address: updated['address'] ?? _localShop.address,
                   gstin: updated['gst_number'] ?? _localShop.gstin,
+                  upiId: updated['upi_id'] ?? _localShop.upiId,
+                  upiPayeeName: updated['upi_payee_name'] ?? _localShop.upiPayeeName,
                   googleReviewUrl: shop.googleReviewUrl,
                 );
               }
@@ -1792,10 +1803,59 @@ class SupabaseService {
         final res = await client!.from('shops').select('*').eq('id', cleanId).maybeSingle();
         if (res != null) {
           _localShop = Shop.fromJson(res);
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('saved_shop_data', jsonEncode(_localShop.toJson()));
+            await prefs.setString('shop_name', _localShop.name);
+            if (_localShop.phone != null) await prefs.setString('shop_phone', _localShop.phone!);
+            if (_localShop.address != null) await prefs.setString('shop_address', _localShop.address!);
+            if (_localShop.gstin != null) await prefs.setString('shop_gstin', _localShop.gstin!);
+            if (_localShop.upiId != null) await prefs.setString('shop_upi_id', _localShop.upiId!);
+            if (_localShop.upiPayeeName != null) await prefs.setString('shop_upi_payee_name', _localShop.upiPayeeName!);
+            if (_localShop.qrImageUrl != null) await prefs.setString('shop_qr_image_url', _localShop.qrImageUrl!);
+            if (_localShop.googleReviewUrl != null) await prefs.setString('shop_google_review_url', _localShop.googleReviewUrl!);
+          } catch (_) {}
           return _localShop;
         }
       } catch (e) {
         debugPrint("Error getting shop from cloud: $e");
+      }
+    }
+    return _localShop;
+  }
+
+  /// Refreshes the active shop for staff devices via the staff_verify_shop RPC,
+  /// ensuring staff devices immediately receive updated UPI ID, Payee Name & Store details.
+  Future<Shop> syncStaffShop() async {
+    final prefs = await SharedPreferences.getInstance();
+    final staffPhone = prefs.getString('staff_shop_phone') ?? '';
+    final staffPin = prefs.getString('staff_pin') ?? '';
+
+    if (staffPhone.isNotEmpty && staffPin.isNotEmpty && _isInitialized && client != null) {
+      try {
+        final dynamic res = await client!.rpc('staff_verify_shop', params: {
+          '_phone': staffPhone,
+          '_pin': staffPin,
+        });
+
+        if (res is Map && res['success'] == true && res['shop'] != null) {
+          final shopMap = res['shop'] as Map<String, dynamic>;
+          final s = Shop.fromJson(shopMap);
+          _localShop = s;
+          await prefs.setString('saved_shop_data', jsonEncode(s.toJson()));
+          await prefs.setString('shop_name', s.name);
+          if (s.phone != null) await prefs.setString('shop_phone', s.phone!);
+          if (s.address != null) await prefs.setString('shop_address', s.address!);
+          if (s.gstin != null) await prefs.setString('shop_gstin', s.gstin!);
+          if (s.upiId != null) await prefs.setString('shop_upi_id', s.upiId!);
+          if (s.upiPayeeName != null) await prefs.setString('shop_upi_payee_name', s.upiPayeeName!);
+          if (s.qrImageUrl != null) await prefs.setString('shop_qr_image_url', s.qrImageUrl!);
+          if (s.googleReviewUrl != null) await prefs.setString('shop_google_review_url', s.googleReviewUrl!);
+          debugPrint("[StaffSync] Successfully refreshed staff shop: ${s.id} (UPI: ${s.upiId})");
+          return s;
+        }
+      } catch (e) {
+        debugPrint("[StaffSync] Error syncing staff shop: $e");
       }
     }
     return _localShop;

@@ -1256,6 +1256,28 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                               }
                                             },
                                           ),
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF00875A),
+                                              foregroundColor: Colors.white,
+                                              visualDensity: VisualDensity.compact,
+                                            ),
+                                            icon: const Icon(Icons.check_circle_rounded, size: 14),
+                                            label: const Text('✅ भुगतान मिल गया', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                            onPressed: () {
+                                              _phonePeTimer?.cancel();
+                                              setState(() {
+                                                _onlinePaymentVerified = true;
+                                                _detectedPaymentApp = _detectedPaymentApp ?? 'PhonePe / Soundbox';
+                                              });
+                                              SoundService.instance.playSuccess();
+                                              Future.delayed(const Duration(milliseconds: 300), () {
+                                                if (mounted && _completedSale == null && !_isSaving) {
+                                                  _processCheckout();
+                                                }
+                                              });
+                                            },
+                                          ),
                                           if (shop.phonePeEnvironment == 'sandbox')
                                             ElevatedButton.icon(
                                               style: ElevatedButton.styleFrom(
@@ -1363,6 +1385,44 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                           },
                                         ),
                                       ],
+                                    ),
+                                  ),
+                                // ⚡ 1-Tap Instant Manual Verification & Complete Bill
+                                if (!_onlinePaymentVerified)
+                                  Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    width: double.infinity,
+                                    child: ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFF00875A),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(vertical: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(10),
+                                        ),
+                                        elevation: 2,
+                                      ),
+                                      icon: const Icon(Icons.check_circle_rounded, size: 18),
+                                      label: const Text(
+                                        '✅ भुगतान मिल गया · बिल पूरा करें (Mark Paid)',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      onPressed: () {
+                                        _phonePeTimer?.cancel();
+                                        setState(() {
+                                          _onlinePaymentVerified = true;
+                                          _detectedPaymentApp = _detectedPaymentApp ?? 'Manual (साउंडबॉक्स / UPI)';
+                                        });
+                                        SoundService.instance.playSuccess();
+                                        Future.delayed(const Duration(milliseconds: 300), () {
+                                          if (mounted && _completedSale == null && !_isSaving) {
+                                            _processCheckout();
+                                          }
+                                        });
+                                      },
                                     ),
                                   ),
                                 Container(

@@ -257,10 +257,23 @@ class ShopProvider extends ChangeNotifier {
     }
 
     final synced = await SupabaseService.instance.updateShop(updated);
-    if (synced.id != _shop.id) {
-      _shop = synced;
-      await prefs.setString(key, jsonEncode(synced.toJson()));
-      await prefs.setString('saved_shop_data', jsonEncode(synced.toJson()));
+    _shop = synced;
+    await prefs.setString(key, jsonEncode(synced.toJson()));
+    await prefs.setString('saved_shop_data', jsonEncode(synced.toJson()));
+    notifyListeners();
+  }
+
+  Future<Shop> syncStaffShop() async {
+    final synced = await SupabaseService.instance.syncStaffShop();
+    _shop = synced;
+    notifyListeners();
+    return synced;
+  }
+
+  Future<void> refreshShopFromCloud(String shopId) async {
+    final cloudShop = await SupabaseService.instance.getShop(shopId);
+    if (cloudShop != null) {
+      _shop = cloudShop;
       notifyListeners();
     }
   }

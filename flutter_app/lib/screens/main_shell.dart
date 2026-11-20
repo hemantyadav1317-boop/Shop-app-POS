@@ -104,6 +104,33 @@ class _MainShellState extends State<MainShell> {
             },
           );
         }
+      } else if (auth.isStaffSession) {
+        debugPrint("Syncing staff device cloud data...");
+        final shopProvider = context.read<ShopProvider>();
+        final productProvider = context.read<ProductProvider>();
+        final customerProvider = context.read<CustomerProvider>();
+
+        final syncedShop = await shopProvider.syncStaffShop();
+        if (mounted) {
+          await productProvider.loadProducts(syncedShop.id);
+          await customerProvider.loadCustomers(syncedShop.id);
+          SupabaseService.instance.subscribeToShopChanges(
+            shopId: syncedShop.id,
+            onEvent: (table, eventType, record) {
+              if (!mounted) return;
+              debugPrint('[MainShell] Staff Real-time live event on: $table ($eventType)');
+              if (table == 'shops') {
+                context.read<ShopProvider>().syncStaffShop();
+              } else if (table == 'products') {
+                context.read<ProductProvider>().loadProducts(syncedShop.id);
+              } else if (table == 'customers' || table == 'customer_transactions') {
+                context.read<CustomerProvider>().loadCustomers(syncedShop.id);
+              } else if (table == 'sales') {
+                SupabaseService.instance.getSales(syncedShop.id);
+              }
+            },
+          );
+        }
       }
     } catch (e) {
       debugPrint("Error syncing user cloud data on start: $e");
@@ -125,6 +152,9 @@ class _MainShellState extends State<MainShell> {
       } else if (index == 1) {
         // Bills
         SupabaseService.instance.getSales(shop.id);
+      } else if (index == 0 || index == 4) {
+        // Home/POS or Settings - Refresh shop to keep UPI ID/payee in sync across devices
+        context.read<ShopProvider>().refreshShopFromCloud(shop.id);
       }
     }
   }
