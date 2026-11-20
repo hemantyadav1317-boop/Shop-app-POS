@@ -12,6 +12,7 @@ import '../../data/services/supabase_service.dart';
 import '../../providers/shop_provider.dart';
 import '../../core/services/sound_service.dart';
 import '../analytics/analytics_screen.dart';
+import '../reports/daily_profit_screen.dart';
 
 class DaybookScreen extends StatefulWidget {
   const DaybookScreen({super.key});
@@ -268,6 +269,14 @@ class _DaybookScreenState extends State<DaybookScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.monetization_on_outlined, color: Color(0xFFFDE68A)),
+            tooltip: 'आज की कमाई (Net Profit)',
+            onPressed: () {
+              SoundService.instance.playButtonClick();
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyProfitScreen()));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.analytics_outlined, color: Colors.white),
             tooltip: 'Sales & Profit Analytics',

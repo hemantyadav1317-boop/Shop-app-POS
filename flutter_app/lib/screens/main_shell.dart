@@ -16,6 +16,7 @@ import 'customers/customers_screen.dart';
 import 'inventory/inventory_screen.dart';
 import 'daybook/daybook_screen.dart';
 import 'settings/settings_screen.dart';
+import 'widgets/app_drawer.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -308,6 +309,7 @@ class _MainShellState extends State<MainShell> {
     }
 
     return Scaffold(
+      drawer: const AppDrawer(),
       body: Stack(
         children: [
           _screens[_currentIndex],
@@ -368,37 +370,36 @@ class _MainShellState extends State<MainShell> {
               ),
               child: NavigationBarTheme(
                 data: NavigationBarThemeData(
-                  height: 58,
+                  height: 62,
                   indicatorColor: const Color(0xFFE0F2FE),
-                  indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   iconTheme: WidgetStateProperty.resolveWith((states) {
                     if (states.contains(WidgetState.selected)) {
-                      return const IconThemeData(color: Color(0xFF1A4B8E), size: 20);
+                      return const IconThemeData(color: Color(0xFF1A4B8E), size: 22);
                     }
-                    return const IconThemeData(size: 20);
+                    return const IconThemeData(size: 21);
                   }),
                   labelTextStyle: WidgetStateProperty.resolveWith((states) {
                     final isSel = states.contains(WidgetState.selected);
                     return TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: isSel ? FontWeight.bold : FontWeight.w500,
+                      fontSize: 11.5,
+                      fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
                       color: isSel ? const Color(0xFF1A4B8E) : null,
-                      letterSpacing: -0.3,
                       overflow: TextOverflow.ellipsis,
                     );
                   }),
                 ),
                 child: NavigationBar(
-                  height: 58,
+                  height: 62,
                   elevation: 0,
                   backgroundColor: Colors.transparent,
-                  selectedIndex: _currentIndex,
+                  selectedIndex: _currentIndex.clamp(0, 3),
                   onDestinationSelected: _onNavigationChanged,
                   labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
                   destinations: [
                     NavigationDestination(
-                      icon: const Icon(Icons.home_outlined),
-                      selectedIcon: const Icon(Icons.home_rounded),
+                      icon: const Icon(Icons.point_of_sale_outlined),
+                      selectedIcon: const Icon(Icons.point_of_sale_rounded),
                       label: context.tr('nav_home'),
                     ),
                     NavigationDestination(
@@ -415,16 +416,6 @@ class _MainShellState extends State<MainShell> {
                       icon: const Icon(Icons.inventory_2_outlined),
                       selectedIcon: const Icon(Icons.inventory_2_rounded),
                       label: context.tr('nav_stock'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      selectedIcon: const Icon(Icons.calendar_month_rounded),
-                      label: context.tr('nav_daybook'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.settings_outlined),
-                      selectedIcon: const Icon(Icons.settings_rounded),
-                      label: context.tr('nav_settings'),
                     ),
                   ],
                 ),

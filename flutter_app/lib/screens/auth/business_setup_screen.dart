@@ -50,6 +50,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
   String _selectedCategory = 'vegetable';
+  List<String> _selectedHybridModules = [];
   bool _isLoading = false;
 
   final List<Map<String, dynamic>> _categories = [
@@ -132,6 +133,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     if (_categories.any((c) => c['id'] == shop.storeType)) {
       _selectedCategory = shop.storeType;
     }
+    _selectedHybridModules = List<String>.from(shop.hybridModules);
   }
 
   @override
@@ -151,6 +153,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   void _onCategorySelected(String catId) {
     setState(() {
       _selectedCategory = catId;
+      _selectedHybridModules.remove(catId);
       final matched = _categories.firstWhere((c) => c['id'] == catId);
       if (_nameController.text.trim().isEmpty ||
           _categories.any((c) => c['defaultName'] == _nameController.text.trim())) {
@@ -509,6 +512,61 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     );
   }
 
+  Widget _buildHybridChip({
+    required String id,
+    required String label,
+    required String icon,
+    required bool isDark,
+  }) {
+    final isSelected = _selectedHybridModules.contains(id);
+    return InkWell(
+      onTap: () {
+        SoundService.instance.playClick();
+        setState(() {
+          if (isSelected) {
+            _selectedHybridModules.remove(id);
+          } else {
+            _selectedHybridModules.add(id);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF2563EB).withValues(alpha: isDark ? 0.25 : 0.12)
+              : (isDark ? const Color(0xFF131F3B) : const Color(0xFFF1F5F9)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? const Color(0xFF2563EB) : (isDark ? const Color(0xFF1E3A5F) : const Color(0xFFCBD5E1)),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? const Color(0xFF2563EB) : (isDark ? Colors.white : const Color(0xFF0F172A)),
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 4),
+              const Icon(Icons.check_circle_rounded, color: Color(0xFF2563EB), size: 14),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleGetStarted() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
@@ -533,6 +591,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
         name: name,
         phone: fullPhone,
         storeType: _selectedCategory,
+        hybridModules: _selectedHybridModules,
       );
 
       await shopProvider.updateShop(updatedShop);
@@ -846,6 +905,62 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                           ],
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // 2.1 HYBRID MODULES (दो या अधिक दुकानें मिक्स करें)
+                    Row(
+                      children: [
+                        Text(
+                          'हाइब्रिड दुकान (अतिरिक्त बिज़नेस जोड़ें)',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                            color: labelColor,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            'OPTIONAL',
+                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 7),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: [
+                        if (_selectedCategory != 'kirana')
+                          _buildHybridChip(
+                            id: 'kirana',
+                            label: '+ किराना/FMCG (बारकोड)',
+                            icon: '🏪',
+                            isDark: isDark,
+                          ),
+                        if (_selectedCategory != 'vegetable')
+                          _buildHybridChip(
+                            id: 'vegetable',
+                            label: '+ फल व सब्ज़ी (तराजू)',
+                            icon: '🥬',
+                            isDark: isDark,
+                          ),
+                        if (_selectedCategory != 'dairy')
+                          _buildHybridChip(
+                            id: 'dairy',
+                            label: '+ डेयरी व दूध पार्लर',
+                            icon: '🥛',
+                            isDark: isDark,
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 20),
 

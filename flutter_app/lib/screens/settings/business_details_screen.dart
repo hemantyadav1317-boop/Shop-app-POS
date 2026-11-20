@@ -24,6 +24,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
   late TextEditingController _footerCtrl;
   String? _qrImageUrl;
   late String _storeType;
+  List<String> _hybridModules = [];
   bool _isSaving = false;
 
   final List<Map<String, String>> _storeTypes = const [
@@ -48,6 +49,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     _footerCtrl = TextEditingController(text: shop.receiptFooter ?? 'धन्यवाद! फिर पधारें 🙏');
     _qrImageUrl = shop.qrImageUrl;
     _storeType = shop.storeType.isNotEmpty ? shop.storeType : 'kirana';
+    _hybridModules = List<String>.from(shop.hybridModules);
   }
 
   @override
@@ -135,6 +137,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
         clearGoogleReviewUrl: reviewUrl.isEmpty,
         receiptFooter: _footerCtrl.text.trim(),
         storeType: _storeType,
+        hybridModules: _hybridModules,
         qrImageUrl: (_qrImageUrl != null && _qrImageUrl!.trim().isNotEmpty) ? _qrImageUrl : null,
         clearQrImageUrl: _qrImageUrl == null || _qrImageUrl!.trim().isEmpty,
       );
@@ -258,8 +261,79 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                 );
               }).toList(),
               onChanged: (val) {
-                if (val != null) setState(() => _storeType = val);
+                if (val != null) {
+                  setState(() {
+                    _storeType = val;
+                    _hybridModules.remove(val);
+                  });
+                }
               },
+            ),
+            const SizedBox(height: 12),
+
+            // Hybrid Add-ons
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.hub_rounded, size: 16, color: Color(0xFF2563EB)),
+                      SizedBox(width: 6),
+                      Text(
+                        'हाइब्रिड मॉड्यूल (अतिरिक्त बिज़नेस जोड़ें)',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: [
+                      if (_storeType != 'kirana')
+                        FilterChip(
+                          label: const Text('🛒 + किराना/FMCG (बारकोड)', style: TextStyle(fontSize: 11.5)),
+                          selected: _hybridModules.contains('kirana'),
+                          onSelected: (val) {
+                            setState(() {
+                              if (val) _hybridModules.add('kirana');
+                              else _hybridModules.remove('kirana');
+                            });
+                          },
+                        ),
+                      if (_storeType != 'vegetable')
+                        FilterChip(
+                          label: const Text('🥬 + फल व सब्ज़ी (तराजू)', style: TextStyle(fontSize: 11.5)),
+                          selected: _hybridModules.contains('vegetable'),
+                          onSelected: (val) {
+                            setState(() {
+                              if (val) _hybridModules.add('vegetable');
+                              else _hybridModules.remove('vegetable');
+                            });
+                          },
+                        ),
+                      if (_storeType != 'dairy')
+                        FilterChip(
+                          label: const Text('🥛 + डेयरी व दूध पार्लर', style: TextStyle(fontSize: 11.5)),
+                          selected: _hybridModules.contains('dairy'),
+                          onSelected: (val) {
+                            setState(() {
+                              if (val) _hybridModules.add('dairy');
+                              else _hybridModules.remove('dairy');
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
 

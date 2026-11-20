@@ -274,16 +274,26 @@ class _PosScreenState extends State<PosScreen> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.eco_rounded,
-                          color: Color(0xFF4ADE80),
-                          size: 20,
+                      Builder(
+                        builder: (btnCtx) => InkWell(
+                          onTap: () {
+                            SoundService.instance.playButtonClick();
+                            Scaffold.of(btnCtx).openDrawer();
+                          },
+                          borderRadius: BorderRadius.circular(10),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.22),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white30, width: 0.8),
+                            ),
+                            child: const Icon(
+                              Icons.menu_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),

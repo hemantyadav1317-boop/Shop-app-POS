@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
 import 'add_edit_product_screen.dart';
+import 'mandi_order_screen.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/product.dart';
@@ -699,6 +700,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shop = context.watch<ShopProvider>().shop;
     final productProvider = context.watch<ProductProvider>();
     final products = _onlyLowStock
         ? productProvider.products.where((p) => p.isLowStock).toList()
@@ -791,6 +793,24 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 4),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            elevation: 1,
+                          ),
+                          icon: const Icon(Icons.assignment_outlined, size: 14),
+                          label: const Text('मंडी पर्ची', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            SoundService.instance.playButtonClick();
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => const MandiOrderScreen()));
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -799,9 +819,11 @@ class _InventoryScreenState extends State<InventoryScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   child: TextField(
-                    decoration: const InputDecoration(
-                      hintText: 'Search products or scan barcode...',
-                      prefixIcon: Icon(Icons.search),
+                    decoration: InputDecoration(
+                      hintText: shop.hasBarcodeSupport
+                          ? 'Search products or scan barcode...'
+                          : 'Search products by name...',
+                      prefixIcon: const Icon(Icons.search),
                     ),
                     onChanged: (q) {
                       SoundService.instance.playTypeKey();

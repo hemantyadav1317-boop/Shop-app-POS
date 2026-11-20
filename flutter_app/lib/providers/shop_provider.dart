@@ -19,6 +19,13 @@ class ShopProvider extends ChangeNotifier {
   bool get isVegetableMode => _shop.storeType == 'vegetable';
   bool get isMixMode => _shop.storeType == 'mix';
 
+  /// Capability helpers driven by included business types (Golden Rule)
+  bool get hasGroceryOrFmcg => _shop.hasGroceryOrFmcg;
+  bool get hasVegetableOrProduce => _shop.hasVegetableOrProduce;
+  bool get hasDairy => _shop.hasDairy;
+  bool get hasBarcodeSupport => _shop.hasBarcodeSupport;
+  bool get hasScaleSupport => _shop.hasScaleSupport;
+
   static Shop get defaultShop => Shop(
         id: 'demo-shop-101',
         name: 'मेरी दुकान (My Store)',

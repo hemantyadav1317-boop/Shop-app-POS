@@ -268,7 +268,7 @@ class _ProductGridState extends State<ProductGrid> {
                     child: TextField(
                       controller: _searchCtrl,
                       decoration: InputDecoration(
-                        hintText: shopProvider.isKiranaMode
+                        hintText: shopProvider.hasBarcodeSupport
                             ? 'Scan barcode or search items...'
                             : 'Search produce (e.g. Potato, Onion, Tomato)...',
                         hintStyle: TextStyle(
@@ -276,7 +276,7 @@ class _ProductGridState extends State<ProductGrid> {
                           color: isDark ? Colors.white60 : Colors.grey.shade500,
                         ),
                         prefixIcon: Icon(
-                          shopProvider.isKiranaMode ? Icons.qr_code_scanner_rounded : Icons.search_rounded,
+                          shopProvider.hasBarcodeSupport ? Icons.qr_code_scanner_rounded : Icons.search_rounded,
                           size: isMobile ? 20 : 22,
                           color: const Color(0xFF00875A),
                         ),

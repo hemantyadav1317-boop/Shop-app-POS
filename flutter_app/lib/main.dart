@@ -18,6 +18,7 @@ import 'providers/locale_provider.dart';
 import 'core/services/sound_service.dart';
 import 'core/services/local_image_cache_service.dart';
 import 'core/services/payment_notification_service.dart';
+import 'core/services/network_sync_service.dart';
 import 'screens/splash/splash_screen.dart';
 
 void main() async {
@@ -42,6 +43,9 @@ void main() async {
 
   // Initialize Supabase with local fallback
   await SupabaseService.instance.initialize();
+
+  // Initialize Network Connectivity Listener & Auto-Sync Service
+  await NetworkSyncService.instance.init();
 
   Shop initialShop = SupabaseService.instance.currentShop;
   String initialShopId = 'demo-shop-101';

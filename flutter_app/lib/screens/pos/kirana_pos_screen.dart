@@ -160,13 +160,34 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
+          // ☰ Rich High-Graphic Hamburger Menu Button
+          Builder(
+            builder: (btnCtx) => InkWell(
+              onTap: () {
+                SoundService.instance.playButtonClick();
+                Scaffold.of(btnCtx).openDrawer();
+              },
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.menu_rounded, color: Colors.white, size: 20),
+              ),
             ),
-            child: const Icon(Icons.storefront_rounded, color: Color(0xFFFBBF24), size: 22),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -399,93 +420,105 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
   }
 
   Widget _buildScanAndSearchBar(bool isDark) {
+    final shop = context.watch<ShopProvider>().shop;
+
     return Column(
       children: [
-        // Barcode Scanner Action Bar
-        Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-          child: InkWell(
-            onTap: () => _openBarcodeScanner(context),
-            borderRadius: BorderRadius.circular(14),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: const Color(0xFFF59E0B),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                    blurRadius: 10,
-                    offset: const Offset(0, 3),
+        // Barcode Scanner Action Bar - ONLY shown if Grocery/FMCG is enabled (hasBarcodeSupport)
+        if (shop.hasBarcodeSupport)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
+            child: InkWell(
+              onTap: () => _openBarcodeScanner(context),
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFFF59E0B),
+                    width: 1.5,
                   ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
                       color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
                     ),
-                    child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFFF59E0B), size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          'Scan Barcode (FMCG Scan)',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                            color: Color(0xFF0F172A),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFFF59E0B), size: 24),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text(
+                            'Scan Barcode (FMCG Scan)',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: Color(0xFF0F172A),
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 2),
-                        Text(
-                          'Camera or Bluetooth scanner supported (Maggi, Salt, Soap)',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text(
-                      'SCAN',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w900,
-                        color: Color(0xFF0F172A),
+                          SizedBox(height: 2),
+                          Text(
+                            'Camera or Bluetooth scanner supported (Maggi, Salt, Soap)',
+                            style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'SCAN',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
 
-        // Search Bar for Kirana & FMCG items
+        // Search Bar for items (adapts seamlessly for Vegetable vs Kirana)
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          padding: EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: shop.hasBarcodeSupport ? 4 : 8,
+          ),
           child: TextField(
             controller: _searchController,
             focusNode: _searchFocusNode,
             decoration: InputDecoration(
-              hintText: 'Search items (Maggi, Tata Salt, Parle-G, Oil)...',
+              hintText: shop.hasBarcodeSupport
+                  ? 'Search items (Maggi, Tata Salt, Parle-G, Oil)...'
+                  : 'Search produce (e.g. Potato, Onion, Tomato)...',
               hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-              prefixIcon: const Icon(Icons.search, color: Color(0xFFF59E0B), size: 20),
+              prefixIcon: Icon(
+                shop.hasBarcodeSupport ? Icons.qr_code_scanner_rounded : Icons.search_rounded,
+                color: shop.hasBarcodeSupport ? const Color(0xFFF59E0B) : const Color(0xFF00875A),
+                size: 20,
+              ),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear, size: 18),
@@ -509,6 +542,10 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
   }
 
   Widget _buildQuickPills() {
+    final shop = context.watch<ShopProvider>().shop;
+    // Only show FMCG quick pills if Grocery/FMCG is enabled in shop!
+    if (!shop.hasBarcodeSupport) return const SizedBox.shrink();
+
     return SizedBox(
       height: 38,
       child: ListView(

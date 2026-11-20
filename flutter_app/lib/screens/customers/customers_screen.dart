@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/contact_service.dart';
 import '../../core/services/sound_service.dart';
@@ -24,7 +25,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
   final TextEditingController _searchCtrl = TextEditingController();
   String _sortOption = 'name_asc'; // 'name_asc', 'balance_desc', 'sale_desc'
   Map<String, double> _customerTotalSales = {};
-  bool _isLoadingSales = false;
 
   @override
   void initState() {
@@ -39,7 +39,6 @@ class _CustomersScreenState extends State<CustomersScreen> {
   }
 
   Future<void> _loadCustomerSales() async {
-    setState(() => _isLoadingSales = true);
     try {
       final shop = context.read<ShopProvider>().shop;
       final sales = await LocalDbService.instance.getSales(shop.id);
@@ -55,12 +54,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
       if (mounted) {
         setState(() {
           _customerTotalSales = totals;
-          _isLoadingSales = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _isLoadingSales = false);
-    }
+    } catch (_) {}
   }
 
   double _getCustomerSales(Customer c) {
@@ -232,6 +228,488 @@ class _CustomersScreenState extends State<CustomersScreen> {
     } catch (_) {}
   }
 
+  Future<void> _sendWhatsAppReminder(BuildContext context, Customer customer) async {
+    final phone = customer.phone;
+    if (phone == null || phone.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${customer.name} का कोई फ़ोन नंबर दर्ज नहीं है।')),
+      );
+      return;
+    }
+
+    String clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (clean.length == 10) clean = '91$clean';
+
+    final shop = context.read<ShopProvider>().shop;
+    final dueAmt = customer.balance.toStringAsFixed(2);
+    final shopName = shop.name;
+    final upiId = (shop.upiId != null && shop.upiId!.trim().isNotEmpty) ? shop.upiId!.trim() : null;
+    final upiPayee = (shop.upiPayeeName != null && shop.upiPayeeName!.trim().isNotEmpty)
+        ? shop.upiPayeeName!.trim()
+        : shopName;
+
+    String upiPaymentBlock = '';
+    if (upiId != null) {
+      final upiUri = 'upi://pay?pa=$upiId&pn=${Uri.encodeComponent(upiPayee)}&am=$dueAmt&cu=INR&tn=${Uri.encodeComponent("Khata Payment $shopName")}';
+      upiPaymentBlock = '\n\n💳 *UPI ID:* $upiId\n\n⚡ *PhonePe/GPay/Paytm से चुकाने के लिए यहाँ टैप करें:*\n👉 $upiUri';
+    }
+
+    final phoneLine = (shop.phone != null && shop.phone!.isNotEmpty) ? '📞 ${shop.phone!}\n' : '';
+    final msg = '🏪 *$shopName*\n'
+        '$phoneLine'
+        '----------------------------------\n'
+        'नमस्ते *${customer.name}* जी 🙏,\n\n'
+        'आपकी दुकान का खाता विवरण:\n'
+        '💰 *कुल बकाया (Due Balance): ₹$dueAmt*'
+        '$upiPaymentBlock\n\n'
+        'कृपया समय पर भुगतान करने में सहयोग करें।\n'
+        'धन्यवाद! 🙏';
+
+    final uri = Uri.parse('https://wa.me/$clean?text=${Uri.encodeComponent(msg)}');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  void _openRapidFireReminderDialog(BuildContext context, List<Customer> dueCustomers) {
+    SoundService.instance.playButtonClick();
+    final Set<String> sentIds = {};
+    String filterMode = 'all'; // 'all', 'unsent', 'sent'
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final isDark = Theme.of(ctx).brightness == Brightness.dark;
+          final totalDue = dueCustomers.fold<double>(0.0, (sum, c) => sum + c.balance);
+          final unsent = dueCustomers.where((c) => !sentIds.contains(c.id)).toList();
+          final progressPercent = dueCustomers.isEmpty ? 0.0 : (sentIds.length / dueCustomers.length);
+
+          final displayedCustomers = dueCustomers.where((c) {
+            if (filterMode == 'unsent') return !sentIds.contains(c.id);
+            if (filterMode == 'sent') return sentIds.contains(c.id);
+            return true;
+          }).toList();
+
+          return Container(
+            height: MediaQuery.of(ctx).size.height * 0.82,
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF0F172A) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              boxShadow: const [
+                BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -6)),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Header bar handle
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 6),
+                  width: 44,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+
+                // Top Header Row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 6, 12, 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF25D366).withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Text(
+                                  'उधारी वसूली रिमाइंडर',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'WhatsApp',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${dueCustomers.length} ग्राहक • कुल बकाया: ${CurrencyFormatter.format(totalDue)}',
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 22),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Progress Indicator Card
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            sentIds.length == dueCustomers.length
+                                ? Icons.check_circle_rounded
+                                : Icons.pending_actions_rounded,
+                            color: sentIds.length == dueCustomers.length
+                                ? const Color(0xFF16A34A)
+                                : const Color(0xFF2563EB),
+                            size: 16,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'प्रोग्रेस: ${sentIds.length} / ${dueCustomers.length} भेजे गए (${(progressPercent * 100).toInt()}%)',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                          ),
+                          const Spacer(),
+                          if (unsent.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '${unsent.length} बाकी',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444), fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: progressPercent,
+                          minHeight: 6,
+                          backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            sentIds.length == dueCustomers.length ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Reassurance Mini Info Note
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16A34A).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF16A34A).withValues(alpha: 0.2)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.flash_on_rounded, color: Color(0xFF16A34A), size: 14),
+                      SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          '1-टैप में ग्राहक का नाम, बकाया राशि और सीधे UPI पेमेंट लिंक WhatsApp पर लोड हो जाता है।',
+                          style: TextStyle(fontSize: 11, color: Color(0xFF15803D), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Filter Chips Row (सभी | बाकी | भेजे गए)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  child: Row(
+                    children: [
+                      ChoiceChip(
+                        label: Text('सभी (${dueCustomers.length})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        selected: filterMode == 'all',
+                        onSelected: (_) => setSheetState(() => filterMode = 'all'),
+                        selectedColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: Text('बाकी (${unsent.length})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        selected: filterMode == 'unsent',
+                        onSelected: (_) => setSheetState(() => filterMode = 'unsent'),
+                        selectedColor: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                        labelStyle: TextStyle(
+                          color: filterMode == 'unsent' ? const Color(0xFFDC2626) : null,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: Text('भेजे गए (${sentIds.length})', style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        selected: filterMode == 'sent',
+                        onSelected: (_) => setSheetState(() => filterMode = 'sent'),
+                        selectedColor: const Color(0xFF16A34A).withValues(alpha: 0.15),
+                        labelStyle: TextStyle(
+                          color: filterMode == 'sent' ? const Color(0xFF15803D) : null,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 1, thickness: 1),
+
+                // Customer List
+                Expanded(
+                  child: displayedCustomers.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                filterMode == 'sent' ? Icons.mark_chat_read_rounded : Icons.check_circle_outline_rounded,
+                                size: 40,
+                                color: Colors.grey.shade400,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                filterMode == 'sent'
+                                    ? 'अभी तक किसी को नहीं भेजा गया'
+                                    : 'इस फ़िल्टर में कोई ग्राहक नहीं है',
+                                style: const TextStyle(color: Color(0xFF64748B), fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          itemCount: displayedCustomers.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          itemBuilder: (cContext, i) {
+                            final c = displayedCustomers[i];
+                            final isSent = sentIds.contains(c.id);
+
+                            return Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isSent
+                                    ? (isDark ? const Color(0xFF1E293B).withValues(alpha: 0.5) : const Color(0xFFF8FAFC))
+                                    : (isDark ? const Color(0xFF1E293B) : Colors.white),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: isSent
+                                      ? Colors.transparent
+                                      : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                                ),
+                                boxShadow: isSent
+                                    ? null
+                                    : [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.04),
+                                          blurRadius: 6,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                              ),
+                              child: Row(
+                                children: [
+                                  // Initials Avatar
+                                  CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: isSent
+                                        ? Colors.grey.shade400
+                                        : const Color(0xFFEF4444).withValues(alpha: 0.15),
+                                    child: Text(
+                                      c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isSent ? Colors.white : const Color(0xFFDC2626),
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          c.name,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                            color: isSent ? Colors.grey : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          c.phone ?? 'फ़ोन नंबर नहीं है',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            color: isSent ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        CurrencyFormatter.format(c.balance),
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 14,
+                                          color: isSent ? Colors.grey : const Color(0xFFDC2626),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 5),
+                                      if (isSent)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.check_rounded, color: Color(0xFF16A34A), size: 13),
+                                              SizedBox(width: 3),
+                                              Text(
+                                                'भेजा गया',
+                                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      else
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFF16A34A),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            elevation: 1,
+                                          ),
+                                          icon: const Icon(Icons.chat_bubble_rounded, size: 12),
+                                          label: const Text('तगादा भेजें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                                          onPressed: () async {
+                                            SoundService.instance.playButtonClick();
+                                            await _sendWhatsAppReminder(context, c);
+                                            setSheetState(() {
+                                              sentIds.add(c.id);
+                                            });
+                                          },
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+
+                // Bottom Floating Action Button: Send Next Unsent
+                if (unsent.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                      border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
+                    ),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF16A34A),
+                          foregroundColor: Colors.white,
+                          elevation: 3,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        icon: const Icon(Icons.fast_forward_rounded, size: 20),
+                        label: Text(
+                          'अगले ग्राहक को भेजें: ${unsent.first.name} (${CurrencyFormatter.format(unsent.first.balance)})',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onPressed: () async {
+                          final nextCust = unsent.first;
+                          SoundService.instance.playButtonClick();
+                          await _sendWhatsAppReminder(context, nextCust);
+                          setSheetState(() {
+                            sentIds.add(nextCust.id);
+                          });
+                        },
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 22),
+                        SizedBox(width: 8),
+                        Text(
+                          'सभी उधारी ग्राहकों को रिमाइंडर भेजा जा चुका है! ✓',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF16A34A), fontSize: 13.5),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   void _confirmDeleteCustomer(BuildContext context, Customer customer) {
     final auth = context.read<AuthProvider>();
     if (auth.isStaffSession) {
@@ -354,6 +832,10 @@ class _CustomersScreenState extends State<CustomersScreen> {
   Widget build(BuildContext context) {
     final custProvider = context.watch<CustomerProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final dueCustomers = custProvider.customers.where((c) => c.balance > 0).toList();
+    dueCustomers.sort((a, b) => b.balance.compareTo(a.balance));
+    final totalDueAmount = dueCustomers.fold<double>(0.0, (sum, c) => sum + c.balance);
 
     List<Customer> list = List.from(custProvider.filteredCustomers);
     if (_sortOption == 'name_asc') {
@@ -525,6 +1007,79 @@ class _CustomersScreenState extends State<CustomersScreen> {
           ),
           const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
 
+          // 🔔 Smart Due Reminder Banner (If there are customers with pending credit balance)
+          if (dueCustomers.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [const Color(0xFF450A0A), const Color(0xFF2E1010)]
+                      : [const Color(0xFFFEF2F2), const Color(0xFFFEE2E2)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFCA5A5)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withValues(alpha: 0.06),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.notifications_active_rounded, color: Color(0xFFDC2626), size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${dueCustomers.length} ग्राहकों पर उधारी बाकी है',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                            color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B),
+                          ),
+                        ),
+                        Text(
+                          'कुल बकाया: ${CurrencyFormatter.format(totalDueAmount)}',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: isDark ? const Color(0xFFF87171) : const Color(0xFFB91C1C),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      elevation: 2,
+                    ),
+                    icon: const Icon(Icons.send_rounded, size: 13),
+                    label: const Text('तगादा भेजें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    onPressed: () => _openRapidFireReminderDialog(context, dueCustomers),
+                  ),
+                ],
+              ),
+            ),
+
           // Customers List matching Billiez cards
           Expanded(
             child: RefreshIndicator(
@@ -550,7 +1105,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.only(bottom: 90),
                       itemCount: list.length,
-                      separatorBuilder: (_, __) => const Divider(
+                      separatorBuilder: (context, index) => const Divider(
                         height: 1,
                         thickness: 1,
                         indent: 14,
@@ -574,10 +1129,15 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                   builder: (_) => CustomerDetailsScreen(customer: customer),
                                 ),
                               ).then((_) {
+                                if (!mounted) return;
                                 final shop = context.read<ShopProvider>().shop;
                                 context.read<CustomerProvider>().loadCustomers(shop.id);
                                 _loadCustomerSales();
                               });
+                            },
+                            onLongPress: () {
+                              SoundService.instance.playButtonClick();
+                              _confirmDeleteCustomer(context, customer);
                             },
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

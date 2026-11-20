@@ -270,6 +270,7 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final shop = context.watch<ShopProvider>().shop;
     final isEdit = widget.existing != null;
     final prodProv = context.watch<ProductProvider>();
     final availableCats = List<String>.from(prodProv.allCategories);
@@ -583,45 +584,48 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _barcodeCtrl,
-                          decoration: InputDecoration(
-                            labelText: 'बारकोड / SKU (Barcode)',
-                            hintText: 'उदा. 8901058852395',
-                            prefixIcon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF1A4B8E)),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  // 🏷️ Barcode / SKU field: Only shown if business includes Grocery/FMCG or if product already has a barcode
+                  if (shop.hasBarcodeSupport || _barcodeCtrl.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _barcodeCtrl,
+                            decoration: InputDecoration(
+                              labelText: 'बारकोड / SKU (Barcode)',
+                              hintText: 'उदा. 8901058852395',
+                              prefixIcon: const Icon(Icons.qr_code_scanner_rounded, color: Color(0xFF1A4B8E)),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      IconButton.filled(
-                        style: IconButton.styleFrom(
-                          backgroundColor: const Color(0xFF1A4B8E),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          style: IconButton.styleFrom(
+                            backgroundColor: const Color(0xFF1A4B8E),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+                          tooltip: 'बारकोड स्कैन करें',
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (scanCtx) => BarcodeScannerDialog(
+                                onBarcodeScanned: (code) {
+                                  SoundService.instance.playBeep();
+                                  setState(() {
+                                    _barcodeCtrl.text = code;
+                                  });
+                                },
+                              ),
+                            );
+                          },
                         ),
-                        icon: const Icon(Icons.camera_alt_outlined, color: Colors.white),
-                        tooltip: 'बारकोड स्कैन करें',
-                        onPressed: () {
-                          showDialog(
-                            context: context,
-                            builder: (scanCtx) => BarcodeScannerDialog(
-                              onBarcodeScanned: (code) {
-                                SoundService.instance.playBeep();
-                                setState(() {
-                                  _barcodeCtrl.text = code;
-                                });
-                              },
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -963,22 +963,38 @@ class SupabaseService {
       createdAt: DateTime.now(),
     );
 
+    final payload = {
+      'id': pId,
+      'shop_id': validShopId,
+      'customer_id': customerId,
+      'amount': amount,
+      'mode': mode,
+      if (note != null && note.isNotEmpty) 'note': note,
+      'created_at': payment.createdAt.toIso8601String(),
+    };
+
     if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
-        final payload = {
-          'id': pId,
-          'shop_id': validShopId,
-          'customer_id': customerId,
-          'amount': amount,
-          'mode': mode,
-          if (note != null && note.isNotEmpty) 'note': note,
-          'created_at': payment.createdAt.toIso8601String(),
-        };
         await client!.from('payments').insert(payload);
         debugPrint("Payment recorded in Supabase cloud");
       } catch (e) {
-        debugPrint("Error recording payment in cloud: $e");
+        debugPrint("Error recording payment in cloud, queuing in offline outbox: $e");
+        await LocalDbService.instance.enqueueOutbox(
+          shopId: validShopId,
+          entityType: 'payment',
+          entityId: pId,
+          operation: 'create',
+          payload: payload,
+        );
       }
+    } else if (validShopId != 'demo-shop-101') {
+      await LocalDbService.instance.enqueueOutbox(
+        shopId: validShopId,
+        entityType: 'payment',
+        entityId: pId,
+        operation: 'create',
+        payload: payload,
+      );
     }
 
     final cIdx = _localCustomers.indexWhere((c) => c.id == customerId);
@@ -2434,6 +2450,19 @@ class SupabaseService {
                   }).toList());
             }
           }
+          await LocalDbService.instance.removeOutboxItem(item.id);
+          syncedCount++;
+        } else if (item.entityType == 'payment' && item.operation == 'create') {
+          await client!.from('payments').upsert({
+            'id': item.payload['id'],
+            'shop_id': validShopId,
+            'customer_id': item.payload['customer_id'],
+            'amount': item.payload['amount'],
+            'mode': item.payload['mode'] ?? 'cash',
+            if (item.payload['note'] != null && (item.payload['note'] as String).isNotEmpty)
+              'note': item.payload['note'],
+            'created_at': item.payload['created_at'],
+          });
           await LocalDbService.instance.removeOutboxItem(item.id);
           syncedCount++;
         } else if (item.entityType == 'categories' && item.operation == 'upsert') {

@@ -11,6 +11,7 @@ class Shop {
   final String? receiptFooter;
   final String? qrImageUrl; // Custom Standee QR Image URL or path
   final String storeType; // 'vegetable', 'kirana', 'mix', 'other'
+  final List<String> hybridModules; // Additional enabled modules, e.g. ['kirana', 'dairy']
   final String? shareCode; // 6-digit unique shop sharing code (e.g. '749201')
   final String? googleReviewUrl; // Real Google Maps Review URL for post-payment bill QR
   final bool phonePeEnabled;
@@ -23,6 +24,30 @@ class Shop {
   bool get isKiranaMode => storeType == 'kirana';
   bool get isVegetableMode => storeType == 'vegetable';
   bool get isOtherMode => storeType == 'other';
+
+  /// Whether this business includes Grocery / FMCG (either primary or hybrid)
+  bool get hasGroceryOrFmcg {
+    if (storeType == 'kirana' || storeType == 'mix' || storeType.contains('kirana')) return true;
+    return hybridModules.contains('kirana');
+  }
+
+  /// Whether this business includes Vegetables / Produce (either primary or hybrid)
+  bool get hasVegetableOrProduce {
+    if (storeType == 'vegetable' || storeType == 'mix' || storeType.contains('vegetable')) return true;
+    return hybridModules.contains('vegetable');
+  }
+
+  /// Whether this business includes Dairy (either primary or hybrid)
+  bool get hasDairy {
+    if (storeType == 'dairy' || storeType.contains('dairy')) return true;
+    return hybridModules.contains('dairy');
+  }
+
+  /// Barcode support is strictly active IF AND ONLY IF Grocery/FMCG is part of the business!
+  bool get hasBarcodeSupport => hasGroceryOrFmcg;
+
+  /// Electronic Weighing Scale is active if Vegetables/Produce is part of the business!
+  bool get hasScaleSupport => hasVegetableOrProduce;
 
   /// Guaranteed 6-digit share code (either persisted or deterministic from shop ID)
   String get displayShareCode {
@@ -47,6 +72,7 @@ class Shop {
     this.receiptFooter = 'धन्यवाद! फिर पधारें 🙏',
     this.qrImageUrl,
     this.storeType = 'vegetable',
+    this.hybridModules = const [],
     this.shareCode,
     this.googleReviewUrl,
     this.phonePeEnabled = false,
@@ -71,6 +97,9 @@ class Shop {
       receiptFooter: json['receipt_footer'] as String? ?? 'धन्यवाद! फिर पधारें 🙏',
       qrImageUrl: json['qr_image_url'] as String?,
       storeType: json['store_type'] as String? ?? 'vegetable',
+      hybridModules: json['hybrid_modules'] is List
+          ? List<String>.from(json['hybrid_modules'] as List)
+          : const [],
       shareCode: (json['share_code'] ?? json['shareCode']) as String?,
       googleReviewUrl: (json['google_review_url'] ?? json['googleReviewUrl']) as String?,
       phonePeEnabled: json['phonepe_enabled'] as bool? ?? json['phonePeEnabled'] as bool? ?? false,
@@ -101,6 +130,7 @@ class Shop {
       'receipt_footer': receiptFooter,
       if (qrImageUrl != null) 'qr_image_url': qrImageUrl,
       'store_type': storeType,
+      if (hybridModules.isNotEmpty) 'hybrid_modules': hybridModules,
       if (shareCode != null) 'share_code': shareCode,
       if (googleReviewUrl != null) 'google_review_url': googleReviewUrl,
       'phonepe_enabled': phonePeEnabled,
@@ -131,6 +161,7 @@ class Shop {
     String? qrImageUrl,
     bool clearQrImageUrl = false,
     String? storeType,
+    List<String>? hybridModules,
     String? shareCode,
     bool clearShareCode = false,
     String? googleReviewUrl,
@@ -159,6 +190,7 @@ class Shop {
       receiptFooter: receiptFooter ?? this.receiptFooter,
       qrImageUrl: clearQrImageUrl ? null : (qrImageUrl ?? this.qrImageUrl),
       storeType: storeType ?? this.storeType,
+      hybridModules: hybridModules ?? this.hybridModules,
       shareCode: clearShareCode ? null : (shareCode ?? this.shareCode),
       googleReviewUrl: clearGoogleReviewUrl ? null : (googleReviewUrl ?? this.googleReviewUrl),
       phonePeEnabled: phonePeEnabled ?? this.phonePeEnabled,
