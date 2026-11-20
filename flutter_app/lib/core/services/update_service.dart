@@ -23,7 +23,7 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '1.6.3';
+  static const String currentVersion = '1.6.5';
 
   // GitHub repository for auto updates
   static String githubRepo = 'hemantyadav1317-boop/Shop-app-POS';
@@ -244,6 +244,17 @@ class UpdateService {
             onPressed: () => Navigator.pop(ctx),
             child: const Text('बाद में (Later)'),
           ),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.open_in_browser, size: 16),
+            label: const Text('Browser से डाउनलोड'),
+            onPressed: () {
+              Navigator.pop(ctx);
+              final uri = Uri.tryParse(info.downloadUrl);
+              if (uri != null) {
+                launchUrl(uri, mode: LaunchMode.externalApplication);
+              }
+            },
+          ),
           ElevatedButton.icon(
             icon: const Icon(Icons.download, size: 16),
             label: const Text('अभी अपडेट करें (Update)'),
@@ -315,16 +326,17 @@ class _OtaDownloadDialogState extends State<_OtaDownloadDialog> {
               _statusText = 'डाउनलोड हो रहा है: ${percent.toInt()}%';
             });
           } else if (event.status == OtaStatus.INSTALLING) {
-            _isClosing = true;
             setState(() {
               _progress = 1.0;
-              _statusText = 'इंस्टॉल हो रहा है... 🚀';
+              _statusText = 'डाउनलोड 100% पूरा हुआ! इंस्टॉलर खुल रहा है... 🚀';
             });
-            Future.delayed(const Duration(seconds: 1), () {
-              if (mounted) {
-                Navigator.of(context).pop();
+            // Give system package installer time to launch
+            Future.delayed(const Duration(milliseconds: 3500), () {
+              if (mounted && !_isClosing) {
+                setState(() {
+                  _statusText = 'यदि पैकेज इंस्टॉलर स्क्रीन नहीं आई, तो नीचे Browser से डाउनलोड करें।';
+                });
               }
-              widget.onFinished();
             });
           } else if (event.status == OtaStatus.ALREADY_RUNNING_ERROR) {
             setState(() {
@@ -418,8 +430,22 @@ class _OtaDownloadDialogState extends State<_OtaDownloadDialog> {
       ),
       actions: [
         TextButton(
+          onPressed: () {
+            _isClosing = true;
+            _subscription?.cancel();
+            if (mounted) Navigator.of(context).pop();
+            widget.onFinished();
+          },
+          child: const Text('बंद करें (Close)'),
+        ),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.open_in_browser, size: 16),
+          label: const Text('Browser से डाउनलोड करें'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+          ),
           onPressed: () => _fallbackToBrowser('User chose browser download'),
-          child: const Text('Browser से डाउनलोड करें'),
         ),
       ],
     );

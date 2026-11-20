@@ -311,7 +311,8 @@ class _MainShellState extends State<MainShell> {
       body: Stack(
         children: [
           _screens[_currentIndex],
-          if (isMenuHidden)
+          // Only show floating exit fullscreen pill on tabs other than POS (POS has its own integrated header)
+          if (isMenuHidden && _currentIndex != 0)
             Positioned(
               top: MediaQuery.of(context).padding.top + 8,
               right: 12,
