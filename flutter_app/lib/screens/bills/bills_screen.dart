@@ -816,23 +816,31 @@ class _BillsScreenState extends State<BillsScreen> {
   Widget _buildDateHeader(DateTime date, int count, bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      margin: const EdgeInsets.only(top: 12, bottom: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      margin: const EdgeInsets.fromLTRB(14, 12, 14, 6),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-        border: Border(
-          top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 0.8),
-          bottom: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0), width: 0.8),
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFFFEDE6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFFFDCD0),
+          width: 0.8,
         ),
       ),
-      child: Text(
-        '${DateFormat('dd MMM, yyyy').format(date)} - $count',
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w600,
-          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-          letterSpacing: 0.2,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.calendar_month_rounded, size: 15, color: Color(0xFFFF5722)),
+          const SizedBox(width: 8),
+          Text(
+            '${DateFormat('dd MMM, yyyy').format(date)} – $count Bills',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : const Color(0xFF0F172A),
+              letterSpacing: 0.2,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -842,22 +850,22 @@ class _BillsScreenState extends State<BillsScreen> {
     final staffOrAdmin = context.read<AuthProvider>().isStaffSession ? 'Staff' : 'Admin';
     final customerDisplay = (sale.customerName != null && sale.customerName!.trim().isNotEmpty)
         ? sale.customerName!.trim()
-        : '-';
+        : 'Walk-in Customer';
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-          width: 0.8,
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFEEF2F6),
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
-            blurRadius: 4,
-            offset: const Offset(0, 1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -866,22 +874,30 @@ class _BillsScreenState extends State<BillsScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Left orange banner if Unsettled
+            // Left orange banner if Unsettled matching Image 3
             if (isUnsettled)
               Container(
-                width: 22,
-                color: const Color(0xFFF59E0B),
+                width: 26,
+                color: const Color(0xFFFF6D00),
                 alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: const RotatedBox(
                   quarterTurns: 3,
-                  child: Text(
-                    'Unsettled',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.6,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.assignment_outlined, size: 12, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'Unsettled',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.6,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -905,17 +921,17 @@ class _BillsScreenState extends State<BillsScreen> {
                                 Text(
                                   'Invoice : ',
                                   style: TextStyle(
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w500,
-                                    color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
                                   ),
                                 ),
                                 Text(
                                   '${sale.billNo}',
-                                  style: TextStyle(
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: Color(0xFFFF5722),
                                   ),
                                 ),
                                 if (sale.isEdited) ...[
@@ -938,17 +954,25 @@ class _BillsScreenState extends State<BillsScreen> {
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              'Time : ${timeFormat.format(sale.createdAt.toLocal())}',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
-                              ),
-                            ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 4),
                             Row(
                               children: [
+                                const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF64748B)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Time : ${timeFormat.format(sale.createdAt.toLocal())}',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                const Icon(Icons.person_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                                const SizedBox(width: 4),
                                 Text(
                                   'Customer : ',
                                   style: TextStyle(
@@ -961,8 +985,8 @@ class _BillsScreenState extends State<BillsScreen> {
                                     customerDisplay,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white70 : const Color(0xFF334155),
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                                     ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -970,12 +994,18 @@ class _BillsScreenState extends State<BillsScreen> {
                               ],
                             ),
                             const SizedBox(height: 3),
-                            Text(
-                              'Created by $staffOrAdmin',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
-                              ),
+                            Row(
+                              children: [
+                                const Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFF64748B)),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Created by : $staffOrAdmin',
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: Color(0xFF64748B),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
@@ -988,11 +1018,11 @@ class _BillsScreenState extends State<BillsScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
+                              const Text(
                                 'Items : ',
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                  fontSize: 12.5,
+                                  color: Color(0xFF64748B),
                                 ),
                               ),
                               Text(
@@ -1000,7 +1030,7 @@ class _BillsScreenState extends State<BillsScreen> {
                                 style: TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                                  color: isDark ? Colors.white : const Color(0xFF0F172A),
                                 ),
                               ),
                             ],
@@ -1009,67 +1039,85 @@ class _BillsScreenState extends State<BillsScreen> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
+                              const Text(
                                 'Total : ',
                                 style: TextStyle(
-                                  fontSize: 13,
-                                  color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                  fontSize: 12.5,
+                                  color: Color(0xFF64748B),
                                 ),
                               ),
                               Text(
-                                sale.total.toStringAsFixed(2),
+                                '₹${sale.total.toStringAsFixed(2)}',
                                 style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w900,
                                   color: isDark ? Colors.white : const Color(0xFF1E3A8A),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 8),
                           if (isUnsettled)
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFFD97706),
-                                side: BorderSide(
-                                  color: isDark ? Colors.amber.shade700 : const Color(0xFFCBD5E1),
-                                  width: 1,
+                            Material(
+                              color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.3) : const Color(0xFFFFEDE6),
+                              borderRadius: BorderRadius.circular(10),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: () => _settleBill(sale),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.payments_rounded, size: 14, color: Color(0xFFEA580C)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Settle bill',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFFEA580C),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                visualDensity: VisualDensity.compact,
                               ),
-                              icon: const Icon(Icons.payments_outlined, size: 15, color: Color(0xFFD97706)),
-                              label: const Text(
-                                'Settle bill',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: () => _settleBill(sale),
                             )
                           else
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: isDark ? Colors.white : const Color(0xFF1E3A8A),
-                                side: BorderSide(
-                                  color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
-                                  width: 1,
+                            Material(
+                              color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.25) : const Color(0xFFEFF6FF),
+                              borderRadius: BorderRadius.circular(10),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: () => _showBillDetails(sale),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.receipt_rounded, size: 14, color: Color(0xFF2563EB)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Receipt',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF2563EB),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                visualDensity: VisualDensity.compact,
                               ),
-                              icon: Icon(
-                                Icons.receipt_outlined,
-                                size: 15,
-                                color: isDark ? Colors.white70 : const Color(0xFF1E3A8A),
-                              ),
-                              label: const Text(
-                                'Receipt',
-                                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: () => _showBillDetails(sale),
                             ),
                         ],
                       ),
@@ -1089,36 +1137,54 @@ class _BillsScreenState extends State<BillsScreen> {
     final timeFormat = DateFormat('dd MMM yyyy h:mm a');
     final filtered = _filteredSales;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final canPop = Navigator.canPop(context);
 
     return Scaffold(
-      backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFF8FAFC),
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
+        backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFFF5722),
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         automaticallyImplyLeading: false,
-        leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Colors.white),
-          tooltip: 'मेन्यू',
-          onPressed: () {
-            SoundService.instance.playButtonClick();
-            MainShell.openDrawer(context);
-          },
-        ),
-        title: Text(
-          context.tr('bill_history'),
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white, letterSpacing: 0.3),
+        leading: canPop
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                onPressed: () {
+                  SoundService.instance.playButtonClick();
+                  Navigator.pop(context);
+                },
+              )
+            : IconButton(
+                icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                tooltip: 'मेन्यू',
+                onPressed: () {
+                  SoundService.instance.playButtonClick();
+                  MainShell.openDrawer(context);
+                },
+              ),
+        title: const Text(
+          'Bill History',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white, letterSpacing: 0.3),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'रिफ्रेश करें',
-            onPressed: _loadSales,
+            onPressed: () {
+              SoundService.instance.playButtonClick();
+              _loadSales();
+            },
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth > 850;
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isWide ? 850 : double.infinity),
+              child: Column(
+                children: [
           // Top Controls Bar (Date Dropdown + Search + Filter + Export)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -1435,6 +1501,10 @@ class _BillsScreenState extends State<BillsScreen> {
                   ),
           ),
         ],
+      ),
+            ),
+          );
+        },
       ),
     );
   }

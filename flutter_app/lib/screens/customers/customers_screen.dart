@@ -14,6 +14,7 @@ import '../../providers/shop_provider.dart';
 import '../main_shell.dart';
 import 'add_customer_screen.dart';
 import 'customer_details_screen.dart';
+import '../../providers/locale_provider.dart';
 
 class CustomersScreen extends StatefulWidget {
   const CustomersScreen({super.key});
@@ -833,6 +834,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
   Widget build(BuildContext context) {
     final custProvider = context.watch<CustomerProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isHindi = context.watch<LocaleProvider>().localeCode == 'hi';
 
     final dueCustomers = custProvider.customers.where((c) => c.balance > 0).toList();
     dueCustomers.sort((a, b) => b.balance.compareTo(a.balance));
@@ -847,30 +849,50 @@ class _CustomersScreenState extends State<CustomersScreen> {
       list.sort((a, b) => _getCustomerSales(b).compareTo(_getCustomerSales(a)));
     }
 
+    final canPop = Navigator.canPop(context);
+
+    // Color palette for customer initials squircles
+    final pastelColors = [
+      {'bg': const Color(0xFFFFEDD5), 'text': const Color(0xFFC2410C)}, // Peach / Orange
+      {'bg': const Color(0xFFDBEAFE), 'text': const Color(0xFF1D4ED8)}, // Blue
+      {'bg': const Color(0xFFDCFCE7), 'text': const Color(0xFF15803D)}, // Green
+      {'bg': const Color(0xFFF3E8FF), 'text': const Color(0xFF7E22CE)}, // Purple
+      {'bg': const Color(0xFFCCFBF1), 'text': const Color(0xFF0F766E)}, // Teal
+    ];
+
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text(
-          'Customer Management',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white, letterSpacing: 0.3),
+        title: Text(
+          isHindi ? 'ग्राहक खाता' : 'Customer Management',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white, letterSpacing: 0.3),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFFF5722),
         elevation: 0,
         centerTitle: false,
         automaticallyImplyLeading: false,
-        leading: IconButton(
-          icon: const Icon(Icons.menu_rounded, color: Colors.white),
-          tooltip: 'मेन्यू',
-          onPressed: () {
-            SoundService.instance.playButtonClick();
-            MainShell.openDrawer(context);
-          },
-        ),
+        leading: canPop
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                onPressed: () {
+                  SoundService.instance.playButtonClick();
+                  Navigator.pop(context);
+                },
+              )
+            : IconButton(
+                icon: const Icon(Icons.menu_rounded, color: Colors.white),
+                tooltip: 'मेन्यू',
+                onPressed: () {
+                  SoundService.instance.playButtonClick();
+                  MainShell.openDrawer(context);
+                },
+              ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'Refresh',
             onPressed: () async {
+              SoundService.instance.playButtonClick();
               final shop = context.read<ShopProvider>().shop;
               await context.read<CustomerProvider>().loadCustomers(shop.id);
               await _loadCustomerSales();
@@ -878,384 +900,499 @@ class _CustomersScreenState extends State<CustomersScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Top Search & Filter Bar matching Billiez Image 2
-          Container(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                // Rounded Search Box: Contact/Name/GST No
-                Expanded(
-                  child: Container(
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                      ),
-                    ),
-                    child: TextField(
-                      controller: _searchCtrl,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isDark ? Colors.white : const Color(0xFF0F172A),
-                      ),
-                      decoration: InputDecoration(
-                        hintText: 'Contact/Name/GST No',
-                        hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-                        suffixIcon: const Icon(Icons.search, size: 20, color: Color(0xFF94A3B8)),
-                      ),
-                      onChanged: (q) => custProvider.setSearchQuery(q),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-
-                // Sort Dropdown Button [ ≡⇣ ] matching Billiez
-                PopupMenuButton<String>(
-                  tooltip: 'Sort Customers',
-                  offset: const Offset(0, 44),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
-                  ),
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  elevation: 6,
-                  icon: const Icon(Icons.sort_rounded, size: 24, color: Color(0xFF64748B)),
-                  initialValue: _sortOption,
-                  onSelected: (val) {
-                    SoundService.instance.playButtonClick();
-                    setState(() => _sortOption = val);
-                  },
-                  itemBuilder: (ctx) => [
-                    PopupMenuItem(
-                      value: 'name_asc',
-                      height: 42,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Sort by Name',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: _sortOption == 'name_asc' ? FontWeight.bold : FontWeight.w500,
-                                color: _sortOption == 'name_asc' ? AppColors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                              ),
-                            ),
-                          ),
-                          if (_sortOption == 'name_asc')
-                            const Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(height: 1),
-                    PopupMenuItem(
-                      value: 'balance_desc',
-                      height: 42,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Sort by Credit',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: _sortOption == 'balance_desc' ? FontWeight.bold : FontWeight.w500,
-                                color: _sortOption == 'balance_desc' ? AppColors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                              ),
-                            ),
-                          ),
-                          if (_sortOption == 'balance_desc')
-                            const Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
-                        ],
-                      ),
-                    ),
-                    const PopupMenuDivider(height: 1),
-                    PopupMenuItem(
-                      value: 'sale_desc',
-                      height: 42,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Sort by Sales',
-                              style: TextStyle(
-                                fontSize: 13.5,
-                                fontWeight: _sortOption == 'sale_desc' ? FontWeight.bold : FontWeight.w500,
-                                color: _sortOption == 'sale_desc' ? AppColors.primary : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                              ),
-                            ),
-                          ),
-                          if (_sortOption == 'sale_desc')
-                            const Icon(Icons.check_rounded, color: AppColors.primary, size: 18),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Load from Contacts Quick Button [ 👤+ ]
-                IconButton(
-                  icon: const Icon(Icons.perm_contact_calendar_outlined, size: 22, color: AppColors.primary),
-                  tooltip: 'Load from Contacts / फोन से ग्राहक जोड़ें',
-                  onPressed: _loadFromContactsDirectly,
-                ),
-
-                // Export Button Icon [ 📥 ]
-                IconButton(
-                  icon: const Icon(Icons.download_rounded, size: 24, color: Color(0xFF64748B)),
-                  tooltip: 'Export List',
-                  onPressed: () => _exportCustomerReport(list),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, thickness: 1, color: Color(0xFFE2E8F0)),
-
-          // 🔔 Smart Due Reminder Banner (If there are customers with pending credit balance)
-          if (dueCustomers.isNotEmpty)
-            Container(
-              margin: const EdgeInsets.fromLTRB(14, 8, 14, 6),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isDark
-                      ? [const Color(0xFF450A0A), const Color(0xFF2E1010)]
-                      : [const Color(0xFFFEF2F2), const Color(0xFFFEE2E2)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFCA5A5)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.red.withValues(alpha: 0.06),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth > 850;
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isWide ? 850 : double.infinity),
+              child: Column(
                 children: [
+                  // Top Search & Filter Bar matching Image 2
                   Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEF4444).withValues(alpha: 0.15),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.notifications_active_rounded, color: Color(0xFFDC2626), size: 18),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(
                       children: [
-                        Text(
-                          '${dueCustomers.length} ग्राहकों पर उधारी बाकी है',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                            color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B),
+                        // Rounded Pill Search Box
+                        Expanded(
+                          child: Container(
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _searchCtrl,
+                              style: TextStyle(
+                                fontSize: 13.5,
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                              ),
+                              decoration: InputDecoration(
+                                hintText: isHindi ? 'नाम या मोबाइल नंबर खोजें...' : 'Contact/Name...',
+                                hintStyle: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFF94A3B8)),
+                              ),
+                              onChanged: (q) => custProvider.setSearchQuery(q),
+                            ),
                           ),
                         ),
-                        Text(
-                          'कुल बकाया: ${CurrencyFormatter.format(totalDueAmount)}',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: isDark ? const Color(0xFFF87171) : const Color(0xFFB91C1C),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      elevation: 2,
-                    ),
-                    icon: const Icon(Icons.send_rounded, size: 13),
-                    label: const Text('तगादा भेजें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                    onPressed: () => _openRapidFireReminderDialog(context, dueCustomers),
-                  ),
-                ],
-              ),
-            ),
+                        const SizedBox(width: 8),
 
-          // Customers List matching Billiez cards
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                final shop = context.read<ShopProvider>().shop;
-                await context.read<CustomerProvider>().loadCustomers(shop.id);
-                await _loadCustomerSales();
-              },
-              child: list.isEmpty
-                  ? ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: const [
-                        SizedBox(height: 140),
-                        Center(
-                          child: Text(
-                            'No customers found',
-                            style: TextStyle(color: Color(0xFF94A3B8), fontSize: 15),
+                        // Sort Button
+                        PopupMenuButton<String>(
+                          tooltip: 'Sort Customers',
+                          offset: const Offset(0, 44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
                           ),
-                        ),
-                      ],
-                    )
-                  : ListView.separated(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(bottom: 90),
-                      itemCount: list.length,
-                      separatorBuilder: (context, index) => const Divider(
-                        height: 1,
-                        thickness: 1,
-                        indent: 14,
-                        endIndent: 14,
-                        color: Color(0xFFF1F5F9),
-                      ),
-                      itemBuilder: (context, i) {
-                        final customer = list[i];
-                        final initials = _getInitials(customer.name);
-                        final totalSale = _getCustomerSales(customer);
-                        final hasDue = customer.balance > 0.009;
-
-                        return Material(
                           color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                          child: InkWell(
-                            onTap: () {
-                              SoundService.instance.playButtonClick();
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => CustomerDetailsScreen(customer: customer),
-                                ),
-                              ).then((_) {
-                                if (!mounted) return;
-                                final shop = context.read<ShopProvider>().shop;
-                                context.read<CustomerProvider>().loadCustomers(shop.id);
-                                _loadCustomerSales();
-                              });
-                            },
-                            onLongPress: () {
-                              SoundService.instance.playButtonClick();
-                              _confirmDeleteCustomer(context, customer);
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          elevation: 6,
+                          icon: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.sort_rounded, size: 20, color: Color(0xFF475569)),
+                          ),
+                          initialValue: _sortOption,
+                          onSelected: (val) {
+                            SoundService.instance.playButtonClick();
+                            setState(() => _sortOption = val);
+                          },
+                          itemBuilder: (ctx) => [
+                            PopupMenuItem(
+                              value: 'name_asc',
+                              height: 42,
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  // Left Initials Box: [ VV ]
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      initials,
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-
-                                  // Middle Info Column: Name, Phone, Total Sale Amount
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          customer.name,
-                                          style: TextStyle(
-                                            fontSize: 14.5,
-                                            fontWeight: FontWeight.w700,
-                                            color: isDark ? Colors.white : const Color(0xFF1E3A8A),
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          customer.phone ?? '--',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Color(0xFF64748B),
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          'Total Sale Amount : ₹ ${totalSale.toStringAsFixed(2)}',
-                                          style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Color(0xFF64748B),
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
+                                    child: Text(
+                                      isHindi ? 'नाम अनुसार (A-Z)' : 'Sort by Name',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: _sortOption == 'name_asc' ? FontWeight.bold : FontWeight.w500,
+                                        color: _sortOption == 'name_asc' ? const Color(0xFFFF5722) : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                      ),
                                     ),
                                   ),
-
-                                  // Right Credit Amount Column
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Text(
-                                        'Credit Amount',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Color(0xFF64748B),
-                                          fontWeight: FontWeight.w500,
-                                        ),
+                                  if (_sortOption == 'name_asc')
+                                    const Icon(Icons.check_rounded, color: Color(0xFFFF5722), size: 18),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(height: 1),
+                            PopupMenuItem(
+                              value: 'balance_desc',
+                              height: 42,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      isHindi ? 'उधारी अनुसार (अधिक से कम)' : 'Sort by Credit',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: _sortOption == 'balance_desc' ? FontWeight.bold : FontWeight.w500,
+                                        color: _sortOption == 'balance_desc' ? const Color(0xFFFF5722) : (isDark ? Colors.white : const Color(0xFF0F172A)),
                                       ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        '₹ ${customer.balance.toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                          fontSize: 14.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: hasDue ? const Color(0xFFE11D48) : (isDark ? Colors.white70 : const Color(0xFF0F172A)),
+                                    ),
+                                  ),
+                                  if (_sortOption == 'balance_desc')
+                                    const Icon(Icons.check_rounded, color: Color(0xFFFF5722), size: 18),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuDivider(height: 1),
+                            PopupMenuItem(
+                              value: 'sale_desc',
+                              height: 42,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      isHindi ? 'बिक्री अनुसार (अधिक से कम)' : 'Sort by Sales',
+                                      style: TextStyle(
+                                        fontSize: 13.5,
+                                        fontWeight: _sortOption == 'sale_desc' ? FontWeight.bold : FontWeight.w500,
+                                        color: _sortOption == 'sale_desc' ? const Color(0xFFFF5722) : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                      ),
+                                    ),
+                                  ),
+                                  if (_sortOption == 'sale_desc')
+                                    const Icon(Icons.check_rounded, color: Color(0xFFFF5722), size: 18),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Load from Phone Contacts Quick Button
+                        IconButton(
+                          icon: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF5722).withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.person_add_alt_1_rounded, size: 20, color: Color(0xFFFF5722)),
+                          ),
+                          tooltip: isHindi ? 'फोनबुक से ग्राहक जोड़ें' : 'Load from Contacts',
+                          onPressed: _loadFromContactsDirectly,
+                        ),
+
+                        // Export Report Button
+                        IconButton(
+                          icon: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.download_rounded, size: 20, color: Color(0xFF475569)),
+                          ),
+                          tooltip: isHindi ? 'रिपोर्ट डाउनलोड करें' : 'Export List',
+                          onPressed: () => _exportCustomerReport(list),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Smart Due Reminder Banner matching Image 2
+                  if (dueCustomers.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF2E1010) : const Color(0xFFFFF3ED),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFFD7C4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          // Bell with Red Dot
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFEDD5),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.notifications_active_rounded, color: Color(0xFFEA580C), size: 20),
+                              ),
+                              Positioned(
+                                top: -2,
+                                right: -2,
+                                child: Container(
+                                  width: 9,
+                                  height: 9,
+                                  decoration: const BoxDecoration(
+                                    color: Color(0xFFDC2626),
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isHindi
+                                      ? '${dueCustomers.length} ग्राहकों पर उधारी बाकी है'
+                                      : '${dueCustomers.length} Customers have pending due',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                RichText(
+                                  text: TextSpan(
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: isDark ? Colors.white70 : const Color(0xFF64748B),
+                                    ),
+                                    children: [
+                                      TextSpan(text: isHindi ? 'कुल बकाया: ' : 'Total Due: '),
+                                      TextSpan(
+                                        text: CurrencyFormatter.format(totalDueAmount),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          color: Color(0xFFDC2626),
                                         ),
                                       ),
                                     ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
-                        );
-                      },
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF16A34A),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              elevation: 1,
+                            ),
+                            icon: const Icon(Icons.send_rounded, size: 13),
+                            label: Text(
+                              isHindi ? 'मागा भेजें' : 'Send Reminder',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                            ),
+                            onPressed: () {
+                              SoundService.instance.playButtonClick();
+                              _openRapidFireReminderDialog(context, dueCustomers);
+                            },
+                          ),
+                        ],
+                      ),
                     ),
+
+                  // Customers List matching Image 2
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () async {
+                        final shop = context.read<ShopProvider>().shop;
+                        await context.read<CustomerProvider>().loadCustomers(shop.id);
+                        await _loadCustomerSales();
+                      },
+                      child: list.isEmpty
+                          ? ListView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              children: [
+                                const SizedBox(height: 120),
+                                Center(
+                                  child: Column(
+                                    children: [
+                                      Icon(Icons.people_outline_rounded, size: 48, color: Colors.grey.withValues(alpha: 0.4)),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        isHindi ? 'कोई ग्राहक नहीं मिला' : 'No customers found',
+                                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14.5),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.builder(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.fromLTRB(14, 8, 14, 90),
+                              itemCount: list.length,
+                              itemBuilder: (context, i) {
+                                final customer = list[i];
+                                final initials = _getInitials(customer.name);
+                                final totalSale = _getCustomerSales(customer);
+                                final hasDue = customer.balance > 0.009;
+                                final colorIndex = i % pastelColors.length;
+                                final colorScheme = pastelColors[colorIndex];
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  decoration: BoxDecoration(
+                                    color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: isDark ? const Color(0xFF334155) : const Color(0xFFEEF2F6),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(16),
+                                      onTap: () {
+                                        SoundService.instance.playButtonClick();
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => CustomerDetailsScreen(customer: customer),
+                                          ),
+                                        ).then((_) {
+                                          if (!mounted) return;
+                                          final shop = context.read<ShopProvider>().shop;
+                                          context.read<CustomerProvider>().loadCustomers(shop.id);
+                                          _loadCustomerSales();
+                                        });
+                                      },
+                                      onLongPress: () {
+                                        SoundService.instance.playButtonClick();
+                                        _confirmDeleteCustomer(context, customer);
+                                      },
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.center,
+                                          children: [
+                                            // 1. Left Initials Box
+                                            Container(
+                                              width: 44,
+                                              height: 44,
+                                              decoration: BoxDecoration(
+                                                color: isDark ? colorScheme['bg']!.withValues(alpha: 0.2) : colorScheme['bg'],
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              alignment: Alignment.center,
+                                              child: Text(
+                                                initials,
+                                                style: TextStyle(
+                                                  fontSize: 15,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: colorScheme['text'],
+                                                  letterSpacing: 0.5,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+
+                                            // 2. Middle Info Column: Name, Phone, Total Sale
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    customer.name,
+                                                    style: TextStyle(
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                  ),
+                                                  const SizedBox(height: 3),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.phone_rounded, size: 12, color: Color(0xFF64748B)),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        customer.phone ?? '--',
+                                                        style: const TextStyle(
+                                                          fontSize: 12,
+                                                          color: Color(0xFF64748B),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  const SizedBox(height: 3),
+                                                  Row(
+                                                    children: [
+                                                      const Icon(Icons.monetization_on_rounded, size: 12, color: Color(0xFFD97706)),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        'Total Sale Amount : ₹ ${totalSale.toStringAsFixed(2)}',
+                                                        style: const TextStyle(
+                                                          fontSize: 11.5,
+                                                          color: Color(0xFF64748B),
+                                                          fontWeight: FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+
+                                            // 3. Right Credit Amount Pill & Arrow
+                                            Column(
+                                              crossAxisAlignment: CrossAxisAlignment.end,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Text(
+                                                  'Credit Amount',
+                                                  style: TextStyle(
+                                                    fontSize: 10.5,
+                                                    color: Color(0xFF94A3B8),
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 3),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                                                  decoration: BoxDecoration(
+                                                    color: hasDue
+                                                        ? (isDark ? const Color(0xFF7F1D1D).withValues(alpha: 0.3) : const Color(0xFFFEE2E2))
+                                                        : (isDark ? const Color(0xFF064E3B).withValues(alpha: 0.3) : const Color(0xFFFEF3C7)),
+                                                    borderRadius: BorderRadius.circular(12),
+                                                  ),
+                                                  child: Text(
+                                                    '₹ ${customer.balance.toStringAsFixed(2)}',
+                                                    style: TextStyle(
+                                                      fontSize: 13,
+                                                      fontWeight: FontWeight.bold,
+                                                      color: hasDue ? const Color(0xFFDC2626) : const Color(0xFF92400E),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(width: 6),
+                                            const Icon(Icons.chevron_right_rounded, color: Color(0xFF94A3B8), size: 18),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-      // Central Floating Action Button (+) with Quick Choice
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          SoundService.instance.playButtonClick();
-          _showAddCustomerChoice(context);
+          );
         },
-        backgroundColor: AppColors.primary,
-        elevation: 4,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      ),
+      // Central Floating Action Button (+) with Orange Glow
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF5722).withValues(alpha: 0.35),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: FloatingActionButton(
+          onPressed: () {
+            SoundService.instance.playButtonClick();
+            _showAddCustomerChoice(context);
+          },
+          backgroundColor: const Color(0xFFFF5722),
+          elevation: 2,
+          child: const Icon(Icons.add, color: Colors.white, size: 30),
+        ),
       ),
     );
   }
