@@ -84,11 +84,11 @@ void main() {
       expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.text('BillZo POS v1.7.0'),
+        find.text('BillZo POS v1.7.1'),
         100,
         scrollable: find.byType(Scrollable).last,
       );
-      expect(find.text('BillZo POS v1.7.0'), findsOneWidget);
+      expect(find.text('BillZo POS v1.7.1'), findsOneWidget);
     });
   });
 }
