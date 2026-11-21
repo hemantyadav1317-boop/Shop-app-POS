@@ -10,6 +10,7 @@ import '../../data/models/product.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/locale_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'category_products_screen.dart';
 import '../../core/utils/pos_sound_formatter.dart';
@@ -316,6 +317,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
   void _showStockAdjustmentDialog(BuildContext context, Product product) {
+    final localeCode = Provider.of<LocaleProvider>(context, listen: false).localeCode;
     final qtyCtrl = TextEditingController(text: product.stock.toString());
     final reasonCtrl = TextEditingController();
     String selectedType = 'audit';
@@ -356,7 +358,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                product.name,
+                                product.localizedName(localeCode),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 16,
@@ -703,6 +705,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Widget build(BuildContext context) {
     final shop = context.watch<ShopProvider>().shop;
     final productProvider = context.watch<ProductProvider>();
+    final localeCode = context.watch<LocaleProvider>().localeCode;
     final products = _onlyLowStock
         ? productProvider.products.where((p) => p.isLowStock).toList()
         : productProvider.filteredProducts;
@@ -888,7 +891,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              product.name,
+                                              product.localizedName(localeCode),
                                               style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 14.5,

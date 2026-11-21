@@ -7,6 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../../providers/locale_provider.dart';
 
 class MandiOrderScreen extends StatefulWidget {
   const MandiOrderScreen({super.key});
@@ -53,6 +54,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
   String _buildSlipText() {
     final shop = context.read<ShopProvider>().shop;
     final products = context.read<ProductProvider>().products;
+    final localeCode = context.read<LocaleProvider>().localeCode;
     final productMap = {for (var p in products) p.id: p};
 
     final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now());
@@ -70,7 +72,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
       final p = productMap[id];
       if (p != null) {
         final qtyStr = _orderQtyControllers[id]?.text.trim() ?? '1';
-        buffer.writeln('$index. *${p.name}* - $qtyStr ${p.unit}');
+        buffer.writeln('$index. *${p.localizedName(localeCode)}* - $qtyStr ${p.unit}');
         index++;
       }
     }
@@ -270,7 +272,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            p.name,
+                                            p.localizedName(context.read<LocaleProvider>().localeCode),
                                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
@@ -351,6 +353,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final products = context.watch<ProductProvider>().products;
+    final localeCode = context.watch<LocaleProvider>().localeCode;
     final productMap = {for (var p in products) p.id: p};
 
     return Scaffold(
@@ -490,7 +493,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                   ? const Color(0xFFEF4444).withValues(alpha: 0.15)
                                   : const Color(0xFF3B82F6).withValues(alpha: 0.15),
                               child: Text(
-                                p.name.isNotEmpty ? p.name[0] : '?',
+                                p.localizedName(localeCode).isNotEmpty ? p.localizedName(localeCode)[0] : '?',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: p.isLowStock ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
@@ -503,7 +506,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    p.name,
+                                    p.localizedName(localeCode),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                                   ),
                                   const SizedBox(height: 2),

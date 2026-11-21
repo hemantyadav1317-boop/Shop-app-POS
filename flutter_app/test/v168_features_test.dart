@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shop_pos/core/constants/aliases.dart';
+import 'package:shop_pos/data/models/cart_item.dart';
+import 'package:shop_pos/data/models/product.dart';
 import 'package:shop_pos/providers/auth_provider.dart';
 import 'package:shop_pos/providers/locale_provider.dart';
 import 'package:shop_pos/providers/product_provider.dart';
@@ -84,11 +87,76 @@ void main() {
       expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.text('BillZo POS v1.7.1'),
+        find.text('BillZo POS v1.7.2'),
         100,
         scrollable: find.byType(Scrollable).last,
       );
-      expect(find.text('BillZo POS v1.7.1'), findsOneWidget);
+      expect(find.text('BillZo POS v1.7.2'), findsOneWidget);
+    });
+
+    test('4. Product and CartItem dynamic multi-language localization', () {
+      final p1 = Product(
+        id: '1',
+        shopId: 's1',
+        name: 'स्ट्रॉबेरी (Strawberry)',
+        nameEn: 'Strawberry',
+        nameHi: 'स्ट्रॉबेरी',
+        category: 'FRUITS',
+        unit: 'pc',
+        price: 80,
+      );
+
+      expect(p1.localizedName('hi'), 'स्ट्रॉबेरी');
+      expect(p1.localizedName('en'), 'Strawberry');
+      expect(p1.localizedCategory('hi'), 'फल');
+      expect(p1.localizedCategory('en'), 'Fruits');
+
+      // Legacy fallback parsing without explicit nameEn/nameHi
+      final p2 = Product(
+        id: '2',
+        shopId: 's1',
+        name: 'पालक (Spinach)',
+        category: 'VEGETABLES',
+        unit: 'kg',
+        price: 40,
+      );
+      expect(p2.localizedName('hi'), 'पालक');
+      expect(p2.localizedName('en'), 'Spinach');
+      expect(p2.localizedCategory('hi'), 'सब्जियां');
+      expect(p2.localizedCategory('en'), 'Vegetables');
+
+      // Reverse order: English (Hindi)
+      final p3 = Product(
+        id: '3',
+        shopId: 's1',
+        name: 'Potato (आलू)',
+        category: 'VEGETABLES',
+        unit: 'kg',
+        price: 30,
+      );
+      expect(p3.localizedName('hi'), 'आलू');
+      expect(p3.localizedName('en'), 'Potato');
+
+      // CartItem localization
+      final item = CartItem(
+        productId: '1',
+        name: 'स्ट्रॉबेरी (Strawberry)',
+        nameEn: 'Strawberry',
+        nameHi: 'स्ट्रॉबेरी',
+        unit: 'pc',
+        price: 80,
+        qty: 2,
+      );
+      expect(item.localizedName('hi'), 'स्ट्रॉबेरी');
+      expect(item.localizedName('en'), 'Strawberry');
+    });
+
+    test('5. ProductAliases.matches works seamlessly across languages', () {
+      expect(ProductAliases.matches('स्ट्रॉबेरी (Strawberry)', 'FRUITS', null, 'strawberry', nameEn: 'Strawberry', nameHi: 'स्ट्रॉबेरी'), isTrue);
+      expect(ProductAliases.matches('स्ट्रॉबेरी (Strawberry)', 'FRUITS', null, 'स्ट्रॉबेरी', nameEn: 'Strawberry', nameHi: 'स्ट्रॉबेरी'), isTrue);
+      expect(ProductAliases.matches('आलू (Potato)', 'VEGETABLES', null, 'aloo'), isTrue);
+      expect(ProductAliases.matches('आलू (Potato)', 'VEGETABLES', null, 'potato'), isTrue);
+      expect(ProductAliases.matches('आलू (Potato)', 'VEGETABLES', null, 'आलू'), isTrue);
     });
   });
 }

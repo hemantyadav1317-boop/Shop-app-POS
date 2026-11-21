@@ -43,6 +43,81 @@ class Product {
 
   bool get isLowStock => stock <= lowStockAt;
 
+  /// Returns localized product name based on current locale ('hi' or 'en').
+  /// Eliminates bilingual parenthetical strings (e.g. "स्ट्रॉबेरी (Strawberry)").
+  String localizedName([String localeCode = 'hi']) {
+    final isEn = localeCode == 'en';
+    if (isEn && nameEn != null && nameEn!.trim().isNotEmpty) {
+      return nameEn!.trim();
+    }
+    if (!isEn && nameHi != null && nameHi!.trim().isNotEmpty) {
+      return nameHi!.trim();
+    }
+
+    // Parse potential bilingual parenthetical: e.g. "स्ट्रॉबेरी (Strawberry)" or "Potato (आलू)"
+    final parenMatch = RegExp(r'^(.*?)\s*\((.*?)\)\s*$').firstMatch(name);
+    if (parenMatch != null) {
+      final part1 = parenMatch.group(1)?.trim() ?? '';
+      final part2 = parenMatch.group(2)?.trim() ?? '';
+
+      final part1HasHindi = RegExp(r'[\u0900-\u097F]').hasMatch(part1);
+      final part2HasHindi = RegExp(r'[\u0900-\u097F]').hasMatch(part2);
+
+      if (isEn) {
+        if (!part2HasHindi && part2.isNotEmpty) return part2;
+        if (!part1HasHindi && part1.isNotEmpty) return part1;
+      } else {
+        if (part1HasHindi && part1.isNotEmpty) return part1;
+        if (part2HasHindi && part2.isNotEmpty) return part2;
+      }
+    }
+
+    return name;
+  }
+
+  /// Returns localized category name for display.
+  String localizedCategory([String localeCode = 'hi']) => localizeCategory(category, localeCode);
+
+  /// Helper to convert standard category keys to localized representations.
+  static String localizeCategory(String cat, [String localeCode = 'hi']) {
+    final upper = cat.trim().toUpperCase();
+    if (localeCode == 'en') {
+      switch (upper) {
+        case 'ALL': return 'All';
+        case 'FRUITS': return 'Fruits';
+        case 'VEGETABLES': return 'Vegetables';
+        case 'GREEN VEGGIES': return 'Green Veggies';
+        case 'KIRANA': case 'GROCERY': return 'Grocery';
+        case 'DAIRY': return 'Dairy';
+        case 'BEVERAGES': return 'Beverages';
+        case 'SNACKS': return 'Snacks';
+        case 'SPICES': return 'Spices';
+        case 'GRAINS': return 'Grains';
+        case 'PERSONAL CARE': return 'Personal Care';
+        case 'CLEANING': return 'Cleaning';
+        case 'BAKERY': return 'Bakery';
+        default: return cat;
+      }
+    } else {
+      switch (upper) {
+        case 'ALL': return 'सभी';
+        case 'FRUITS': return 'फल';
+        case 'VEGETABLES': return 'सब्जियां';
+        case 'GREEN VEGGIES': return 'हरी सब्जियां';
+        case 'KIRANA': case 'GROCERY': return 'किराना';
+        case 'DAIRY': return 'डेयरी';
+        case 'BEVERAGES': return 'पेय पदार्थ';
+        case 'SNACKS': return 'स्नैक्स';
+        case 'SPICES': return 'मसाले';
+        case 'GRAINS': return 'अनाज व दालें';
+        case 'PERSONAL CARE': return 'पर्सनल केयर';
+        case 'CLEANING': return 'सफाई सामग्री';
+        case 'BAKERY': return 'बेकरी';
+        default: return cat;
+      }
+    }
+  }
+
   factory Product.fromJson(Map<String, dynamic> json) {
     String? rawTag = json['tag'] as String? ?? json['badge'] as String? ?? json['batch'] as String?;
     String? rawSku = json['sku'] as String?;

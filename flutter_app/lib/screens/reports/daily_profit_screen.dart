@@ -11,6 +11,7 @@ import '../../data/services/local_db_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../../providers/locale_provider.dart';
 
 class DailyProfitScreen extends StatefulWidget {
   const DailyProfitScreen({super.key});
@@ -105,6 +106,7 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final products = context.watch<ProductProvider>().products;
+    final localeCode = context.watch<LocaleProvider>().localeCode;
     final productLookup = {for (var p in products) p.id: p};
     final nameLookup = {for (var p in products) p.name.trim().toLowerCase(): p};
 
@@ -380,7 +382,7 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item.name,
+                                  item.localizedName(localeCode),
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
                                 ),
                                 const SizedBox(height: 2),
@@ -490,4 +492,25 @@ class _ProfitItemSummary {
     required this.revenue,
     required this.profit,
   });
+
+  String localizedName([String localeCode = 'hi']) {
+    final isEn = localeCode == 'en';
+    final parenMatch = RegExp(r'^(.*?)\s*\((.*?)\)\s*$').firstMatch(name);
+    if (parenMatch != null) {
+      final part1 = parenMatch.group(1)?.trim() ?? '';
+      final part2 = parenMatch.group(2)?.trim() ?? '';
+
+      final part1HasHindi = RegExp(r'[\u0900-\u097F]').hasMatch(part1);
+      final part2HasHindi = RegExp(r'[\u0900-\u097F]').hasMatch(part2);
+
+      if (isEn) {
+        if (!part2HasHindi && part2.isNotEmpty) return part2;
+        if (!part1HasHindi && part1.isNotEmpty) return part1;
+      } else {
+        if (part1HasHindi && part1.isNotEmpty) return part1;
+        if (part2HasHindi && part2.isNotEmpty) return part2;
+      }
+    }
+    return name;
+  }
 }

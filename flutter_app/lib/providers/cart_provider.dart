@@ -141,6 +141,12 @@ class CartProvider extends ChangeNotifier {
   void incrementOrAdd(dynamic productOrItem, [double delta = 1.0]) {
     final String prodId = productOrItem.id as String;
     final String prodName = productOrItem.name as String;
+    String? prodNameEn;
+    String? prodNameHi;
+    try {
+      prodNameEn = productOrItem.nameEn as String?;
+      prodNameHi = productOrItem.nameHi as String?;
+    } catch (_) {}
     final double prodPrice = (productOrItem.price as num).toDouble();
     final String prodUnit = productOrItem.unit as String;
     final String? prodIcon = productOrItem.icon as String?;
@@ -153,6 +159,8 @@ class CartProvider extends ChangeNotifier {
       _lines.add(CartItem(
         productId: prodId,
         name: prodName,
+        nameEn: prodNameEn,
+        nameHi: prodNameHi,
         price: prodPrice,
         qty: delta,
         unit: prodUnit,

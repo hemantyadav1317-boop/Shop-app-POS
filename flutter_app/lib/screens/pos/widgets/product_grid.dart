@@ -8,6 +8,7 @@ import '../../../../providers/product_provider.dart';
 import '../../../../providers/cart_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import '../../../../providers/weighing_scale_provider.dart';
+import '../../../../providers/locale_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'qty_rate_dialog.dart';
 
@@ -238,6 +239,7 @@ class _ProductGridState extends State<ProductGrid> {
     final productProvider = context.watch<ProductProvider>();
     final cart = context.watch<CartProvider>();
     final shopProvider = context.watch<ShopProvider>();
+    final localeCode = context.watch<LocaleProvider>().localeCode;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMobile = MediaQuery.of(context).size.width < 600;
 
@@ -365,7 +367,7 @@ class _ProductGridState extends State<ProductGrid> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            cat,
+                            Product.localizeCategory(cat, localeCode),
                             style: TextStyle(
                               fontSize: isMobile ? 12.5 : 14.5,
                               fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
@@ -473,7 +475,7 @@ class _ProductGridState extends State<ProductGrid> {
                             orElse: () => null,
                           );
                       final inCartQty = inCartItem?.qty ?? 0.0;
-                      return _buildProductCard(context, product, inCartQty, cart, isMobile);
+                      return _buildProductCard(context, product, inCartQty, cart, isMobile, localeCode);
                     },
                     childCount: productProvider.filteredProducts.length,
                   ),
@@ -489,6 +491,7 @@ class _ProductGridState extends State<ProductGrid> {
     double inCartQty,
     CartProvider cart,
     bool isMobile,
+    String localeCode,
   ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -536,6 +539,8 @@ class _ProductGridState extends State<ProductGrid> {
               cart.addLine(CartItem(
                 productId: product.id,
                 name: product.name,
+                nameEn: product.nameEn,
+                nameHi: product.nameHi,
                 unit: product.unit,
                 price: product.price,
                 qty: itemWeight,
@@ -547,7 +552,7 @@ class _ProductGridState extends State<ProductGrid> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    '⚡ Added ${product.name} (${itemWeight.toStringAsFixed(3)} kg)',
+                    '⚡ Added ${product.localizedName(localeCode)} (${itemWeight.toStringAsFixed(3)} kg)',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   duration: const Duration(milliseconds: 900),
@@ -684,7 +689,7 @@ class _ProductGridState extends State<ProductGrid> {
                   children: [
                     // Product Name
                     Text(
-                      product.name,
+                      product.localizedName(localeCode),
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: isMobile ? 11 : 12,

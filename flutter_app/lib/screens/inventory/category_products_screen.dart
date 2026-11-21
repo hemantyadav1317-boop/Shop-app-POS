@@ -4,6 +4,8 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/locale_provider.dart';
+import '../../data/models/product.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'inventory_screen.dart';
 
@@ -31,6 +33,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final productProvider = context.watch<ProductProvider>();
+    final localeCode = context.watch<LocaleProvider>().localeCode;
 
     // Filter products for this specific category
     final categoryProducts = productProvider.products
@@ -42,6 +45,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
       if (_searchQuery.isEmpty) return true;
       final q = _searchQuery.toLowerCase();
       return p.name.toLowerCase().contains(q) ||
+          p.localizedName(localeCode).toLowerCase().contains(q) ||
           (p.barcode != null && p.barcode!.toLowerCase().contains(q));
     }).toList();
 
@@ -63,7 +67,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.category,
+              Product.localizeCategory(widget.category, localeCode),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             Text(
@@ -248,7 +252,7 @@ class _CategoryProductsScreenState extends State<CategoryProductsScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        product.name,
+                                        product.localizedName(localeCode),
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,

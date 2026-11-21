@@ -7,6 +7,7 @@ import '../../../../data/models/product.dart';
 import '../../../../data/models/cart_item.dart';
 import '../../../../providers/shop_provider.dart';
 import '../../../../providers/weighing_scale_provider.dart';
+import '../../../../providers/locale_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import 'pos_numpad.dart';
 
@@ -170,6 +171,8 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
     widget.onConfirm(CartItem(
       productId: widget.product.id,
       name: widget.product.name,
+      nameEn: widget.product.nameEn,
+      nameHi: widget.product.nameHi,
       unit: widget.product.unit,
       price: _rate,
       qty: _qty,
@@ -181,6 +184,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final localeCode = context.watch<LocaleProvider>().localeCode;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isKg = widget.product.unit.toLowerCase() == 'kg';
     final totalAmount = _qty * _rate;
@@ -211,7 +215,7 @@ class _QtyRateDialogState extends State<QtyRateDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.product.name,
+                          widget.product.localizedName(localeCode),
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,

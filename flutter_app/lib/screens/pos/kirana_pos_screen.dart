@@ -11,6 +11,7 @@ import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/menu_visibility_provider.dart';
 import '../../providers/weighing_scale_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../main_shell.dart';
 import '../settings/weighing_scale_settings_screen.dart';
 import '../widgets/app_drawer.dart';
@@ -756,6 +757,7 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
   }
 
   Widget _buildCartItemsList(CartProvider cart, bool isDark) {
+    final localeCode = context.watch<LocaleProvider>().localeCode;
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       itemCount: cart.lines.length,
@@ -774,7 +776,7 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.name,
+                        item.localizedName(localeCode),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       const SizedBox(height: 2),

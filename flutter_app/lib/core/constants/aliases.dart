@@ -54,16 +54,29 @@ class ProductAliases {
     ["हार्पिक", "harpic toilet cleaner lizol colin floor"],
   ];
 
-  static bool matches(String name, String? category, String? barcode, String query) {
+  static bool matches(
+    String name,
+    String? category,
+    String? barcode,
+    String query, {
+    String? nameEn,
+    String? nameHi,
+  }) {
     final term = query.trim().toLowerCase();
     if (term.isEmpty) return true;
 
     final lowerName = name.toLowerCase();
+    final lowerNameEn = (nameEn ?? '').toLowerCase();
+    final lowerNameHi = (nameHi ?? '').toLowerCase();
     final lowerCategory = (category ?? '').toLowerCase();
     final lowerBarcode = (barcode ?? '').toLowerCase();
 
-    // Check direct match
-    if (lowerName.contains(term) || lowerCategory.contains(term) || lowerBarcode.contains(term)) {
+    // Check direct match across any name form
+    if (lowerName.contains(term) ||
+        (lowerNameEn.isNotEmpty && lowerNameEn.contains(term)) ||
+        (lowerNameHi.isNotEmpty && lowerNameHi.contains(term)) ||
+        lowerCategory.contains(term) ||
+        lowerBarcode.contains(term)) {
       return true;
     }
 
@@ -72,7 +85,9 @@ class ProductAliases {
       final hindi = pair[0].toLowerCase();
       final english = pair[1].toLowerCase();
 
-      final matchesName = lowerName.contains(hindi) || english.split(' ').any((w) => lowerName.contains(w));
+      final matchesName = lowerName.contains(hindi) ||
+          (lowerNameHi.isNotEmpty && lowerNameHi.contains(hindi)) ||
+          english.split(' ').any((w) => lowerName.contains(w) || (lowerNameEn.isNotEmpty && lowerNameEn.contains(w)));
       if (matchesName) {
         if (hindi.contains(term) || english.contains(term)) {
           return true;
@@ -82,6 +97,11 @@ class ProductAliases {
 
     // Check multi-word query
     final words = term.split(RegExp(r'\s+'));
-    return words.every((w) => lowerName.contains(w) || lowerCategory.contains(w) || lowerBarcode.contains(w));
+    return words.every((w) =>
+        lowerName.contains(w) ||
+        (lowerNameEn.isNotEmpty && lowerNameEn.contains(w)) ||
+        (lowerNameHi.isNotEmpty && lowerNameHi.contains(w)) ||
+        lowerCategory.contains(w) ||
+        lowerBarcode.contains(w));
   }
 }

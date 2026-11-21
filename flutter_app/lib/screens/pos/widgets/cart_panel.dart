@@ -9,6 +9,7 @@ import '../../../../providers/cart_provider.dart';
 import '../../../../providers/customer_provider.dart';
 import '../../../../providers/shop_provider.dart';
 import '../../../../providers/product_provider.dart';
+import '../../../../providers/locale_provider.dart';
 import 'package:shop_pos/screens/widgets/product_image_view.dart';
 import '../../../../core/services/sound_service.dart';
 import '../../../../core/services/contact_service.dart';
@@ -116,6 +117,7 @@ class _CartPanelState extends State<CartPanel> {
 
   void _showEditRateDialog(BuildContext context, CartItem item, CartProvider cart) {
     SoundService.instance.playButtonClick();
+    final localeCode = Provider.of<LocaleProvider>(context, listen: false).localeCode;
     final rateCtrl = TextEditingController(
       text: item.price % 1 == 0 ? item.price.toInt().toString() : item.price.toStringAsFixed(2),
     );
@@ -141,7 +143,7 @@ class _CartPanelState extends State<CartPanel> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              item.name,
+              item.localizedName(localeCode),
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 4),
@@ -276,6 +278,7 @@ class _CartPanelState extends State<CartPanel> {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final localeCode = context.watch<LocaleProvider>().localeCode;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Auto-clear discount input if cart is empty and discount is reset
@@ -496,7 +499,7 @@ class _CartPanelState extends State<CartPanel> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    item.name,
+                                    item.localizedName(localeCode),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,

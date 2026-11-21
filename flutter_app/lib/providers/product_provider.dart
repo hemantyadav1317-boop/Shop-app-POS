@@ -240,7 +240,14 @@ class ProductProvider extends ChangeNotifier {
     final list = _products.where((p) {
       final matchesCat = _selectedCategory == 'All' ||
           p.category.trim().toUpperCase() == _selectedCategory.trim().toUpperCase();
-      final matchesSearch = ProductAliases.matches(p.name, p.category, p.barcode, _searchQuery);
+      final matchesSearch = ProductAliases.matches(
+        p.name,
+        p.category,
+        p.barcode,
+        _searchQuery,
+        nameEn: p.nameEn,
+        nameHi: p.nameHi,
+      );
       return matchesCat && matchesSearch;
     }).toList();
 

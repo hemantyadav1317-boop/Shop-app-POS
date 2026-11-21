@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../../../../data/models/cart_item.dart';
 import '../../../../core/services/printer_settings_service.dart';
 import '../../../../core/utils/payment_qr_helper.dart';
+import '../../../../providers/locale_provider.dart';
 
 class DashedDivider extends StatelessWidget {
   final double height;
@@ -147,6 +149,11 @@ class BillReceiptCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ps = PrinterSettingsService.instance;
+    String localeCode = 'hi';
+    try {
+      final lp = Provider.of<LocaleProvider>(context, listen: false);
+      localeCode = lp.localeCode;
+    } catch (_) {}
 
     final scale = fontScale ?? ps.fontScale;
     final width = printWidth ?? (ps.paperSize == '80mm' ? 576.0 : 384.0);
@@ -411,7 +418,7 @@ class BillReceiptCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    item.name,
+                    item.localizedName(localeCode),
                     style: TextStyle(
                       fontSize: 14.5 * scale,
                       fontWeight: FontWeight.w800,
