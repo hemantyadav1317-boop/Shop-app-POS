@@ -12,6 +12,7 @@ import 'package:shop_pos/providers/shop_provider.dart';
 import 'package:shop_pos/screens/inventory/mandi_order_screen.dart';
 import 'package:shop_pos/screens/reports/daily_profit_screen.dart';
 import 'package:shop_pos/screens/widgets/app_drawer.dart';
+import 'package:shop_pos/core/services/update_service.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -87,11 +88,11 @@ void main() {
       expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.text('BillZo POS v1.7.3'),
+        find.text('BillZo POS v${UpdateService.currentVersion}'),
         100,
         scrollable: find.byType(Scrollable).last,
       );
-      expect(find.text('BillZo POS v1.7.3'), findsOneWidget);
+      expect(find.text('BillZo POS v${UpdateService.currentVersion}'), findsOneWidget);
     });
 
     test('4. Product and CartItem dynamic multi-language localization', () {
