@@ -618,7 +618,6 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
 
     if (isTablet) {
       return Scaffold(
-        drawer: const AppDrawer(),
         backgroundColor: isDark ? const Color(0xFF0A0F1D) : const Color(0xFFF1F5F9),
         body: SafeArea(
           child: Column(
@@ -662,7 +661,6 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
 
     // Mobile Phone view
     return Scaffold(
-      drawer: const AppDrawer(),
       backgroundColor: isDark ? const Color(0xFF0A0F1D) : const Color(0xFFF1F5F9),
       body: SafeArea(
         child: Column(

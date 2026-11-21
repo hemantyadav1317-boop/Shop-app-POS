@@ -30,6 +30,7 @@ class AppDrawer extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     final isStaff = auth.isStaffSession;
     final locale = context.watch<LocaleProvider>();
+    final isHindi = locale.localeCode == 'hi';
 
     return Drawer(
       backgroundColor: isDark ? const Color(0xFF0F172A) : Colors.white,
@@ -157,7 +158,7 @@ class AppDrawer extends StatelessWidget {
                               Text(
                                 (shop.phone != null && shop.phone!.isNotEmpty)
                                     ? '📞 ${shop.phone}'
-                                    : 'दुकान विवरण देखें / बदलें ➔',
+                                    : (isHindi ? 'दुकान विवरण देखें / बदलें ➔' : 'View / Edit Store Profile ➔'),
                                 style: TextStyle(
                                   color: Colors.white.withValues(alpha: 0.85),
                                   fontSize: 11.5,
@@ -180,12 +181,14 @@ class AppDrawer extends StatelessWidget {
                     runSpacing: 4,
                     children: [
                       if (shop.hasVegetableOrProduce)
-                        _buildHeaderBadge('🥬 सब्जी व फल'),
+                        _buildHeaderBadge(isHindi ? '🥬 सब्जी व फल' : '🥬 Fruits & Veg'),
                       if (shop.hasGroceryOrFmcg)
-                        _buildHeaderBadge('🛒 किराना व FMCG'),
+                        _buildHeaderBadge(isHindi ? '🛒 किराना व FMCG' : '🛒 Grocery & FMCG'),
                       if (shop.hasDairy)
-                        _buildHeaderBadge('🥛 डेयरी व दूध'),
-                      _buildHeaderBadge(isStaff ? '👤 स्टाफ सत्र' : '👑 दुकान मालिक सत्र'),
+                        _buildHeaderBadge(isHindi ? '🥛 डेयरी व दूध' : '🥛 Dairy & Milk'),
+                      _buildHeaderBadge(isStaff
+                          ? (isHindi ? '👤 स्टाफ सत्र' : '👤 Staff Session')
+                          : (isHindi ? '👑 दुकान मालिक सत्र' : '👑 Store Owner')),
                     ],
                   ),
                 ],
@@ -195,17 +198,17 @@ class AppDrawer extends StatelessWidget {
             // Scrollable Navigation Items
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.fromLTRB(0, 10, 0, 24),
                 children: [
                   // 📊 SECTION 1: दैनिक बिजनेस हब
-                  _buildSectionHeader(locale.localeCode == 'hi' ? '📊 दैनिक बिजनेस हब' : '📊 DAILY BUSINESS'),
+                  _buildSectionHeader(isHindi ? '📊 दैनिक बिजनेस हब' : '📊 DAILY BUSINESS'),
 
                   _buildDrawerItem(
                     icon: Icons.monetization_on_rounded,
                     iconColor: const Color(0xFF16A34A),
-                    title: 'आज की कमाई व मुनाफा',
-                    subtitle: 'शुद्ध लाभ, लागत और मार्जिन रिपोर्ट',
-                    badge: 'NEW',
+                    title: isHindi ? 'आज की कमाई व मुनाफा' : 'Daily Profit & Margin',
+                    subtitle: isHindi ? 'शुद्ध लाभ, लागत और मार्जिन रिपोर्ट' : 'Net profit, cost & margin report',
+                    badge: isHindi ? 'नया' : 'NEW',
                     badgeColor: const Color(0xFF16A34A),
                     onTap: () {
                       Navigator.pop(context);
@@ -216,9 +219,9 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.assignment_outlined,
                     iconColor: const Color(0xFFD97706),
-                    title: 'मंडी / सप्लायर पर्ची',
-                    subtitle: 'खत्म हो रहे माल की 1-क्लिक WhatsApp लिस्ट',
-                    badge: 'स्मार्ट',
+                    title: isHindi ? 'मंडी / सप्लायर पर्ची' : 'Supplier Order Sheet',
+                    subtitle: isHindi ? 'खत्म हो रहे माल की 1-क्लिक WhatsApp लिस्ट' : '1-Click low-stock WhatsApp sheet',
+                    badge: isHindi ? 'स्मार्ट' : 'SMART',
                     badgeColor: const Color(0xFFD97706),
                     onTap: () {
                       Navigator.pop(context);
@@ -229,24 +232,30 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.calendar_month_rounded,
                     iconColor: const Color(0xFF2563EB),
-                    title: locale.localeCode == 'hi' ? 'दुकान खर्च व गल्ला' : 'Daybook & Cash Drawer',
-                    subtitle: 'नकद आया/गया, चाय-किराया और दैनिक हिसाब',
+                    title: isHindi ? 'दुकान खर्च व गल्ला' : 'Daybook & Cash Drawer',
+                    subtitle: isHindi ? 'नकद आया/गया, चाय-किराया और दैनिक हिसाब' : 'Cash in/out, shop expenses & register',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const DaybookScreen()));
                     },
                   ),
 
-                  const Divider(height: 16),
+                  Divider(
+                    height: 24,
+                    thickness: 0.8,
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    indent: 16,
+                    endIndent: 16,
+                  ),
 
                   // ⚙️ SECTION 2: दुकान सेटिंग्स व टूल्स
-                  _buildSectionHeader(locale.localeCode == 'hi' ? '⚙️ दुकान टूल्स' : '⚙️ STORE TOOLS'),
+                  _buildSectionHeader(isHindi ? '⚙️ दुकान टूल्स' : '⚙️ STORE TOOLS'),
 
                   _buildDrawerItem(
                     icon: Icons.settings_rounded,
                     iconColor: const Color(0xFF475569),
-                    title: 'पूरी दुकान सेटिंग्स',
-                    subtitle: 'दुकान प्रोफाइल, टैक्स, बिल रसीद आदि',
+                    title: isHindi ? 'पूरी दुकान सेटिंग्स' : 'Store Settings',
+                    subtitle: isHindi ? 'दुकान प्रोफाइल, टैक्स, बिल रसीद आदि' : 'Store profile, tax, receipt setup & more',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
@@ -256,8 +265,8 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.scale_rounded,
                     iconColor: const Color(0xFF0284C7),
-                    title: 'इलेक्ट्रॉनिक तौल कांटा',
-                    subtitle: 'ब्लूटूथ / USB वजन मशीन जोड़ें',
+                    title: isHindi ? 'इलेक्ट्रॉनिक तौल कांटा' : 'Electronic Weighing Scale',
+                    subtitle: isHindi ? 'ब्लूटूथ / USB वजन मशीन जोड़ें' : 'Connect Bluetooth / USB weight machine',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const WeighingScaleSettingsScreen()));
@@ -267,8 +276,8 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.print_rounded,
                     iconColor: const Color(0xFF7C3AED),
-                    title: 'थर्मल रसीद प्रिंटर',
-                    subtitle: 'Bluetooth 58mm / 80mm प्रिंटर सेटअप',
+                    title: isHindi ? 'थर्मल रसीद प्रिंटर' : 'Thermal Receipt Printer',
+                    subtitle: isHindi ? 'Bluetooth 58mm / 80mm प्रिंटर सेटअप' : 'Bluetooth 58mm / 80mm printer setup',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()));
@@ -278,8 +287,8 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.cloud_download_rounded,
                     iconColor: const Color(0xFF0D9488),
-                    title: locale.localeCode == 'hi' ? 'डेटा बैकअप' : 'Data Backup',
-                    subtitle: 'लोकल फाइल व Google Drive में सुरक्षित डेटा',
+                    title: isHindi ? 'डेटा बैकअप' : 'Data Backup',
+                    subtitle: isHindi ? 'लोकल फाइल व Google Drive में सुरक्षित डेटा' : 'Secure local file & cloud data backup',
                     onTap: () async {
                       Navigator.pop(context);
                       SoundService.instance.playButtonClick();
@@ -297,14 +306,20 @@ class AppDrawer extends StatelessWidget {
                     },
                   ),
 
-                  const Divider(height: 16),
+                  Divider(
+                    height: 24,
+                    thickness: 0.8,
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    indent: 16,
+                    endIndent: 16,
+                  ),
 
                   // 👤 SECTION 3: सिस्टम व सत्र
-                  _buildSectionHeader(locale.localeCode == 'hi' ? '👤 सिस्टम व प्राथमिकताएँ' : '👤 SYSTEM & PREFERENCES'),
+                  _buildSectionHeader(isHindi ? '👤 सिस्टम व प्राथमिकताएँ' : '👤 SYSTEM & PREFERENCES'),
 
                   ListTile(
                     leading: const Icon(Icons.translate_rounded, color: Color(0xFF2563EB), size: 22),
-                    title: Text(locale.localeCode == 'hi' ? 'भाषा बदलें' : 'Change Language', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    title: Text(isHindi ? 'भाषा बदलें' : 'Change Language', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     subtitle: Text(locale.currentLanguageName, style: const TextStyle(fontSize: 11)),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                     onTap: () {
@@ -319,11 +334,11 @@ class AppDrawer extends StatelessWidget {
                       color: const Color(0xFFEAB308),
                       size: 22,
                     ),
-                    title: Text(locale.localeCode == 'hi' ? 'डार्क थीम' : 'Dark Theme', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    title: Text(isHindi ? 'डार्क थीम' : 'Dark Theme', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     subtitle: Text(
                       shopProvider.themeMode == ThemeMode.dark
-                          ? (locale.localeCode == 'hi' ? 'चालू' : 'On')
-                          : (locale.localeCode == 'hi' ? 'बंद' : 'Off'),
+                          ? (isHindi ? 'चालू' : 'On')
+                          : (isHindi ? 'बंद' : 'Off'),
                       style: const TextStyle(fontSize: 11),
                     ),
                     trailing: Switch(
@@ -339,7 +354,7 @@ class AppDrawer extends StatelessWidget {
                     leading: const Icon(Icons.system_update_rounded, color: Color(0xFF16A34A), size: 22),
                     title: Text('BillZo POS v${UpdateService.currentVersion}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     subtitle: Text(
-                      locale.localeCode == 'hi' ? 'सिस्टम अप टू डेट है ✓' : 'System is up to date ✓',
+                      isHindi ? 'सिस्टम अप टू डेट है ✓' : 'System is up to date ✓',
                       style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A)),
                     ),
                     onTap: () {

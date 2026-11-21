@@ -25,13 +25,6 @@ class MainShell extends StatefulWidget {
 
   /// Opens the root drawer from anywhere in the app reliably
   static void openDrawer([BuildContext? context]) {
-    if (context != null) {
-      final state = Scaffold.maybeOf(context);
-      if (state != null && state.hasDrawer) {
-        state.openDrawer();
-        return;
-      }
-    }
     scaffoldKey.currentState?.openDrawer();
   }
 
