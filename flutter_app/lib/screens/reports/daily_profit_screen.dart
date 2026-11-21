@@ -12,6 +12,7 @@ import '../../data/services/supabase_service.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/locale_provider.dart';
+import '../../core/localization/multilingual_catalog.dart';
 
 class DailyProfitScreen extends StatefulWidget {
   const DailyProfitScreen({super.key});
@@ -494,6 +495,11 @@ class _ProfitItemSummary {
   });
 
   String localizedName([String localeCode = 'hi']) {
+    final regional = MultilingualCatalog.lookup(name, localeCode);
+    if (regional != null && regional.isNotEmpty) {
+      return regional;
+    }
+
     final isEn = localeCode == 'en';
     final parenMatch = RegExp(r'^(.*?)\s*\((.*?)\)\s*$').firstMatch(name);
     if (parenMatch != null) {
@@ -506,9 +512,13 @@ class _ProfitItemSummary {
       if (isEn) {
         if (!part2HasHindi && part2.isNotEmpty) return part2;
         if (!part1HasHindi && part1.isNotEmpty) return part1;
-      } else {
+      } else if (localeCode == 'hi' || localeCode == 'mr') {
         if (part1HasHindi && part1.isNotEmpty) return part1;
         if (part2HasHindi && part2.isNotEmpty) return part2;
+      } else {
+        if (!part2HasHindi && part2.isNotEmpty) return part2;
+        if (!part1HasHindi && part1.isNotEmpty) return part1;
+        if (part1HasHindi && part1.isNotEmpty) return part1;
       }
     }
     return name;

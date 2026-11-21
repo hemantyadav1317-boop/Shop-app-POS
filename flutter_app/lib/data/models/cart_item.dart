@@ -1,3 +1,5 @@
+import '../../core/localization/multilingual_catalog.dart';
+
 class CartItem {
   final String? productId; // Null for Quick Sell one-off items
   final String name;
@@ -23,14 +25,21 @@ class CartItem {
 
   double get total => price * qty;
 
-  /// Returns localized item name based on current locale ('hi' or 'en').
+  /// Returns localized item name based on current locale.
   /// Eliminates bilingual parenthetical strings (e.g. "स्ट्रॉबेरी (Strawberry)").
+  /// Supports all 9 native Indian languages via MultilingualCatalog.
   String localizedName([String localeCode = 'hi']) {
+    // 1. Check MultilingualCatalog for native regional produce name
+    final regional = MultilingualCatalog.lookup(name, localeCode, nameEn: nameEn, nameHi: nameHi);
+    if (regional != null && regional.isNotEmpty) {
+      return regional;
+    }
+
     final isEn = localeCode == 'en';
     if (isEn && nameEn != null && nameEn!.trim().isNotEmpty) {
       return nameEn!.trim();
     }
-    if (!isEn && nameHi != null && nameHi!.trim().isNotEmpty) {
+    if ((localeCode == 'hi' || localeCode == 'mr') && nameHi != null && nameHi!.trim().isNotEmpty) {
       return nameHi!.trim();
     }
 
@@ -45,10 +54,18 @@ class CartItem {
       if (isEn) {
         if (!part2HasHindi && part2.isNotEmpty) return part2;
         if (!part1HasHindi && part1.isNotEmpty) return part1;
-      } else {
+      } else if (localeCode == 'hi' || localeCode == 'mr') {
         if (part1HasHindi && part1.isNotEmpty) return part1;
         if (part2HasHindi && part2.isNotEmpty) return part2;
+      } else {
+        if (!part2HasHindi && part2.isNotEmpty) return part2;
+        if (!part1HasHindi && part1.isNotEmpty) return part1;
+        if (part1HasHindi && part1.isNotEmpty) return part1;
       }
+    }
+
+    if (localeCode != 'hi' && localeCode != 'mr' && nameEn != null && nameEn!.isNotEmpty) {
+      return nameEn!;
     }
 
     return name;

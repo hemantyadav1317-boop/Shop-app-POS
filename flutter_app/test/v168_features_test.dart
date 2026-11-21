@@ -87,11 +87,11 @@ void main() {
       expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
 
       await tester.scrollUntilVisible(
-        find.text('BillZo POS v1.7.2'),
+        find.text('BillZo POS v1.7.3'),
         100,
         scrollable: find.byType(Scrollable).last,
       );
-      expect(find.text('BillZo POS v1.7.2'), findsOneWidget);
+      expect(find.text('BillZo POS v1.7.3'), findsOneWidget);
     });
 
     test('4. Product and CartItem dynamic multi-language localization', () {
@@ -136,6 +136,25 @@ void main() {
       );
       expect(p3.localizedName('hi'), 'आलू');
       expect(p3.localizedName('en'), 'Potato');
+      // Regional languages for Potato
+      expect(p3.localizedName('mr'), 'बटाटा');
+      expect(p3.localizedName('gu'), 'બટાકા');
+      expect(p3.localizedName('bn'), 'আলু');
+      expect(p3.localizedName('ta'), 'உருளைக்கிழங்கு');
+      expect(p3.localizedName('te'), 'బంగాళాదుంప');
+      expect(p3.localizedName('kn'), 'ಆಲೂಗಡ್ಡೆ');
+      expect(p3.localizedName('pa'), 'ਆਲੂ');
+
+      // Category across all 9 languages
+      expect(Product.localizeCategory('FRUITS', 'en'), 'Fruits');
+      expect(Product.localizeCategory('FRUITS', 'hi'), 'फल');
+      expect(Product.localizeCategory('FRUITS', 'mr'), 'फळे');
+      expect(Product.localizeCategory('FRUITS', 'gu'), 'ફળો');
+      expect(Product.localizeCategory('FRUITS', 'bn'), 'ফলমূল');
+      expect(Product.localizeCategory('FRUITS', 'pa'), 'ਫਲ');
+      expect(Product.localizeCategory('FRUITS', 'ta'), 'பழங்கள்');
+      expect(Product.localizeCategory('FRUITS', 'te'), 'పండ్లు');
+      expect(Product.localizeCategory('FRUITS', 'kn'), 'ಹಣ್ಣುಗಳು');
 
       // CartItem localization
       final item = CartItem(
@@ -149,6 +168,8 @@ void main() {
       );
       expect(item.localizedName('hi'), 'स्ट्रॉबेरी');
       expect(item.localizedName('en'), 'Strawberry');
+      expect(item.localizedName('gu'), 'સ્ટ્રોબેરી');
+      expect(item.localizedName('bn'), 'স্ট্রবেরি');
     });
 
     test('5. ProductAliases.matches works seamlessly across languages', () {
