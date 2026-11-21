@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Brand Green (Fresh, Modern Retail Green)
-  static const Color primary = Color(0xFF16803B);
-  static const Color primaryLight = Color(0xFF22C55E);
-  static const Color primaryDark = Color(0xFF14532D);
-  static const Color primarySurface = Color(0xFFDCFCE7);
+  // Brand Vibrant Retail Orange (High-energy, Auspicious Indian Retail POS)
+  static const Color primary = Color(0xFFEA580C);
+  static const Color primaryLight = Color(0xFFFB923C);
+  static const Color primaryDark = Color(0xFFC2410C);
+  static const Color primarySurface = Color(0xFFFFEDD5);
+
+  // Success / Online Green (Used strictly for Paid, In Stock, Synced)
+  static const Color success = Color(0xFF16A34A);
+  static const Color successSurface = Color(0xFFDCFCE7);
 
   // Accent & Secondary
-  static const Color accent = Color(0xFF059669);
+  static const Color accent = Color(0xFFF97316);
   static const Color warning = Color(0xFFF59E0B);
   static const Color error = Color(0xFFEF4444);
-  static const Color info = Color(0xFF3B82F6);
+  static const Color info = Color(0xFF2563EB);
 
   // Light Mode Colors
   static const Color lightBackground = Color(0xFFF8FAFC);

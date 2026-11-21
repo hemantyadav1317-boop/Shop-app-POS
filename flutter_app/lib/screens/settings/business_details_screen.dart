@@ -7,6 +7,7 @@ import '../../core/utils/payment_qr_helper.dart';
 import '../../data/models/shop.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../providers/shop_provider.dart';
 
 class BusinessDetailsScreen extends StatefulWidget {
@@ -27,16 +28,30 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
   List<String> _hybridModules = [];
   bool _isSaving = false;
 
-  final List<Map<String, String>> _storeTypes = const [
-    {'id': 'kirana', 'label': 'किराना स्टोर (Kirana)', 'icon': '🛒'},
-    {'id': 'vegetable', 'label': 'सब्जी / फल (Vegetables/Fruits)', 'icon': '🥬'},
-    {'id': 'restaurant', 'label': 'रेस्टोरेंट / कैफे (Restaurant)', 'icon': '🍽️'},
-    {'id': 'clothing', 'label': 'कपड़े / गारमेंट्स (Clothing)', 'icon': '👕'},
-    {'id': 'electronics', 'label': 'इलेक्ट्रॉनिक्स / मोबाइल (Electronics)', 'icon': '📱'},
-    {'id': 'medical', 'label': 'दवा / मेडिकल (Pharmacy)', 'icon': '💊'},
-    {'id': 'mix', 'label': 'जनरल स्टोर (General Store)', 'icon': '🏬'},
-    {'id': 'other', 'label': 'अन्य व्यवसाय (Other)', 'icon': '🏢'},
-  ];
+  List<Map<String, String>> _getStoreTypes(bool isHindi) {
+    if (isHindi) {
+      return const [
+        {'id': 'kirana', 'label': 'किराना स्टोर', 'icon': '🛒'},
+        {'id': 'vegetable', 'label': 'सब्जी व फल', 'icon': '🥬'},
+        {'id': 'restaurant', 'label': 'रेस्टोरेंट व कैफे', 'icon': '🍽️'},
+        {'id': 'clothing', 'label': 'कपड़े व गारमेंट्स', 'icon': '👕'},
+        {'id': 'electronics', 'label': 'इलेक्ट्रॉनिक्स व मोबाइल', 'icon': '📱'},
+        {'id': 'medical', 'label': 'दवा व मेडिकल स्टोर', 'icon': '💊'},
+        {'id': 'mix', 'label': 'जनरल स्टोर', 'icon': '🏬'},
+        {'id': 'other', 'label': 'अन्य व्यवसाय', 'icon': '🏢'},
+      ];
+    }
+    return const [
+      {'id': 'kirana', 'label': 'Grocery / Kirana', 'icon': '🛒'},
+      {'id': 'vegetable', 'label': 'Vegetables & Fruits', 'icon': '🥬'},
+      {'id': 'restaurant', 'label': 'Restaurant & Cafe', 'icon': '🍽️'},
+      {'id': 'clothing', 'label': 'Clothing & Garments', 'icon': '👕'},
+      {'id': 'electronics', 'label': 'Electronics & Mobile', 'icon': '📱'},
+      {'id': 'medical', 'label': 'Pharmacy & Medical', 'icon': '💊'},
+      {'id': 'mix', 'label': 'General Store', 'icon': '🏬'},
+      {'id': 'other', 'label': 'Other Business', 'icon': '🏢'},
+    ];
+  }
 
   @override
   void initState() {
@@ -176,6 +191,8 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
     final authProvider = context.watch<AuthProvider>();
     final shopProvider = context.watch<ShopProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isHindi = context.watch<LocaleProvider>().localeCode == 'hi';
+    final storeTypes = _getStoreTypes(isHindi);
 
     return Scaffold(
       appBar: AppBar(
@@ -248,13 +265,13 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
 
             // Store Type Dropdown
             DropdownButtonFormField<String>(
-              value: _storeTypes.any((t) => t['id'] == _storeType) ? _storeType : 'kirana',
+              value: storeTypes.any((t) => t['id'] == _storeType) ? _storeType : 'kirana',
               decoration: InputDecoration(
-                labelText: 'Business Category / स्टोर का प्रकार',
-                prefixIcon: const Icon(Icons.category_outlined),
+                labelText: isHindi ? 'दुकान का प्रकार' : 'Business Category',
+                prefixIcon: const Icon(Icons.storefront_rounded, color: AppColors.primary),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
               ),
-              items: _storeTypes.map((t) {
+              items: storeTypes.map((t) {
                 return DropdownMenuItem<String>(
                   value: t['id'],
                   child: Text('${t['icon']} ${t['label']}', overflow: TextOverflow.ellipsis),
@@ -282,13 +299,13 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.hub_rounded, size: 16, color: Color(0xFF2563EB)),
-                      SizedBox(width: 6),
+                      const Icon(Icons.hub_rounded, size: 16, color: Color(0xFF2563EB)),
+                      const SizedBox(width: 6),
                       Text(
-                        'हाइब्रिड मॉड्यूल (अतिरिक्त बिज़नेस जोड़ें)',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        isHindi ? 'अतिरिक्त बिज़नेस मॉड्यूल' : 'Additional Business Modules',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -299,7 +316,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                     children: [
                       if (_storeType != 'kirana')
                         FilterChip(
-                          label: const Text('🛒 + किराना/FMCG (बारकोड)', style: TextStyle(fontSize: 11.5)),
+                          label: Text(isHindi ? '🛒 + किराना व FMCG' : '🛒 + Kirana & FMCG', style: const TextStyle(fontSize: 11.5)),
                           selected: _hybridModules.contains('kirana'),
                           onSelected: (val) {
                             setState(() {
@@ -310,7 +327,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                         ),
                       if (_storeType != 'vegetable')
                         FilterChip(
-                          label: const Text('🥬 + फल व सब्ज़ी (तराजू)', style: TextStyle(fontSize: 11.5)),
+                          label: Text(isHindi ? '🥬 + फल व सब्ज़ी' : '🥬 + Fruits & Veg', style: const TextStyle(fontSize: 11.5)),
                           selected: _hybridModules.contains('vegetable'),
                           onSelected: (val) {
                             setState(() {
@@ -321,7 +338,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                         ),
                       if (_storeType != 'dairy')
                         FilterChip(
-                          label: const Text('🥛 + डेयरी व दूध पार्लर', style: TextStyle(fontSize: 11.5)),
+                          label: Text(isHindi ? '🥛 + डेयरी व दूध' : '🥛 + Dairy & Milk', style: const TextStyle(fontSize: 11.5)),
                           selected: _hybridModules.contains('dairy'),
                           onSelected: (val) {
                             setState(() {
@@ -425,14 +442,14 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                       children: [
                         OutlinedButton.icon(
                           icon: const Icon(Icons.photo_camera, size: 16),
-                          label: const Text('बदलें (Change)'),
+                          label: Text(isHindi ? 'बदलें' : 'Change'),
                           onPressed: () => _pickImage(ImageSource.camera),
                         ),
                         const SizedBox(width: 8),
                         TextButton.icon(
                           style: TextButton.styleFrom(foregroundColor: Colors.red),
                           icon: const Icon(Icons.delete_outline, size: 16),
-                          label: const Text('हटाएं'),
+                          label: Text(isHindi ? 'हटाएं' : 'Delete'),
                           onPressed: () => setState(() => _qrImageUrl = null),
                         ),
                       ],
@@ -443,7 +460,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.camera_alt_outlined),
-                            label: const Text('कैमरा (Camera)'),
+                            label: Text(isHindi ? 'कैमरा' : 'Camera'),
                             onPressed: () => _pickImage(ImageSource.camera),
                           ),
                         ),
@@ -451,7 +468,7 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                         Expanded(
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.photo_library_outlined),
-                            label: const Text('गैलरी (Gallery)'),
+                            label: Text(isHindi ? 'गैलरी' : 'Gallery'),
                             onPressed: () => _pickImage(ImageSource.gallery),
                           ),
                         ),
@@ -487,7 +504,10 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                     icon: _isSaving
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.check_circle_rounded, size: 20),
-                    label: const Text('Save Business Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    label: Text(
+                      isHindi ? 'दुकान विवरण सहेजें' : 'Save Business Details',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
                     onPressed: _isSaving ? null : _saveSettings,
                   ),
                 ),

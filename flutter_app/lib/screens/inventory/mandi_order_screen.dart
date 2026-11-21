@@ -115,63 +115,231 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
 
   void _showAddCustomItemDialog() {
     SoundService.instance.playButtonClick();
-    final products = context.read<ProductProvider>().products;
-    final available = products.where((p) => !_selectedProductIds.contains(p.id)).toList();
+    final allProducts = context.read<ProductProvider>().products;
+    final available = allProducts.where((p) => !_selectedProductIds.contains(p.id)).toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    String searchQuery = '';
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          return Container(
-            height: MediaQuery.of(ctx).size.height * 0.7,
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'पर्ची में अन्य सामान जोड़ें',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: available.isEmpty
-                      ? const Center(child: Text('सभी सामान पहले से पर्ची में शामिल हैं।'))
-                      : ListView.separated(
-                          itemCount: available.length,
-                          separatorBuilder: (context, index) => const Divider(height: 1),
-                          itemBuilder: (ctx, i) {
-                            final p = available[i];
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                                child: Text(p.name.isNotEmpty ? p.name[0] : '?', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
+          final filtered = available.where((p) {
+            if (searchQuery.trim().isEmpty) return true;
+            return p.name.toLowerCase().contains(searchQuery.toLowerCase().trim());
+          }).toList();
+
+          return SafeArea(
+            child: Container(
+              height: MediaQuery.of(ctx).size.height * 0.75,
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Top Drag Handle
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 4.5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Header with Title & Close Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySurface,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.primary, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'पर्ची में अन्य सामान जोड़ें',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
-                              title: Text(p.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              subtitle: Text('वर्तमान स्टॉक: ${p.stock} ${p.unit}'),
-                              trailing: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.primary,
-                                  foregroundColor: Colors.white,
-                                  minimumSize: Size.zero,
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              Text(
+                                'कैटलॉग में से सामान चुनें',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Live Search Box
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                    ),
+                    child: TextField(
+                      autofocus: false,
+                      decoration: const InputDecoration(
+                        hintText: 'सामान का नाम खोजें...',
+                        prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      onChanged: (val) {
+                        setModalState(() {
+                          searchQuery = val;
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Product List
+                  Expanded(
+                    child: filtered.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey.shade400),
+                                const SizedBox(height: 8),
+                                Text(
+                                  searchQuery.isEmpty ? 'सभी सामान पहले से पर्ची में शामिल हैं।' : 'कोई सामान नहीं मिला',
+                                  style: const TextStyle(color: Colors.grey, fontSize: 13),
                                 ),
-                                child: const Text('+ जोड़ें'),
-                                onPressed: () {
-                                  SoundService.instance.playButtonClick();
-                                  setState(() {
-                                    _selectedProductIds.add(p.id);
-                                    _orderQtyControllers[p.id] = TextEditingController(text: '10');
-                                  });
-                                  Navigator.pop(ctx);
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                ),
-              ],
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: filtered.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (ctx, i) {
+                              final p = filtered[i];
+                              final isOutOfStock = p.stock <= 0;
+                              final isLowStock = p.stock > 0 && p.stock <= 5;
+
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Rich Product Icon
+                                    Container(
+                                      padding: const EdgeInsets.all(9),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primary.withValues(alpha: 0.12),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(
+                                        Icons.inventory_2_rounded,
+                                        color: AppColors.primary,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+
+                                    // Product Name & Stock Info
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            p.name,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: isOutOfStock
+                                                      ? Colors.red.withValues(alpha: 0.12)
+                                                      : (isLowStock
+                                                          ? Colors.amber.withValues(alpha: 0.15)
+                                                          : const Color(0xFF16A34A).withValues(alpha: 0.12)),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  isOutOfStock
+                                                      ? 'स्टॉक खत्म (0 ${p.unit})'
+                                                      : (isLowStock
+                                                          ? 'कम स्टॉक: ${p.stock} ${p.unit}'
+                                                          : 'स्टॉक: ${p.stock} ${p.unit}'),
+                                                  style: TextStyle(
+                                                    fontSize: 10.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: isOutOfStock
+                                                        ? Colors.red.shade700
+                                                        : (isLowStock
+                                                            ? Colors.amber.shade900
+                                                            : const Color(0xFF16A34A)),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+
+                                    // Modern Orange Add Button
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                        minimumSize: Size.zero,
+                                        elevation: 1,
+                                      ),
+                                      icon: const Icon(Icons.add, size: 15),
+                                      label: const Text('जोड़ें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                      onPressed: () {
+                                        SoundService.instance.playButtonClick();
+                                        setState(() {
+                                          _selectedProductIds.add(p.id);
+                                          _orderQtyControllers[p.id] = TextEditingController(text: '10');
+                                        });
+                                        Navigator.pop(ctx);
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -401,31 +569,35 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                   ),
           ),
 
-          // Bottom Action Bar
+          // Bottom Action Bar with SafeArea padding
           if (_selectedProductIds.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
-                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
-              ),
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    elevation: 2,
+            SafeArea(
+              top: false,
+              bottom: true,
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                  border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
+                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
+                ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 2,
+                    ),
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: Text(
+                      '${_selectedProductIds.length} सामानों की पर्ची भेजें (WhatsApp)',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                    onPressed: _sendViaWhatsApp,
                   ),
-                  icon: const Icon(Icons.send_rounded, size: 18),
-                  label: Text(
-                    '${_selectedProductIds.length} सामानों की पर्ची भेजें (WhatsApp)',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                  onPressed: _sendViaWhatsApp,
                 ),
               ),
             ),

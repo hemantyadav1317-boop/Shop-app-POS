@@ -154,12 +154,9 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
-          children: [
-            Icon(Icons.monetization_on_rounded, color: Color(0xFFFBBF24), size: 22),
-            SizedBox(width: 8),
-            Text('आज की कमाई (Net Profit)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-          ],
+        title: const Text(
+          'आज की कमाई',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
         ),
         actions: [
           IconButton(
@@ -181,11 +178,11 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
                 // Date Range Selector
                 Row(
                   children: [
-                    _buildRangeChip('आज (Today)', 'today', isDark),
+                    _buildRangeChip('आज', 'today', isDark),
                     const SizedBox(width: 8),
-                    _buildRangeChip('कल (Yesterday)', 'yesterday', isDark),
+                    _buildRangeChip('कल', 'yesterday', isDark),
                     const SizedBox(width: 8),
-                    _buildRangeChip('7 दिन (7 Days)', 'last7', isDark),
+                    _buildRangeChip('7 दिन', 'last7', isDark),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -219,11 +216,11 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
                               Icon(Icons.stars_rounded, color: Color(0xFFFDE68A), size: 18),
                               SizedBox(width: 6),
                               Text(
-                                'शुद्ध मुनाफा (NET PROFIT)',
+                                'शुद्ध मुनाफा',
                                 style: TextStyle(
                                   color: Color(0xFFD1FAE5),
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   letterSpacing: 0.5,
                                 ),
                               ),
@@ -334,7 +331,7 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      'सामान अनुसार मुनाफा (Item Breakdown)',
+                      'सामान अनुसार मुनाफा',
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     Text(

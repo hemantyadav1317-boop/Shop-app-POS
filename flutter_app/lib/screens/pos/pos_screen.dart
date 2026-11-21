@@ -288,7 +288,7 @@ class _PosScreenState extends State<PosScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               gradient: const LinearGradient(
-                                colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                                colors: [AppColors.primary, AppColors.primaryDark],
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
                               ),
@@ -296,7 +296,7 @@ class _PosScreenState extends State<PosScreen> {
                               border: Border.all(color: Colors.white30, width: 0.8),
                               boxShadow: [
                                 BoxShadow(
-                                  color: const Color(0xFF2563EB).withValues(alpha: 0.3),
+                                  color: AppColors.primary.withValues(alpha: 0.35),
                                   blurRadius: 6,
                                   offset: const Offset(0, 2),
                                 ),
@@ -320,41 +320,7 @@ class _PosScreenState extends State<PosScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: InkWell(
-                            onTap: () => _showQuickStoreModeSheet(context),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.white24, width: 0.8),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    shop.storeType == 'kirana'
-                                        ? '🛒 किराना मोड (Kirana)'
-                                        : (shop.storeType == 'other' ? '📦 जनरल स्टोर (Retail)' : '🥬 सब्जी व फल (Produce)'),
-                                    style: const TextStyle(
-                                      color: Color(0xFF4ADE80),
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_drop_down, color: Color(0xFF4ADE80), size: 16),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      const Spacer(),
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -443,29 +409,6 @@ class _PosScreenState extends State<PosScreen> {
                                 ),
                               );
                             },
-                          ),
-                          const SizedBox(width: 8),
-                          InkWell(
-                            onTap: () {
-                              SoundService.instance.playButtonClick();
-                              final sp = context.read<ShopProvider>();
-                              sp.setThemeMode(sp.isDarkMode ? ThemeMode.light : ThemeMode.dark);
-                            },
-                            borderRadius: BorderRadius.circular(20),
-                            child: Container(
-                              padding: const EdgeInsets.all(7),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.14),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                context.watch<ShopProvider>().isDarkMode
-                                    ? Icons.light_mode_rounded
-                                    : Icons.dark_mode_rounded,
-                                color: Colors.white,
-                                size: 17,
-                              ),
-                            ),
                           ),
                           const SizedBox(width: 8),
                           Consumer<MenuVisibilityProvider>(

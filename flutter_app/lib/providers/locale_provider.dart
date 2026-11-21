@@ -61,7 +61,10 @@ class LocaleProvider extends ChangeNotifier {
       (l) => l['code'] == _localeCode,
       orElse: () => supportedLanguages[0],
     );
-    return '${match['name']} (${match['sub']})';
+    if (_localeCode == 'en') {
+      return match['sub'] ?? 'English';
+    }
+    return match['name'] ?? 'हिन्दी';
   }
 }
 

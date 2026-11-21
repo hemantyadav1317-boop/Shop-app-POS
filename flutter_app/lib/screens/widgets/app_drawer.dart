@@ -88,7 +88,9 @@ class AppDrawer extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isOnline ? 'ऑनलाइन (Synced)' : 'ऑफलाइन (सुरक्षित)',
+                                  isOnline
+                                      ? (locale.localeCode == 'hi' ? 'ऑनलाइन' : 'Online')
+                                      : (locale.localeCode == 'hi' ? 'ऑफलाइन' : 'Offline'),
                                   style: const TextStyle(
                                     color: Colors.white,
                                     fontSize: 10,
@@ -196,7 +198,7 @@ class AppDrawer extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
                   // 📊 SECTION 1: दैनिक बिजनेस हब
-                  _buildSectionHeader('📊 दैनिक बिजनेस हब (DAILY BUSINESS)'),
+                  _buildSectionHeader(locale.localeCode == 'hi' ? '📊 दैनिक बिजनेस हब' : '📊 DAILY BUSINESS'),
 
                   _buildDrawerItem(
                     icon: Icons.monetization_on_rounded,
@@ -227,7 +229,7 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.calendar_month_rounded,
                     iconColor: const Color(0xFF2563EB),
-                    title: 'दुकान खर्च व गल्ला (Daybook)',
+                    title: locale.localeCode == 'hi' ? 'दुकान खर्च व गल्ला' : 'Daybook & Cash Drawer',
                     subtitle: 'नकद आया/गया, चाय-किराया और दैनिक हिसाब',
                     onTap: () {
                       Navigator.pop(context);
@@ -238,7 +240,7 @@ class AppDrawer extends StatelessWidget {
                   const Divider(height: 16),
 
                   // ⚙️ SECTION 2: दुकान सेटिंग्स व टूल्स
-                  _buildSectionHeader('⚙️ दुकान टूल्स (STORE TOOLS)'),
+                  _buildSectionHeader(locale.localeCode == 'hi' ? '⚙️ दुकान टूल्स' : '⚙️ STORE TOOLS'),
 
                   _buildDrawerItem(
                     icon: Icons.settings_rounded,
@@ -276,7 +278,7 @@ class AppDrawer extends StatelessWidget {
                   _buildDrawerItem(
                     icon: Icons.cloud_download_rounded,
                     iconColor: const Color(0xFF0D9488),
-                    title: 'डेटा बैकअप (Backup)',
+                    title: locale.localeCode == 'hi' ? 'डेटा बैकअप' : 'Data Backup',
                     subtitle: 'लोकल फाइल व Google Drive में सुरक्षित डेटा',
                     onTap: () async {
                       Navigator.pop(context);
@@ -298,11 +300,11 @@ class AppDrawer extends StatelessWidget {
                   const Divider(height: 16),
 
                   // 👤 SECTION 3: सिस्टम व सत्र
-                  _buildSectionHeader('👤 सिस्टम व प्राथमिकताएँ (SYSTEM)'),
+                  _buildSectionHeader(locale.localeCode == 'hi' ? '👤 सिस्टम व प्राथमिकताएँ' : '👤 SYSTEM & PREFERENCES'),
 
                   ListTile(
                     leading: const Icon(Icons.translate_rounded, color: Color(0xFF2563EB), size: 22),
-                    title: const Text('भाषा बदलें / Language', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    title: Text(locale.localeCode == 'hi' ? 'भाषा बदलें' : 'Change Language', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     subtitle: Text(locale.currentLanguageName, style: const TextStyle(fontSize: 11)),
                     trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
                     onTap: () {
@@ -317,9 +319,11 @@ class AppDrawer extends StatelessWidget {
                       color: const Color(0xFFEAB308),
                       size: 22,
                     ),
-                    title: const Text('डार्क / लाइट थीम', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    title: Text(locale.localeCode == 'hi' ? 'डार्क थीम' : 'Dark Theme', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
                     subtitle: Text(
-                      shopProvider.themeMode == ThemeMode.dark ? 'गहरी थीम (Dark)' : 'हल्की थीम (Light)',
+                      shopProvider.themeMode == ThemeMode.dark
+                          ? (locale.localeCode == 'hi' ? 'चालू' : 'On')
+                          : (locale.localeCode == 'hi' ? 'बंद' : 'Off'),
                       style: const TextStyle(fontSize: 11),
                     ),
                     trailing: Switch(
@@ -333,8 +337,11 @@ class AppDrawer extends StatelessWidget {
 
                   ListTile(
                     leading: const Icon(Icons.system_update_rounded, color: Color(0xFF16A34A), size: 22),
-                    title: const Text('BillZo POS v1.6.9', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                    subtitle: const Text('सिस्टम अप टू डेट है ✓', style: TextStyle(fontSize: 11, color: Color(0xFF16A34A))),
+                    title: Text('BillZo POS v${UpdateService.currentVersion}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    subtitle: Text(
+                      locale.localeCode == 'hi' ? 'सिस्टम अप टू डेट है ✓' : 'System is up to date ✓',
+                      style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A)),
+                    ),
                     onTap: () {
                       SoundService.instance.playButtonClick();
                       UpdateService.showUpdateDialogIfNeeded(context);
@@ -432,32 +439,112 @@ class AppDrawer extends StatelessWidget {
 
   void _showLanguageDialog(BuildContext context) {
     final locale = context.read<LocaleProvider>();
-    showDialog(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isHindi = locale.localeCode == 'hi';
+
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('भाषा चुनें (Select Language)'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              title: const Text('हिंदी (Hindi)'),
-              trailing: locale.localeCode == 'hi' ? const Icon(Icons.check, color: AppColors.primary) : null,
-              onTap: () {
-                locale.setLocale('hi');
-                Navigator.pop(ctx);
-              },
+      isScrollControlled: true,
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        final currentCode = context.watch<LocaleProvider>().localeCode;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(color: Colors.grey.shade400, borderRadius: BorderRadius.circular(3)),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primarySurface,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.language_rounded, color: AppColors.primary, size: 22),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      isHindi ? 'भाषा चुनें' : 'Select Language',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: isDark ? Colors.white : const Color(0xFF1E293B)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.55),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: LocaleProvider.supportedLanguages.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 6),
+                    itemBuilder: (ctx, idx) {
+                      final lang = LocaleProvider.supportedLanguages[idx];
+                      final isSelected = lang['code'] == currentCode;
+                      return Material(
+                        color: isSelected
+                            ? (isDark ? AppColors.primary.withValues(alpha: 0.25) : AppColors.primarySurface.withValues(alpha: 0.7))
+                            : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC)),
+                        borderRadius: BorderRadius.circular(12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () async {
+                            SoundService.instance.playSuccess();
+                            await locale.setLocale(lang['code']!);
+                            if (ctx.mounted) Navigator.pop(ctx);
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? AppColors.primary : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                                width: isSelected ? 1.8 : 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Text(lang['flag'] ?? '🇮🇳', style: const TextStyle(fontSize: 22)),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Text(
+                                    lang['name']!,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : (isDark ? Colors.white : const Color(0xFF1E293B)),
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 22)
+                                else
+                                  Icon(Icons.radio_button_unchecked_rounded, size: 20, color: isDark ? Colors.grey.shade600 : Colors.grey.shade400),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-            ListTile(
-              title: const Text('English'),
-              trailing: locale.localeCode == 'en' ? const Icon(Icons.check, color: AppColors.primary) : null,
-              onTap: () {
-                locale.setLocale('en');
-                Navigator.pop(ctx);
-              },
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

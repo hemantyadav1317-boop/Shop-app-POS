@@ -205,43 +205,7 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF59E0B),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.shopping_basket_rounded, size: 12, color: Color(0xFF0F172A)),
-                      SizedBox(width: 4),
-                      Text(
-                        'किराना व FMCG',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: Color(0xFF0F172A),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    '2026 Master Catalog',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          const Spacer(),
           // Cart Quick Badge
           InkWell(
             onTap: () => _showCartSheet(context),

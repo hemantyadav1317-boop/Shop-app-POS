@@ -591,7 +591,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          tooltip: 'Back',
+          onPressed: () {
+            SoundService.instance.playButtonClick();
+            Navigator.pop(context);
+          },
+        ),
         title: Text(
           context.tr('settings'),
           style: const TextStyle(
@@ -709,8 +716,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               context: context,
               title: context.tr('theme'),
               subtitle: shopProvider.themeMode == ThemeMode.dark
-                  ? 'Dark Theme (गहरी थीम)'
-                  : (shopProvider.themeMode == ThemeMode.light ? 'Light Theme (हल्की थीम)' : 'System Default (सिस्टम अनुसार)'),
+                  ? (context.watch<LocaleProvider>().localeCode == 'hi' ? 'गहरी थीम' : 'Dark Theme')
+                  : (shopProvider.themeMode == ThemeMode.light
+                      ? (context.watch<LocaleProvider>().localeCode == 'hi' ? 'हल्की थीम' : 'Light Theme')
+                      : (context.watch<LocaleProvider>().localeCode == 'hi' ? 'सिस्टम अनुसार' : 'System Default')),
               onTap: () => _showThemeSheet(context, shopProvider),
             ),
 
