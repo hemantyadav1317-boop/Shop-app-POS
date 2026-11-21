@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
 import '../../providers/product_provider.dart';
 import '../../providers/shop_provider.dart';
@@ -19,7 +18,8 @@ class MandiOrderScreen extends StatefulWidget {
 class _MandiOrderScreenState extends State<MandiOrderScreen> {
   final Map<String, TextEditingController> _orderQtyControllers = {};
   final Set<String> _selectedProductIds = {};
-  final TextEditingController _supplierPhoneCtrl = TextEditingController();
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _filterQuery = '';
 
   @override
   void initState() {
@@ -33,9 +33,8 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
 
     for (final p in lowStockItems) {
       _selectedProductIds.add(p.id);
-      // Suggested restock quantity: 2x lowStockAt or 20/50 for veggies
       double suggested = (p.lowStockAt > 0 ? (p.lowStockAt * 2) - p.stock : 20.0);
-      if (suggested <= 0) suggested = p.unit == 'kg' ? 25.0 : 10.0;
+      if (suggested <= 0) suggested = p.unit == 'kg' ? 10.0 : 10.0;
 
       final text = suggested % 1 == 0 ? suggested.toInt().toString() : suggested.toStringAsFixed(1);
       _orderQtyControllers[p.id] = TextEditingController(text: text);
@@ -47,11 +46,24 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
     for (final ctrl in _orderQtyControllers.values) {
       ctrl.dispose();
     }
-    _supplierPhoneCtrl.dispose();
+    _searchCtrl.dispose();
     super.dispose();
   }
 
-  String _buildSlipText() {
+  void _stepQuantity(String productId, double delta) {
+    SoundService.instance.playButtonClick();
+    final ctrl = _orderQtyControllers[productId];
+    if (ctrl == null) return;
+    double current = double.tryParse(ctrl.text.trim()) ?? 1.0;
+    current += delta;
+    if (current < 1) current = 1;
+    final text = current % 1 == 0 ? current.toInt().toString() : current.toStringAsFixed(1);
+    setState(() {
+      ctrl.text = text;
+    });
+  }
+
+  String _buildSlipText(bool isHindi) {
     final shop = context.read<ShopProvider>().shop;
     final products = context.read<ProductProvider>().products;
     final localeCode = context.read<LocaleProvider>().localeCode;
@@ -61,40 +73,45 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
     final phoneLine = (shop.phone != null && shop.phone!.isNotEmpty) ? '📞 ${shop.phone!}\n' : '';
 
     final buffer = StringBuffer();
-    buffer.writeln('📋 *मंडी / राशन खरीदारी पर्ची*');
+    buffer.writeln(isHindi ? '📋 *मंडी / राशन खरीदारी पर्ची*' : '📋 *Mandi / Supplier Purchase Order*');
     buffer.writeln('🏪 *${shop.name}*');
     if (phoneLine.isNotEmpty) buffer.write(phoneLine);
     buffer.writeln('----------------------------------');
-    buffer.writeln('तारीख: $dateStr\n');
+    buffer.writeln('${isHindi ? "तारीख:" : "Date:"} $dateStr\n');
 
     int index = 1;
+    double grandTotal = 0;
     for (final id in _selectedProductIds) {
       final p = productMap[id];
       if (p != null) {
+        final qtyVal = double.tryParse(_orderQtyControllers[id]?.text.trim() ?? '1') ?? 1.0;
+        final cost = p.price * qtyVal;
+        grandTotal += cost;
         final qtyStr = _orderQtyControllers[id]?.text.trim() ?? '1';
-        buffer.writeln('$index. *${p.localizedName(localeCode)}* - $qtyStr ${p.unit}');
+        buffer.writeln('$index. *${p.localizedName(localeCode)}* - $qtyStr ${p.unit} (₹ ${cost.toStringAsFixed(2)})');
         index++;
       }
     }
 
     buffer.writeln('----------------------------------');
-    buffer.writeln('कुल आइटम: ${_selectedProductIds.length}');
-    buffer.writeln('कृपया माल तैयार रखें या जल्द भेजें। धन्यवाद! 🙏');
+    buffer.writeln('${isHindi ? "कुल आइटम:" : "Total Items:"} ${_selectedProductIds.length}');
+    buffer.writeln('${isHindi ? "अनुमानित कुल राशि:" : "Estimated Total:"} ₹ ${grandTotal.toStringAsFixed(2)}');
+    buffer.writeln(isHindi ? 'कृपया माल तैयार रखें या जल्द भेजें। धन्यवाद! 🙏' : 'Please keep goods ready or dispatch soon. Thank you! 🙏');
 
     return buffer.toString();
   }
 
-  Future<void> _sendViaWhatsApp() async {
+  Future<void> _sendViaWhatsApp(bool isHindi) async {
     SoundService.instance.playButtonClick();
     if (_selectedProductIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('कृपया पर्ची में कम से कम 1 सामान चुनें!')),
+        SnackBar(content: Text(isHindi ? 'कृपया पर्ची में कम से कम 1 सामान चुनें!' : 'Please select at least 1 item for the order!')),
       );
       return;
     }
 
-    final text = _buildSlipText();
-    final targetPhone = _supplierPhoneCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
+    final text = _buildSlipText(isHindi);
+    final targetPhone = _searchCtrl.text.replaceAll(RegExp(r'[^0-9]'), '');
 
     if (targetPhone.isNotEmpty) {
       String clean = targetPhone;
@@ -110,16 +127,15 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
     SharePlus.instance.share(
       ShareParams(
         text: text,
-        subject: 'मंडी खरीदारी पर्ची',
+        subject: isHindi ? 'मंडी खरीदारी पर्ची' : 'Mandi Purchase Order',
       ),
     );
   }
 
-  void _showAddCustomItemDialog() {
+  void _showAddCustomItemDialog(bool isDark, bool isHindi) {
     SoundService.instance.playButtonClick();
     final allProducts = context.read<ProductProvider>().products;
     final available = allProducts.where((p) => !_selectedProductIds.contains(p.id)).toList();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     String searchQuery = '';
 
     showModalBottomSheet(
@@ -141,7 +157,6 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Top Drag Handle
                   Center(
                     child: Container(
                       width: 44,
@@ -154,7 +169,6 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Header with Title & Close Button
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -163,22 +177,22 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                           Container(
                             padding: const EdgeInsets.all(7),
                             decoration: BoxDecoration(
-                              color: AppColors.primarySurface,
+                              color: const Color(0xFFFFEDE6),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: const Icon(Icons.add_shopping_cart_rounded, color: AppColors.primary, size: 20),
+                            child: const Icon(Icons.add_shopping_cart_rounded, color: Color(0xFFFF5722), size: 20),
                           ),
                           const SizedBox(width: 10),
-                          const Column(
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'पर्ची में अन्य सामान जोड़ें',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                isHindi ? 'पर्ची में अन्य सामान जोड़ें' : 'Add Items to Order Slip',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                               ),
                               Text(
-                                'कैटलॉग में से सामान चुनें',
-                                style: TextStyle(fontSize: 11.5, color: Colors.grey),
+                                isHindi ? 'कैटलॉग में से सामान चुनें' : 'Select items from product catalog',
+                                style: const TextStyle(fontSize: 11.5, color: Colors.grey),
                               ),
                             ],
                           ),
@@ -192,7 +206,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Live Search Box
+                  // Search Box
                   Container(
                     decoration: BoxDecoration(
                       color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
@@ -201,11 +215,11 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                     ),
                     child: TextField(
                       autofocus: false,
-                      decoration: const InputDecoration(
-                        hintText: 'सामान का नाम खोजें...',
-                        prefixIcon: Icon(Icons.search_rounded, size: 20, color: AppColors.primary),
+                      decoration: InputDecoration(
+                        hintText: isHindi ? 'सामान का नाम खोजें...' : 'Search item name...',
+                        prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Color(0xFFFF5722)),
                         border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       ),
                       onChanged: (val) {
                         setModalState(() {
@@ -216,7 +230,6 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Product List
                   Expanded(
                     child: filtered.isEmpty
                         ? Center(
@@ -226,7 +239,9 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                 Icon(Icons.inventory_2_outlined, size: 40, color: Colors.grey.shade400),
                                 const SizedBox(height: 8),
                                 Text(
-                                  searchQuery.isEmpty ? 'सभी सामान पहले से पर्ची में शामिल हैं।' : 'कोई सामान नहीं मिला',
+                                  searchQuery.isEmpty
+                                      ? (isHindi ? 'सभी सामान पहले से पर्ची में शामिल हैं।' : 'All products already added to order.')
+                                      : (isHindi ? 'कोई सामान नहीं मिला' : 'No items found'),
                                   style: const TextStyle(color: Colors.grey, fontSize: 13),
                                 ),
                               ],
@@ -251,22 +266,20 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    // Rich Product Icon
                                     Container(
                                       padding: const EdgeInsets.all(9),
                                       decoration: BoxDecoration(
-                                        color: AppColors.primary.withValues(alpha: 0.12),
+                                        color: const Color(0xFFFFEDE6),
                                         borderRadius: BorderRadius.circular(10),
                                       ),
                                       child: const Icon(
                                         Icons.inventory_2_rounded,
-                                        color: AppColors.primary,
+                                        color: Color(0xFFFF5722),
                                         size: 20,
                                       ),
                                     ),
                                     const SizedBox(width: 12),
 
-                                    // Product Name & Stock Info
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -292,10 +305,10 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                                 ),
                                                 child: Text(
                                                   isOutOfStock
-                                                      ? 'स्टॉक खत्म (0 ${p.unit})'
+                                                      ? (isHindi ? 'स्टॉक खत्म (0 ${p.unit})' : 'Out of Stock (0 ${p.unit})')
                                                       : (isLowStock
-                                                          ? 'कम स्टॉक: ${p.stock} ${p.unit}'
-                                                          : 'स्टॉक: ${p.stock} ${p.unit}'),
+                                                          ? (isHindi ? 'कम स्टॉक: ${p.stock} ${p.unit}' : 'Low Stock: ${p.stock} ${p.unit}')
+                                                          : (isHindi ? 'स्टॉक: ${p.stock} ${p.unit}' : 'Stock: ${p.stock} ${p.unit}')),
                                                   style: TextStyle(
                                                     fontSize: 10.5,
                                                     fontWeight: FontWeight.bold,
@@ -313,10 +326,9 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                       ),
                                     ),
 
-                                    // Modern Orange Add Button
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
+                                        backgroundColor: const Color(0xFFFF5722),
                                         foregroundColor: Colors.white,
                                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -324,7 +336,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                         elevation: 1,
                                       ),
                                       icon: const Icon(Icons.add, size: 15),
-                                      label: const Text('जोड़ें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                      label: Text(isHindi ? 'जोड़ें' : 'Add', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                       onPressed: () {
                                         SoundService.instance.playButtonClick();
                                         setState(() {
@@ -354,258 +366,511 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final products = context.watch<ProductProvider>().products;
     final localeCode = context.watch<LocaleProvider>().localeCode;
+    final isHindi = localeCode == 'hi';
     final productMap = {for (var p in products) p.id: p};
 
+    final selectedList = _selectedProductIds.toList().where((id) {
+      if (_filterQuery.trim().isEmpty) return true;
+      final p = productMap[id];
+      if (p == null) return false;
+      return p.name.toLowerCase().contains(_filterQuery.toLowerCase()) ||
+          p.localizedName(localeCode).toLowerCase().contains(_filterQuery.toLowerCase());
+    }).toList();
+
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Row(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFFF5722), Color(0xFFF97316)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () {
+            SoundService.instance.playButtonClick();
+            Navigator.pop(context);
+          },
+        ),
+        title: Row(
           children: [
-            Icon(Icons.assignment_outlined, color: Color(0xFFFBBF24), size: 22),
-            SizedBox(width: 8),
-            Text('मंडी / सप्लायर पर्ची', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.assignment_rounded, color: Colors.white, size: 20),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isHindi ? 'मंडी / सप्लायर पर्ची' : 'Mandi / Supplier Order',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
+            ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            tooltip: 'सामान जोड़ें',
-            onPressed: _showAddCustomItemDialog,
+            icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.white, size: 22),
+            tooltip: isHindi ? 'सामान जोड़ें' : 'Add Item',
+            onPressed: () => _showAddCustomItemDialog(isDark, isHindi),
           ),
           IconButton(
-            icon: const Icon(Icons.share_rounded),
-            tooltip: 'पर्ची शेयर करें',
-            onPressed: _sendViaWhatsApp,
+            icon: const Icon(Icons.share_rounded, color: Colors.white, size: 22),
+            tooltip: isHindi ? 'पर्ची शेयर करें' : 'Share Order Slip',
+            onPressed: () => _sendViaWhatsApp(isHindi),
           ),
+          const SizedBox(width: 4),
         ],
       ),
-      body: Column(
-        children: [
-          // Supplier Phone Quick Input Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
-              border: Border(bottom: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _supplierPhoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      prefixIcon: const Icon(Icons.phone_outlined, size: 18),
-                      hintText: 'सप्लायर / आढ़ती का फ़ोन नंबर (वैकल्पिक)',
-                      hintStyle: const TextStyle(fontSize: 12),
-                      isDense: true,
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF0F172A) : Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isWide = constraints.maxWidth > 850;
+          return Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: isWide ? 850 : double.infinity),
+              child: Column(
+                children: [
+                  // Top Search & WhatsApp Row (Matching Image 3)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFEEF2F6),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  ),
-                  icon: const Icon(Icons.chat_bubble_rounded, size: 14),
-                  label: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  onPressed: _sendViaWhatsApp,
-                ),
-              ],
-            ),
-          ),
-
-          // Items Count Banner
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'पर्ची में शामिल सामान (${_selectedProductIds.length})',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                TextButton.icon(
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('और जोड़ें', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  onPressed: _showAddCustomItemDialog,
-                ),
-              ],
-            ),
-          ),
-
-          // Main List of Order Items
-          Expanded(
-            child: _selectedProductIds.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    child: Row(
                       children: [
-                        const Icon(Icons.check_circle_outline_rounded, color: Color(0xFF16A34A), size: 48),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'बधाई! सभी सामान का पर्याप्त स्टॉक है ✓',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        // Search bar
+                        Expanded(
+                          child: Container(
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _searchCtrl,
+                              onChanged: (val) {
+                                setState(() {
+                                  _filterQuery = val;
+                                });
+                              },
+                              style: const TextStyle(fontSize: 13),
+                              decoration: InputDecoration(
+                                prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: Color(0xFF64748B)),
+                                hintText: isHindi ? 'सप्लायर / आइटम का वर्णन खोजें...' : 'Search supplier / item...',
+                                hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'कोई भी आइटम लो-स्टॉक नहीं है। आप मैन्युअल रूप से जोड़ सकते हैं।',
-                          style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
-                        ),
-                        const SizedBox(height: 16),
+                        const SizedBox(width: 10),
+
+                        // Green WhatsApp Button (Matching Image 3)
                         ElevatedButton.icon(
-                          icon: const Icon(Icons.add),
-                          label: const Text('सामान जोड़ें'),
-                          onPressed: _showAddCustomItemDialog,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            elevation: 1,
+                          ),
+                          icon: const Icon(Icons.chat_bubble_rounded, size: 16),
+                          label: const Text('WhatsApp', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          onPressed: () => _sendViaWhatsApp(isHindi),
                         ),
                       ],
                     ),
-                  )
-                : ListView.separated(
+                  ),
+
+                  // Section Header Bar (Matching Image 3: Orange bottom line tab + '+ और जोड़ें')
+                  Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    itemCount: _selectedProductIds.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 8),
-                    itemBuilder: (context, i) {
-                      final id = _selectedProductIds.elementAt(i);
-                      final p = productMap[id];
-                      if (p == null) return const SizedBox.shrink();
-
-                      final ctrl = _orderQtyControllers[id] ?? TextEditingController(text: '10');
-
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFEEF2F6),
                         ),
-                        child: Row(
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Left active section with orange bottom indicator
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            CircleAvatar(
-                              radius: 18,
-                              backgroundColor: p.isLowStock
-                                  ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-                                  : const Color(0xFF3B82F6).withValues(alpha: 0.15),
-                              child: Text(
-                                p.localizedName(localeCode).isNotEmpty ? p.localizedName(localeCode)[0] : '?',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: p.isLowStock ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
+                            Row(
+                              children: [
+                                const Icon(Icons.storefront_rounded, color: Color(0xFFFF5722), size: 18),
+                                const SizedBox(width: 6),
+                                Text(
+                                  isHindi
+                                      ? 'पर्ची में शामिल सामान (${_selectedProductIds.length})'
+                                      : 'Items in Order (${_selectedProductIds.length})',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13.5,
+                                    color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                  ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              height: 2.5,
+                              width: 140,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF5722),
+                                borderRadius: BorderRadius.circular(2),
                               ),
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.localizedName(localeCode),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                          ],
+                        ),
+
+                        // Right: '+ और जोड़ें'
+                        InkWell(
+                          onTap: () => _showAddCustomItemDialog(isDark, isHindi),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.add, size: 16, color: Color(0xFFFF5722)),
+                                const SizedBox(width: 2),
+                                Text(
+                                  isHindi ? 'और जोड़ें' : 'Add More',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Color(0xFFFF5722),
                                   ),
-                                  const SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        'स्टॉक: ${p.stock} ${p.unit}',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: p.isLowStock ? const Color(0xFFDC2626) : const Color(0xFF64748B),
-                                        ),
-                                      ),
-                                      if (p.isLowStock) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFEF4444).withValues(alpha: 0.1),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: const Text('कम स्टॉक', style: TextStyle(fontSize: 9.5, color: Color(0xFFDC2626), fontWeight: FontWeight.bold)),
-                                        ),
-                                      ],
-                                    ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Order Items List or Illustrated Empty State
+                  Expanded(
+                    child: selectedList.isEmpty
+                        ? Center(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  // Soft shop checklist illustration matching Image 3
+                                  Container(
+                                    width: 90,
+                                    height: 90,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFEDE6),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: const Color(0xFFFFCCBC), width: 1.5),
+                                    ),
+                                    child: const Icon(Icons.assignment_turned_in_rounded, size: 48, color: Color(0xFFFF5722)),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    isHindi
+                                        ? 'और सामान जोड़ने के लिए\nऊपर दिए गए + बटन पर क्लिक करें'
+                                        : 'To add more items,\nclick on the + button above',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF64748B),
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFFF5722),
+                                      foregroundColor: Colors.white,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    ),
+                                    icon: const Icon(Icons.add, size: 18),
+                                    label: Text(
+                                      isHindi ? 'सामान जोड़ें' : 'Add Product',
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                    ),
+                                    onPressed: () => _showAddCustomItemDialog(isDark, isHindi),
                                   ),
                                 ],
                               ),
                             ),
-                            // Order Quantity Input Field
-                            Container(
-                              width: 85,
-                              margin: const EdgeInsets.only(right: 6),
-                              child: TextField(
-                                controller: ctrl,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                decoration: InputDecoration(
-                                  suffixText: p.unit,
-                                  suffixStyle: const TextStyle(fontSize: 10, color: Colors.grey),
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                ),
-                              ),
-                            ),
-                            // Remove Button
-                            IconButton(
-                              icon: const Icon(Icons.remove_circle_outline, color: Color(0xFF94A3B8), size: 20),
-                              tooltip: 'पर्ची से हटाएं',
-                              onPressed: () {
-                                SoundService.instance.playButtonClick();
-                                setState(() {
-                                  _selectedProductIds.remove(id);
-                                });
-                              },
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
+                          )
+                        : ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(14, 12, 14, 90),
+                            itemCount: selectedList.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 10),
+                            itemBuilder: (context, i) {
+                              final id = selectedList[i];
+                              final p = productMap[id];
+                              if (p == null) return const SizedBox.shrink();
 
-          // Bottom Action Bar with SafeArea padding
-          if (_selectedProductIds.isNotEmpty)
-            SafeArea(
-              top: false,
-              bottom: true,
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                  border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
-                  boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -3))],
-                ),
+                              final ctrl = _orderQtyControllers[id] ?? TextEditingController(text: '10');
+                              final qtyVal = double.tryParse(ctrl.text.trim()) ?? 1.0;
+                              final totalItemCost = p.price * qtyVal;
+
+                              return Container(
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
+                                  border: Border.all(
+                                    color: isDark ? const Color(0xFF334155) : const Color(0xFFEEF2F6),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.03),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Row 1: Squircle Avatar + Name + Sub-pill + Red Trash
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        // Pastel squircle avatar with initial & produce icon
+                                        Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFFFE4E6),
+                                            borderRadius: BorderRadius.circular(14),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              p.name.isNotEmpty ? p.name[0].toUpperCase() : 'C',
+                                              style: const TextStyle(
+                                                fontSize: 22,
+                                                fontWeight: FontWeight.w900,
+                                                color: Color(0xFFE11D48),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+
+                                        // Title & Category tag
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                p.localizedName(localeCode),
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w800,
+                                                  fontSize: 15,
+                                                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFFFFEDD5),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  p.category.isNotEmpty
+                                                      ? p.category
+                                                      : (isHindi ? 'ताजा सामान' : 'Fresh Item'),
+                                                  style: const TextStyle(
+                                                    fontSize: 10.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Color(0xFFC2410C),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+
+                                        // Delete Trash Icon
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFDC2626), size: 22),
+                                          tooltip: isHindi ? 'पर्ची से हटाएं' : 'Remove from order',
+                                          onPressed: () {
+                                            SoundService.instance.playButtonClick();
+                                            setState(() {
+                                              _selectedProductIds.remove(id);
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 10),
+
+                                    // Row 2: Weight & Rate (Left) + Quantity Stepper (Right)
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // Weight & Rate
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.balance_rounded, size: 14, color: Color(0xFF64748B)),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              '${isHindi ? "वजन:" : "Stock:"} ${p.stock} ${p.unit}',
+                                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            const Text('|', style: TextStyle(color: Color(0xFFCBD5E1))),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '₹ ${isHindi ? "दर प्रति" : "Rate /"} ${p.unit}: ${p.price.toStringAsFixed(2)} ₹',
+                                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                            ),
+                                          ],
+                                        ),
+
+                                        // Quantity Stepper ( -  8.5 kg  + ) matching Image 3
+                                        Container(
+                                          decoration: BoxDecoration(
+                                            color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              InkWell(
+                                                onTap: () => _stepQuantity(id, -1.0),
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.all(4),
+                                                  child: Icon(Icons.remove, size: 16, color: Color(0xFF475569)),
+                                                ),
+                                              ),
+                                              Padding(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                                child: Text(
+                                                  '${ctrl.text} ${p.unit}',
+                                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                                ),
+                                              ),
+                                              InkWell(
+                                                onTap: () => _stepQuantity(id, 1.0),
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: const Padding(
+                                                  padding: EdgeInsets.all(4),
+                                                  child: Icon(Icons.add, size: 16, color: Color(0xFFFF5722)),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    const SizedBox(height: 10),
+
+                                    // Row 3: Bottom Highlight Bar: Total Amount (Image 3)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFFF7ED),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.calculate_rounded, size: 16, color: Color(0xFFEA580C)),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            '${isHindi ? "कुल राशि :" : "Total Amount :"} ₹ ${totalItemCost.toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 13.5,
+                                              color: Color(0xFFC2410C),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+
+      // Bottom Glowing Full-Width WhatsApp Button (Matching Image 3)
+      bottomSheet: _selectedProductIds.isNotEmpty
+          ? Container(
+              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 14),
+              child: SafeArea(
                 child: SizedBox(
                   width: double.infinity,
                   height: 48,
-                  child: ElevatedButton.icon(
+                  child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: const Color(0xFFFF5722),
                       foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                     ),
-                    icon: const Icon(Icons.send_rounded, size: 18),
-                    label: Text(
-                      '${_selectedProductIds.length} सामानों की पर्ची भेजें (WhatsApp)',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    onPressed: () => _sendViaWhatsApp(isHindi),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.arrow_forward_rounded, size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          isHindi
+                              ? '${_selectedProductIds.length} सामान की पर्ची भेजें (WhatsApp)'
+                              : 'Send ${_selectedProductIds.length} Items Order (WhatsApp)',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.chat_bubble_rounded, size: 16),
+                      ],
                     ),
-                    onPressed: _sendViaWhatsApp,
                   ),
                 ),
               ),
-            ),
-        ],
-      ),
+            )
+          : null,
     );
   }
 }
