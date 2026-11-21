@@ -80,10 +80,10 @@ void main() {
       key.currentState?.openDrawer();
       await tester.pumpAndSettle();
 
-      expect(find.text('आज की कमाई व मुनाफा'), findsOneWidget);
-      expect(find.text('मंडी / सप्लायर पर्ची'), findsOneWidget);
-      expect(find.text('दुकान खर्च व गल्ला'), findsOneWidget);
-      expect(find.text('पूरी दुकान सेटिंग्स'), findsOneWidget);
+      expect(find.text('मुनाफा रिपोर्ट'), findsOneWidget);
+      expect(find.text('सप्लायर ऑर्डर'), findsOneWidget);
+      expect(find.text('रोकड़ बही'), findsOneWidget);
+      expect(find.text('दुकान सेटिंग्स'), findsOneWidget);
       expect(find.byIcon(Icons.storefront_rounded), findsOneWidget);
 
       await tester.scrollUntilVisible(

@@ -169,27 +169,9 @@ class AppDrawer extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded, color: Colors.white70, size: 20),
+                        const Icon(Icons.chevron_right_rounded, color: Colors.white70, size: 22),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Active Store Type Tags
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: [
-                      if (shop.hasVegetableOrProduce)
-                        _buildHeaderBadge(isHindi ? '🥬 सब्जी व फल' : '🥬 Fruits & Veg'),
-                      if (shop.hasGroceryOrFmcg)
-                        _buildHeaderBadge(isHindi ? '🛒 किराना व FMCG' : '🛒 Grocery & FMCG'),
-                      if (shop.hasDairy)
-                        _buildHeaderBadge(isHindi ? '🥛 डेयरी व दूध' : '🥛 Dairy & Milk'),
-                      _buildHeaderBadge(isStaff
-                          ? (isHindi ? '👤 स्टाफ सत्र' : '👤 Staff Session')
-                          : (isHindi ? '👑 दुकान मालिक सत्र' : '👑 Store Owner')),
-                    ],
                   ),
                 ],
               ),
@@ -200,16 +182,16 @@ class AppDrawer extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(0, 10, 0, 24),
                 children: [
-                  // 📊 SECTION 1: दैनिक बिजनेस हब
-                  _buildSectionHeader(isHindi ? '📊 दैनिक बिजनेस हब' : '📊 DAILY BUSINESS'),
+                  // SECTION 1: DAILY BUSINESS
+                  _buildSectionHeader(isHindi ? 'दैनिक बिजनेस' : 'DAILY BUSINESS'),
 
                   _buildDrawerItem(
-                    icon: Icons.monetization_on_rounded,
+                    context: context,
+                    icon: Icons.trending_up_rounded,
                     iconColor: const Color(0xFF16A34A),
-                    title: isHindi ? 'आज की कमाई व मुनाफा' : 'Daily Profit & Margin',
-                    subtitle: isHindi ? 'शुद्ध लाभ, लागत और मार्जिन रिपोर्ट' : 'Net profit, cost & margin report',
-                    badge: isHindi ? 'नया' : 'NEW',
-                    badgeColor: const Color(0xFF16A34A),
+                    iconBgColor: isDark ? const Color(0xFF16A34A).withValues(alpha: 0.15) : const Color(0xFFE8F5E9),
+                    title: isHindi ? 'मुनाफा रिपोर्ट' : 'Profit & Margin',
+                    subtitle: isHindi ? 'दैनिक कमाई और लागत' : 'Daily earnings and costs',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const DailyProfitScreen()));
@@ -217,12 +199,12 @@ class AppDrawer extends StatelessWidget {
                   ),
 
                   _buildDrawerItem(
+                    context: context,
                     icon: Icons.assignment_outlined,
                     iconColor: const Color(0xFFD97706),
-                    title: isHindi ? 'मंडी / सप्लायर पर्ची' : 'Supplier Order Sheet',
-                    subtitle: isHindi ? 'खत्म हो रहे माल की 1-क्लिक WhatsApp लिस्ट' : '1-Click low-stock WhatsApp sheet',
-                    badge: isHindi ? 'स्मार्ट' : 'SMART',
-                    badgeColor: const Color(0xFFD97706),
+                    iconBgColor: isDark ? const Color(0xFFD97706).withValues(alpha: 0.15) : const Color(0xFFFFF3E0),
+                    title: isHindi ? 'सप्लायर ऑर्डर' : 'Supplier Orders',
+                    subtitle: isHindi ? 'कम स्टॉक व आर्डर' : 'Low stock & orders',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const MandiOrderScreen()));
@@ -230,32 +212,29 @@ class AppDrawer extends StatelessWidget {
                   ),
 
                   _buildDrawerItem(
-                    icon: Icons.calendar_month_rounded,
+                    context: context,
+                    icon: Icons.calendar_month_outlined,
                     iconColor: const Color(0xFF2563EB),
-                    title: isHindi ? 'दुकान खर्च व गल्ला' : 'Daybook & Cash Drawer',
-                    subtitle: isHindi ? 'नकद आया/गया, चाय-किराया और दैनिक हिसाब' : 'Cash in/out, shop expenses & register',
+                    iconBgColor: isDark ? const Color(0xFF2563EB).withValues(alpha: 0.15) : const Color(0xFFE3F2FD),
+                    title: isHindi ? 'रोकड़ बही' : 'Cash Book',
+                    subtitle: isHindi ? 'दैनिक नकद व खर्च' : 'Cash in, out & expenses',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const DaybookScreen()));
                     },
                   ),
 
-                  Divider(
-                    height: 24,
-                    thickness: 0.8,
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                    indent: 16,
-                    endIndent: 16,
-                  ),
+                  const SizedBox(height: 12),
 
-                  // ⚙️ SECTION 2: दुकान सेटिंग्स व टूल्स
-                  _buildSectionHeader(isHindi ? '⚙️ दुकान टूल्स' : '⚙️ STORE TOOLS'),
+                  // SECTION 2: STORE TOOLS
+                  _buildSectionHeader(isHindi ? 'दुकान टूल्स' : 'STORE TOOLS'),
 
                   _buildDrawerItem(
-                    icon: Icons.settings_rounded,
-                    iconColor: const Color(0xFF475569),
-                    title: isHindi ? 'पूरी दुकान सेटिंग्स' : 'Store Settings',
-                    subtitle: isHindi ? 'दुकान प्रोफाइल, टैक्स, बिल रसीद आदि' : 'Store profile, tax, receipt setup & more',
+                    context: context,
+                    icon: Icons.settings_outlined,
+                    iconColor: isDark ? Colors.white70 : const Color(0xFF334155),
+                    iconBgColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    title: isHindi ? 'दुकान सेटिंग्स' : 'Store Settings',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
@@ -263,10 +242,11 @@ class AppDrawer extends StatelessWidget {
                   ),
 
                   _buildDrawerItem(
-                    icon: Icons.scale_rounded,
-                    iconColor: const Color(0xFF0284C7),
-                    title: isHindi ? 'इलेक्ट्रॉनिक तौल कांटा' : 'Electronic Weighing Scale',
-                    subtitle: isHindi ? 'ब्लूटूथ / USB वजन मशीन जोड़ें' : 'Connect Bluetooth / USB weight machine',
+                    context: context,
+                    icon: Icons.scale_outlined,
+                    iconColor: isDark ? Colors.white70 : const Color(0xFF334155),
+                    iconBgColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    title: isHindi ? 'इलेक्ट्रॉनिक कांटा' : 'Weighing Scale',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const WeighingScaleSettingsScreen()));
@@ -274,10 +254,11 @@ class AppDrawer extends StatelessWidget {
                   ),
 
                   _buildDrawerItem(
-                    icon: Icons.print_rounded,
-                    iconColor: const Color(0xFF7C3AED),
-                    title: isHindi ? 'थर्मल रसीद प्रिंटर' : 'Thermal Receipt Printer',
-                    subtitle: isHindi ? 'Bluetooth 58mm / 80mm प्रिंटर सेटअप' : 'Bluetooth 58mm / 80mm printer setup',
+                    context: context,
+                    icon: Icons.print_outlined,
+                    iconColor: isDark ? Colors.white70 : const Color(0xFF334155),
+                    iconBgColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    title: isHindi ? 'रसीद प्रिंटर' : 'Receipt Printer',
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const PrinterSettingsScreen()));
@@ -285,10 +266,11 @@ class AppDrawer extends StatelessWidget {
                   ),
 
                   _buildDrawerItem(
-                    icon: Icons.cloud_download_rounded,
-                    iconColor: const Color(0xFF0D9488),
+                    context: context,
+                    icon: Icons.cloud_upload_outlined,
+                    iconColor: isDark ? Colors.white70 : const Color(0xFF334155),
+                    iconBgColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                     title: isHindi ? 'डेटा बैकअप' : 'Data Backup',
-                    subtitle: isHindi ? 'लोकल फाइल व Google Drive में सुरक्षित डेटा' : 'Secure local file & cloud data backup',
                     onTap: () async {
                       Navigator.pop(context);
                       SoundService.instance.playButtonClick();
@@ -306,22 +288,18 @@ class AppDrawer extends StatelessWidget {
                     },
                   ),
 
-                  Divider(
-                    height: 24,
-                    thickness: 0.8,
-                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                    indent: 16,
-                    endIndent: 16,
-                  ),
+                  const SizedBox(height: 12),
 
-                  // 👤 SECTION 3: सिस्टम व सत्र
-                  _buildSectionHeader(isHindi ? '👤 सिस्टम व प्राथमिकताएँ' : '👤 SYSTEM & PREFERENCES'),
+                  // SECTION 3: SYSTEM & PREFERENCES
+                  _buildSectionHeader(isHindi ? 'सिस्टम व सेटिंग्स' : 'SYSTEM & PREFERENCES'),
 
-                  ListTile(
-                    leading: const Icon(Icons.translate_rounded, color: Color(0xFF2563EB), size: 22),
-                    title: Text(isHindi ? 'भाषा बदलें' : 'Change Language', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                    subtitle: Text(locale.currentLanguageName, style: const TextStyle(fontSize: 11)),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14),
+                  _buildDrawerItem(
+                    context: context,
+                    icon: Icons.translate_rounded,
+                    iconColor: const Color(0xFF2563EB),
+                    iconBgColor: isDark ? const Color(0xFF2563EB).withValues(alpha: 0.15) : const Color(0xFFE3F2FD),
+                    title: isHindi ? 'भाषा बदलें' : 'Change Language',
+                    subtitle: locale.currentLanguageName,
                     onTap: () {
                       SoundService.instance.playButtonClick();
                       _showLanguageDialog(context);
@@ -329,20 +307,37 @@ class AppDrawer extends StatelessWidget {
                   ),
 
                   ListTile(
-                    leading: Icon(
-                      shopProvider.themeMode == ThemeMode.dark ? Icons.nightlight_round : Icons.wb_sunny_rounded,
-                      color: const Color(0xFFEAB308),
-                      size: 22,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                    leading: Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFFEAB308).withValues(alpha: 0.15) : const Color(0xFFFEF9C3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        shopProvider.themeMode == ThemeMode.dark ? Icons.nightlight_round : Icons.wb_sunny_rounded,
+                        color: const Color(0xFFEAB308),
+                        size: 20,
+                      ),
                     ),
-                    title: Text(isHindi ? 'डार्क थीम' : 'Dark Theme', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                    title: Text(
+                      isHindi ? 'डार्क थीम' : 'Dark Theme',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14.5,
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      ),
+                    ),
                     subtitle: Text(
                       shopProvider.themeMode == ThemeMode.dark
                           ? (isHindi ? 'चालू' : 'On')
                           : (isHindi ? 'बंद' : 'Off'),
-                      style: const TextStyle(fontSize: 11),
+                      style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                     ),
                     trailing: Switch(
                       value: shopProvider.themeMode == ThemeMode.dark,
+                      activeColor: const Color(0xFFEA580C),
                       onChanged: (val) {
                         SoundService.instance.playButtonClick();
                         shopProvider.setThemeMode(val ? ThemeMode.dark : ThemeMode.light);
@@ -350,13 +345,13 @@ class AppDrawer extends StatelessWidget {
                     ),
                   ),
 
-                  ListTile(
-                    leading: const Icon(Icons.system_update_rounded, color: Color(0xFF16A34A), size: 22),
-                    title: Text('BillZo POS v${UpdateService.currentVersion}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                    subtitle: Text(
-                      isHindi ? 'सिस्टम अप टू डेट है ✓' : 'System is up to date ✓',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF16A34A)),
-                    ),
+                  _buildDrawerItem(
+                    context: context,
+                    icon: Icons.system_update_rounded,
+                    iconColor: const Color(0xFF16A34A),
+                    iconBgColor: isDark ? const Color(0xFF16A34A).withValues(alpha: 0.15) : const Color(0xFFE8F5E9),
+                    title: 'BillZo POS v${UpdateService.currentVersion}',
+                    subtitle: isHindi ? 'सिस्टम अप टू डेट है ✓' : 'System is up to date ✓',
                     onTap: () {
                       SoundService.instance.playButtonClick();
                       UpdateService.showUpdateDialogIfNeeded(context);
@@ -373,13 +368,13 @@ class AppDrawer extends StatelessWidget {
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
       child: Text(
         title,
         style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF94A3B8),
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF64748B),
           letterSpacing: 0.5,
         ),
       ),
@@ -387,68 +382,49 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildDrawerItem({
+    required BuildContext context,
     required IconData icon,
     required Color iconColor,
+    required Color iconBgColor,
     required String title,
-    required String subtitle,
-    String? badge,
-    Color? badgeColor,
+    String? subtitle,
     required VoidCallback onTap,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
       leading: Container(
-        padding: const EdgeInsets.all(8),
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.12),
+          color: iconBgColor,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: iconColor, size: 20),
       ),
-      title: Row(
-        children: [
-          Flexible(
-            child: Text(
-              title,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-            ),
-          ),
-          if (badge != null) ...[
-            const SizedBox(width: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
-              decoration: BoxDecoration(
-                color: (badgeColor ?? AppColors.primary).withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Text(
-                badge,
-                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: badgeColor ?? AppColors.primary),
-              ),
-            ),
-          ],
-        ],
+      title: Text(
+        title,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 14.5,
+          color: isDark ? Colors.white : const Color(0xFF0F172A),
+        ),
       ),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-      trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF94A3B8)),
+      subtitle: (subtitle != null && subtitle.isNotEmpty)
+          ? Text(
+              subtitle,
+              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            )
+          : null,
+      trailing: const Icon(Icons.chevron_right_rounded, size: 20, color: Color(0xFF94A3B8)),
       onTap: () {
         SoundService.instance.playButtonClick();
         onTap();
       },
-    );
-  }
-
-  Widget _buildHeaderBadge(String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-      ),
     );
   }
 
