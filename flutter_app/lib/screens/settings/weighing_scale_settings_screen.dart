@@ -226,13 +226,15 @@ class _WeighingScaleSettingsScreenState
 
               const SizedBox(width: 16),
 
-              // Giant Weight Display
+              // Giant Weight Display (FittedBox prevents overflow)
               Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
                     Text(
                       scale.liveWeight.toStringAsFixed(3),
                       style: const TextStyle(
@@ -255,6 +257,7 @@ class _WeighingScaleSettingsScreenState
                   ],
                 ),
               ),
+            ),
             ],
           ),
 
@@ -620,7 +623,7 @@ class _WeighingScaleSettingsScreenState
                     value: ScaleProtocol.autoDetect,
                     child: Text(
                       isHindi ? 'यूनिवर्सल ऑटो-डिटेक्ट (अनुशंसित)' : 'Universal Auto-Detect (Recommended)',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5),
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5), overflow: TextOverflow.ellipsis, maxLines: 1,
                     ),
                   ),
                   const DropdownMenuItem(

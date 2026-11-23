@@ -544,10 +544,15 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
 
                     // Bottom Full-Width Save Button (Matching Image 2)
                     if (!isStaff)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton.icon(
+                      SafeArea(
+                        top: false,
+                        bottom: true,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton.icon(
                           icon: const Icon(Icons.check_circle_rounded, size: 20),
                           label: Text(
                             isHindi ? 'सभी सेटिंग्स सेव करें' : 'Save All Details',
@@ -560,8 +565,10 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                             elevation: 3,
                           ),
                           onPressed: () => _saveAllSettings(isHindi),
+                          ),
                         ),
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -814,14 +821,16 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                         width: _paperSize == '58mm' ? 1.5 : 1,
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '58mm (2 Inch)',
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '58mm (2 Inch)',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12.5,
@@ -844,6 +853,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                         ),
                       ],
                     ),
+                    ),
                   ),
                 ),
               ),
@@ -865,14 +875,16 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                         width: _paperSize == '80mm' ? 1.5 : 1,
                       ),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              '80mm (3 Inch)',
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '80mm (3 Inch)',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12.5,
@@ -894,6 +906,7 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
                           ),
                         ),
                       ],
+                    ),
                     ),
                   ),
                 ),
@@ -1023,33 +1036,36 @@ class _PrinterSettingsScreenState extends State<PrinterSettingsScreen> {
             width: isSelected ? 1.5 : 1,
           ),
         ),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 11.5,
-                    color: isSelected ? const Color(0xFFFF5722) : null,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 11.5,
+                      color: isSelected ? const Color(0xFFFF5722) : null,
+                    ),
                   ),
-                ),
-                if (isSelected) ...[
-                  const SizedBox(width: 2),
-                  const Icon(Icons.check_circle_rounded, color: Color(0xFFFF5722), size: 12),
+                  if (isSelected) ...[
+                    const SizedBox(width: 2),
+                    const Icon(Icons.check_circle_rounded, color: Color(0xFFFF5722), size: 12),
+                  ],
                 ],
-              ],
-            ),
-            Text(
-              scale,
-              style: TextStyle(
-                fontSize: 10,
-                color: isSelected ? const Color(0xFFFF5722) : const Color(0xFF64748B),
               ),
-            ),
-          ],
+              Text(
+                scale,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isSelected ? const Color(0xFFFF5722) : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

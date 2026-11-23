@@ -736,24 +736,32 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                                     Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        // Weight & Rate
-                                        Row(
-                                          children: [
-                                            const Icon(Icons.balance_rounded, size: 14, color: Color(0xFF64748B)),
-                                            const SizedBox(width: 4),
-                                            Text(
-                                              '${isHindi ? "वजन:" : "Stock:"} ${p.stock} ${p.unit}',
-                                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                        // Weight & Rate (Flexible & Scaled)
+                                        Expanded(
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            alignment: Alignment.centerLeft,
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.balance_rounded, size: 14, color: Color(0xFF64748B)),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  '${isHindi ? "वजन:" : "Stock:"} ${p.stock} ${p.unit}',
+                                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                const Text('|', style: TextStyle(color: Color(0xFFCBD5E1))),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  '₹ ${isHindi ? "दर प्रति" : "Rate /"} ${p.unit}: ${p.price.toStringAsFixed(2)}',
+                                                  style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
+                                                ),
+                                              ],
                                             ),
-                                            const SizedBox(width: 8),
-                                            const Text('|', style: TextStyle(color: Color(0xFFCBD5E1))),
-                                            const SizedBox(width: 8),
-                                            Text(
-                                              '₹ ${isHindi ? "दर प्रति" : "Rate /"} ${p.unit}: ${p.price.toStringAsFixed(2)} ₹',
-                                              style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B), fontWeight: FontWeight.w500),
-                                            ),
-                                          ],
+                                          ),
                                         ),
+                                        const SizedBox(width: 8),
 
                                         // Quantity Stepper ( -  8.5 kg  + ) matching Image 3
                                         Container(
@@ -851,20 +859,23 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                     ),
                     onPressed: () => _sendViaWhatsApp(isHindi),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.arrow_forward_rounded, size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          isHindi
-                              ? '${_selectedProductIds.length} सामान की पर्ची भेजें (WhatsApp)'
-                              : 'Send ${_selectedProductIds.length} Items Order (WhatsApp)',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.chat_bubble_rounded, size: 16),
-                      ],
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.arrow_forward_rounded, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            isHindi
+                                ? '${_selectedProductIds.length} सामान की पर्ची भेजें (WhatsApp)'
+                                : 'Send ${_selectedProductIds.length} Items Order (WhatsApp)',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.chat_bubble_rounded, size: 16),
+                        ],
+                      ),
                     ),
                   ),
                 ),

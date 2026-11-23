@@ -324,6 +324,7 @@ class _DaybookScreenState extends State<DaybookScreen> {
               ),
         actions: [
           IconButton(
+            visualDensity: VisualDensity.compact,
             icon: Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(

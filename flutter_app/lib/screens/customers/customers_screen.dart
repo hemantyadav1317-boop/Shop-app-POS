@@ -1161,23 +1161,26 @@ class _CustomersScreenState extends State<CustomersScreen> {
                               ],
                             ),
                           ),
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF16A34A),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                              elevation: 1,
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF16A34A),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                elevation: 1,
+                              ),
+                              icon: const Icon(Icons.send_rounded, size: 13),
+                              label: Text(
+                                isHindi ? 'मागा भेजें' : 'Send Reminder',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
+                              ),
+                              onPressed: () {
+                                SoundService.instance.playButtonClick();
+                                _openRapidFireReminderDialog(context, dueCustomers);
+                              },
                             ),
-                            icon: const Icon(Icons.send_rounded, size: 13),
-                            label: Text(
-                              isHindi ? 'मागा भेजें' : 'Send Reminder',
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5),
-                            ),
-                            onPressed: () {
-                              SoundService.instance.playButtonClick();
-                              _openRapidFireReminderDialog(context, dueCustomers);
-                            },
                           ),
                         ],
                       ),
@@ -1321,12 +1324,16 @@ class _CustomersScreenState extends State<CustomersScreen> {
                                                     children: [
                                                       const Icon(Icons.monetization_on_rounded, size: 12, color: Color(0xFFD97706)),
                                                       const SizedBox(width: 4),
-                                                      Text(
-                                                        'Total Sale Amount : ₹ ${totalSale.toStringAsFixed(2)}',
-                                                        style: const TextStyle(
-                                                          fontSize: 11.5,
-                                                          color: Color(0xFF64748B),
-                                                          fontWeight: FontWeight.w500,
+                                                      Expanded(
+                                                        child: Text(
+                                                          'Total Sale: ₹${totalSale.toStringAsFixed(2)}',
+                                                          style: const TextStyle(
+                                                            fontSize: 11.5,
+                                                            color: Color(0xFF64748B),
+                                                            fontWeight: FontWeight.w500,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
                                                         ),
                                                       ),
                                                     ],
@@ -1387,7 +1394,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
         },
       ),
       // Central Floating Action Button (+) with Orange Glow
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,

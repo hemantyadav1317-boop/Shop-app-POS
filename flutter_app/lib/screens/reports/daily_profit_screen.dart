@@ -710,14 +710,19 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
             fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 3),
-        Text(
-          val,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 13.5,
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            val,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 13.5,
+            ),
           ),
         ),
       ],
@@ -778,12 +783,16 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
             ),
           ),
           const SizedBox(height: 2),
-          Text(
-            value,
-            style: TextStyle(
-              fontWeight: FontWeight.w900,
-              fontSize: 16.5,
-              color: isDark ? Colors.white : const Color(0xFF0F172A),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 16.5,
+                color: isDark ? Colors.white : const Color(0xFF0F172A),
+              ),
             ),
           ),
           const SizedBox(height: 2),

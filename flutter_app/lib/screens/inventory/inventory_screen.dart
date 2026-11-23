@@ -1002,7 +1002,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         )
                                       : ListView.builder(
                                           physics: const AlwaysScrollableScrollPhysics(),
-                                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 80),
+                                          padding: const EdgeInsets.fromLTRB(14, 4, 14, 100),
                                           itemCount: products.length,
                                           itemBuilder: (context, i) {
                                             final product = products[i];
@@ -1098,12 +1098,16 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                                                 ],
                                                               ),
                                                               const SizedBox(height: 4),
-                                                              Text(
-                                                                '${CurrencyFormatter.format(product.price)} / ${product.unit}',
-                                                                style: const TextStyle(
-                                                                  fontSize: 14,
-                                                                  fontWeight: FontWeight.w900,
-                                                                  color: Color(0xFFFF5722),
+                                                              FittedBox(
+                                                                fit: BoxFit.scaleDown,
+                                                                alignment: Alignment.centerLeft,
+                                                                child: Text(
+                                                                  '${CurrencyFormatter.format(product.price)} / ${product.unit}',
+                                                                  style: const TextStyle(
+                                                                    fontSize: 14,
+                                                                    fontWeight: FontWeight.w900,
+                                                                    color: Color(0xFFFF5722),
+                                                                  ),
                                                                 ),
                                                               ),
                                                             ],

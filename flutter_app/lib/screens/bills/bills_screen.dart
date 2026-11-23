@@ -1058,68 +1058,74 @@ class _BillsScreenState extends State<BillsScreen> {
                           ),
                           const SizedBox(height: 8),
                           if (isUnsettled)
-                            Material(
-                              color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.3) : const Color(0xFFFFEDE6),
-                              borderRadius: BorderRadius.circular(10),
-                              child: InkWell(
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Material(
+                                color: isDark ? const Color(0xFF78350F).withValues(alpha: 0.3) : const Color(0xFFFFEDE6),
                                 borderRadius: BorderRadius.circular(10),
-                                onTap: () => _settleBill(sale),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4)),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.payments_rounded, size: 14, color: Color(0xFFEA580C)),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Settle bill',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFFEA580C),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _settleBill(sale),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFFFF9800).withValues(alpha: 0.4)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.payments_rounded, size: 14, color: Color(0xFFEA580C)),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Settle bill',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFFEA580C),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             )
                           else
-                            Material(
-                              color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.25) : const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(10),
-                              child: InkWell(
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Material(
+                                color: isDark ? const Color(0xFF1E3A8A).withValues(alpha: 0.25) : const Color(0xFFEFF6FF),
                                 borderRadius: BorderRadius.circular(10),
-                                onTap: () => _showBillDetails(sale),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
-                                  ),
-                                  child: const Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.receipt_rounded, size: 14, color: Color(0xFF2563EB)),
-                                      SizedBox(width: 4),
-                                      Text(
-                                        'Receipt',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.bold,
-                                          color: Color(0xFF2563EB),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(10),
+                                  onTap: () => _showBillDetails(sale),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: const Color(0xFF3B82F6).withValues(alpha: 0.3)),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.receipt_rounded, size: 14, color: Color(0xFF2563EB)),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Receipt',
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.bold,
+                                            color: Color(0xFF2563EB),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                        ],
+                            )
+],
                       ),
                     ],
                   ),
