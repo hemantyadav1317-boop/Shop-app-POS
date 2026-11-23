@@ -113,17 +113,18 @@ class PaymentQrHelper {
       payeeName.trim().isEmpty ? 'ShopPOS' : payeeName.trim(),
     );
     final formattedAmount = safeAmount.toStringAsFixed(2);
+    // Strictly alphanumeric TR for Google Pay / NPCI compatibility (no underscores or special chars)
     final cleanRef = (billNo != null && billNo.trim().isNotEmpty)
-        ? Uri.encodeComponent(billNo.trim())
+        ? billNo.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
         : null;
     final cleanNote = Uri.encodeComponent(
-      cleanRef != null ? 'Bill ${billNo!.trim()}' : 'POS Bill Payment',
+      (billNo != null && billNo.trim().isNotEmpty) ? 'Bill ${billNo.trim()}' : 'POS Bill Payment',
     );
 
     final buffer = StringBuffer(
       'upi://pay?pa=$cleanUpi&pn=$cleanName&am=$formattedAmount&cu=INR&tn=$cleanNote',
     );
-    if (cleanRef != null) {
+    if (cleanRef != null && cleanRef.isNotEmpty) {
       buffer.write('&tr=$cleanRef');
     }
     return buffer.toString();

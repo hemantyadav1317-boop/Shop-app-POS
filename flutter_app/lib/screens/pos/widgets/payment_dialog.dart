@@ -63,10 +63,13 @@ class _PaymentDialogState extends State<PaymentDialog> {
   Timer? _phonePeTimer;
   Timer? _qrDebounceTimer;
   int _phonePeRemainingSeconds = 180;
+  late final String _upiSessionRef;
 
   @override
   void initState() {
     super.initState();
+    // Unique alphanumeric checkout reference for Google Pay & NPCI compliance
+    _upiSessionRef = 'T${(DateTime.now().millisecondsSinceEpoch % 100000000).toString().padLeft(8, '0')}';
     final cart = context.read<CartProvider>();
     final editing = cart.editingSale;
     if (editing != null) {
@@ -818,6 +821,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
         : (_paymentMode == 'split' ? breakdown.upiDeclared : 0.0);
 
     final hasValidUpi = PaymentQrHelper.isValidUpiId(shop.upiId);
+    final uniqueTr = 'BZ${_billNo}$_upiSessionRef';
     final upiUri = (hasValidUpi && checkoutUpiAmount > 0.009)
         ? UpiService.generateUpiUri(
             upiId: shop.upiId!.trim(),
@@ -827,6 +831,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
             amount: checkoutUpiAmount,
             note: 'Bill #$_billNo',
             billNo: '$_billNo',
+            tr: uniqueTr,
           )
         : null;
 

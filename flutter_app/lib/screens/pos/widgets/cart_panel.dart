@@ -115,6 +115,77 @@ class _CartPanelState extends State<CartPanel> {
     );
   }
 
+  void _showClearCartConfirmationDialog(BuildContext context, CartProvider cart) {
+    if (cart.lines.isEmpty) return;
+    SoundService.instance.playButtonClick();
+    final isHindi = Provider.of<LocaleProvider>(context, listen: false).localeCode == 'hi';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.error.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.delete_forever_rounded, color: AppColors.error, size: 24),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                isHindi ? 'कार्ट खाली करें?' : 'Clear Cart?',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          isHindi
+              ? 'क्या आप वाकई पूरा कार्ट खाली करना चाहते हैं? इसमें जोड़े गए सभी ${cart.lines.length} आइटम हट जाएंगे।'
+              : 'Are you sure you want to remove all ${cart.lines.length} items from the cart? This action cannot be undone.',
+          style: const TextStyle(fontSize: 14, color: AppColors.lightTextSecondary, height: 1.4),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(
+              isHindi ? 'रद्द करें' : 'Cancel',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              SoundService.instance.playDelete();
+              cart.clear();
+              _discountController.clear();
+            },
+            child: Text(
+              isHindi ? 'हाँ, खाली करें' : 'Yes, Delete',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEditRateDialog(BuildContext context, CartItem item, CartProvider cart) {
     SoundService.instance.playButtonClick();
     final localeCode = Provider.of<LocaleProvider>(context, listen: false).localeCode;
@@ -684,19 +755,25 @@ class _CartPanelState extends State<CartPanel> {
               ),
               const SizedBox(height: 12),
 
-              // Action Buttons: Clear, Hold, Bill / Print
+              // Action Buttons: Clear (with confirmation & safe margin), Hold, Bill / Print
               Row(
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: AppColors.error),
-                    tooltip: 'Clear Cart',
-                    onPressed: cart.lines.isEmpty
-                        ? null
-                        : () {
-                            SoundService.instance.playDelete();
-                            cart.clear();
-                            _discountController.clear();
-                          },
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: cart.lines.isEmpty ? Colors.transparent : AppColors.error.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        Icons.delete_outline,
+                        color: cart.lines.isEmpty ? const Color(0xFF94A3B8) : AppColors.error,
+                      ),
+                      tooltip: 'Clear Cart',
+                      onPressed: cart.lines.isEmpty
+                          ? null
+                          : () => _showClearCartConfirmationDialog(context, cart),
+                    ),
                   ),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.save_outlined, size: 16),

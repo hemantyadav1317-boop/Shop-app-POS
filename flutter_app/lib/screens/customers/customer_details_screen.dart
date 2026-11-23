@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
@@ -53,6 +54,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
   List<CustomerPayment> _customerPayments = [];
   bool _isLoading = false; // ⚡ Instant 0ms load - never block user with full spinner
   String? _expandedSection; // 'bills', 'credit', 'ledger' or null
+  RealtimeChannel? _realtimeChannel;
 
   @override
   void initState() {
@@ -60,6 +62,82 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
     _currentCustomer = widget.customer;
     _initLocalData();
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _setupRealtimeSync();
+    });
+  }
+
+  void _setupRealtimeSync() {
+    if (!mounted) return;
+    final client = SupabaseService.instance.client;
+    final shop = context.read<ShopProvider>().shop;
+    if (client == null || shop.id.isEmpty || shop.id == 'demo-shop-101') return;
+
+    try {
+      final channelName = 'cust_details_${_currentCustomer.id}_${DateTime.now().millisecondsSinceEpoch % 100000}';
+      final channel = client.channel(channelName);
+
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'sales',
+        callback: (payload) {
+          if (!mounted) return;
+          final rec = payload.newRecord;
+          if (rec.isEmpty) {
+            _loadData();
+            return;
+          }
+          final saleCustId = rec['customer_id']?.toString();
+          final saleCustPhone = rec['customer_phone']?.toString();
+          if (saleCustId == _currentCustomer.id ||
+              (_currentCustomer.phone != null &&
+                  _currentCustomer.phone!.isNotEmpty &&
+                  saleCustPhone == _currentCustomer.phone)) {
+            _loadData();
+          }
+        },
+      );
+
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'payments',
+        callback: (payload) {
+          if (!mounted) return;
+          final rec = payload.newRecord;
+          if (rec.isEmpty || rec['customer_id']?.toString() == _currentCustomer.id) {
+            _loadData();
+          }
+        },
+      );
+
+      channel.onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'customers',
+        callback: (payload) {
+          if (!mounted) return;
+          final rec = payload.newRecord;
+          if (rec.isEmpty || rec['id']?.toString() == _currentCustomer.id) {
+            _loadData();
+          }
+        },
+      );
+
+      channel.subscribe();
+      _realtimeChannel = channel;
+    } catch (e) {
+      debugPrint('[CustomerDetailsScreen] Realtime sync error: $e');
+    }
+  }
+
+  @override
+  void dispose() {
+    try {
+      _realtimeChannel?.unsubscribe();
+    } catch (_) {}
+    super.dispose();
   }
 
   void _initLocalData() {
@@ -109,9 +187,26 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
       // 2. Fetch payments for this specific customer
       final payments = await SupabaseService.instance.getCustomerPayments(_currentCustomer.id);
 
+      // 3. Multi-Device Real-Time Cloud Sync: Fetch sales for this customer from cloud
+      // Guarantees bills created on a phone or another tablet instantly show up here
+      final cloudSales = await SupabaseService.instance.getCustomerSales(
+        shop.id,
+        _currentCustomer.id,
+        customerPhone: _currentCustomer.phone,
+      );
+
+      // 4. Fetch the latest customer profile and cloud balance
+      final latestCust = await SupabaseService.instance.getCustomerById(_currentCustomer.id);
+
       if (mounted) {
         setState(() {
+          if (cloudSales.isNotEmpty) {
+            _customerSales = cloudSales;
+          }
           _customerPayments = payments;
+          if (latestCust != null) {
+            _currentCustomer = latestCust;
+          }
           _isLoading = false;
         });
       }
@@ -1022,9 +1117,11 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              children: [
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: ListView(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  children: [
                 // 1. TOP PROFILE CARD matching Billiez Image 4
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -1546,6 +1643,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                 const SizedBox(height: 24),
               ],
             ),
+          ),
     );
   }
 

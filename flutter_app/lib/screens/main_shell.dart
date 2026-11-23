@@ -104,10 +104,12 @@ class _MainShellState extends State<MainShell> {
                 context.read<ShopProvider>().loadForUser(u.id, email: u.email);
               } else if (table == 'products') {
                 context.read<ProductProvider>().loadProducts(syncedShop.id);
-              } else if (table == 'customers' || table == 'customer_transactions') {
+              } else if (table == 'customers' || table == 'customer_transactions' || table == 'payments') {
                 context.read<CustomerProvider>().loadCustomers(syncedShop.id);
               } else if (table == 'sales') {
-                SupabaseService.instance.getSales(syncedShop.id);
+                SupabaseService.instance.getSales(syncedShop.id).then((_) {
+                  if (mounted) context.read<CustomerProvider>().loadCustomers(syncedShop.id);
+                });
               }
             },
           );
@@ -131,10 +133,12 @@ class _MainShellState extends State<MainShell> {
                 context.read<ShopProvider>().syncStaffShop();
               } else if (table == 'products') {
                 context.read<ProductProvider>().loadProducts(syncedShop.id);
-              } else if (table == 'customers' || table == 'customer_transactions') {
+              } else if (table == 'customers' || table == 'customer_transactions' || table == 'payments') {
                 context.read<CustomerProvider>().loadCustomers(syncedShop.id);
               } else if (table == 'sales') {
-                SupabaseService.instance.getSales(syncedShop.id);
+                SupabaseService.instance.getSales(syncedShop.id).then((_) {
+                  if (mounted) context.read<CustomerProvider>().loadCustomers(syncedShop.id);
+                });
               }
             },
           );

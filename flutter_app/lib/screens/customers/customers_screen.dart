@@ -7,7 +7,9 @@ import '../../core/services/contact_service.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/utils/currency_formatter.dart';
 import '../../data/models/customer.dart';
+import '../../data/models/sale.dart';
 import '../../data/services/local_db_service.dart';
+import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/customer_provider.dart';
 import '../../providers/shop_provider.dart';
@@ -43,22 +45,35 @@ class _CustomersScreenState extends State<CustomersScreen> {
   Future<void> _loadCustomerSales() async {
     try {
       final shop = context.read<ShopProvider>().shop;
-      final sales = await LocalDbService.instance.getSales(shop.id);
-      final Map<String, double> totals = {};
-      for (final s in sales) {
-        if (s.customerId != null && s.customerId!.isNotEmpty) {
-          totals[s.customerId!] = (totals[s.customerId!] ?? 0.0) + s.total;
-        }
-        if (s.customerPhone != null && s.customerPhone!.isNotEmpty) {
-          totals[s.customerPhone!] = (totals[s.customerPhone!] ?? 0.0) + s.total;
-        }
-      }
+      // 1. Instant local DB load (0ms)
+      final localSales = await LocalDbService.instance.getSales(shop.id);
+      _updateTotalsFromSales(localSales);
+
+      // 2. Multi-device sync: fetch cloud sales so phone/tablet bills reflect in totals
       if (mounted) {
-        setState(() {
-          _customerTotalSales = totals;
-        });
+        final cloudSales = await SupabaseService.instance.getSales(shop.id);
+        if (mounted && cloudSales.isNotEmpty) {
+          _updateTotalsFromSales(cloudSales);
+        }
       }
     } catch (_) {}
+  }
+
+  void _updateTotalsFromSales(List<Sale> sales) {
+    final Map<String, double> totals = {};
+    for (final s in sales) {
+      if (s.customerId != null && s.customerId!.isNotEmpty) {
+        totals[s.customerId!] = (totals[s.customerId!] ?? 0.0) + s.total;
+      }
+      if (s.customerPhone != null && s.customerPhone!.isNotEmpty) {
+        totals[s.customerPhone!] = (totals[s.customerPhone!] ?? 0.0) + s.total;
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _customerTotalSales = totals;
+      });
+    }
   }
 
   double _getCustomerSales(Customer c) {

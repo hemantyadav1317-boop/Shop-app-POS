@@ -1033,6 +1033,96 @@ class SupabaseService {
     return list;
   }
 
+  /// Fetches sales for a customer from Supabase Cloud + merges with local SQLite
+  /// Guarantees that sales recorded on a phone immediately appear on a tablet, and vice versa.
+  Future<List<Sale>> getCustomerSales(
+    String shopId,
+    String customerId, {
+    String? customerPhone,
+  }) async {
+    final validShopId = await _ensureValidShopId(shopId);
+    final List<Sale> cloudSales = [];
+
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
+      try {
+        var query = client!
+            .from('sales')
+            .select('*, sale_items(*)')
+            .eq('shop_id', validShopId);
+
+        if (customerPhone != null && customerPhone.trim().isNotEmpty) {
+          final cleanPhone = customerPhone.trim();
+          query = query.or('customer_id.eq.$customerId,customer_phone.eq.$cleanPhone');
+        } else {
+          query = query.eq('customer_id', customerId);
+        }
+
+        final res = await query.order('created_at', ascending: false);
+        final list = (res as List).map((row) => Sale.fromJson(row)).toList();
+        cloudSales.addAll(list);
+
+        // Update local cache and SQLite with new cloud sales
+        if (cloudSales.isNotEmpty) {
+          await _saveCachedSales(validShopId, cloudSales);
+        }
+      } catch (e) {
+        debugPrint("Error fetching customer sales from cloud: $e");
+      }
+    }
+
+    // Merge with local DB sales for complete offline + multi-device history
+    final dbSales = await LocalDbService.instance.getSales(validShopId);
+    final Set<String> seenIds = {};
+    final List<Sale> merged = [];
+
+    // Prioritize cloudSales
+    for (final s in cloudSales) {
+      if (seenIds.add(s.id)) {
+        merged.add(s);
+      }
+    }
+    // Add local DB sales matching customer
+    for (final s in dbSales) {
+      final matchesCustomer = (s.customerId != null && s.customerId == customerId) ||
+          (customerPhone != null &&
+              customerPhone.isNotEmpty &&
+              s.customerPhone == customerPhone);
+      if (matchesCustomer && seenIds.add(s.id)) {
+        merged.add(s);
+      }
+    }
+
+    merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return merged;
+  }
+
+  /// Fetches an individual customer's latest cloud balance & profile
+  Future<Customer?> getCustomerById(String customerId) async {
+    if (_isInitialized && client != null) {
+      try {
+        final res = await client!
+            .from('customers')
+            .select()
+            .eq('id', customerId)
+            .maybeSingle();
+        if (res != null) {
+          final cust = Customer.fromJson(res);
+          final idx = _localCustomers.indexWhere((c) => c.id == customerId);
+          if (idx >= 0) {
+            _localCustomers[idx] = cust;
+          } else {
+            _localCustomers.add(cust);
+          }
+          return cust;
+        }
+      } catch (e) {
+        debugPrint("Error fetching single customer from cloud: $e");
+      }
+    }
+    final idx = _localCustomers.indexWhere((c) => c.id == customerId);
+    return idx >= 0 ? _localCustomers[idx] : null;
+  }
+
   Future<void> deleteCustomer(String customerId) async {
     _localCustomers.removeWhere((c) => c.id == customerId);
     _saveCachedCustomers(_localShop.id, _localCustomers);
