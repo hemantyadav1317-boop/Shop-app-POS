@@ -104,7 +104,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
     if (_paymentMode == 'online' || _paymentMode == 'split') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _initPhonePePayment();
+        // Auto-verify PhonePe countdown timer disabled per user request
         _initPaymentNotificationListener();
       });
     }
@@ -308,11 +308,6 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
   void _triggerUpiQrDebounced() {
     _qrDebounceTimer?.cancel();
-    _qrDebounceTimer = Timer(const Duration(milliseconds: 400), () {
-      if (mounted && (_paymentMode == 'online' || _paymentMode == 'split')) {
-        _initPhonePePayment();
-      }
-    });
   }
 
   void _onModeChanged(String mode) {
@@ -340,7 +335,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
     if (mode == 'online' || mode == 'split') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _initPhonePePayment();
+        // Auto-verify PhonePe countdown timer disabled per user request
         _initPaymentNotificationListener();
       });
     } else {
@@ -821,7 +816,6 @@ class _PaymentDialogState extends State<PaymentDialog> {
         : (_paymentMode == 'split' ? breakdown.upiDeclared : 0.0);
 
     final hasValidUpi = PaymentQrHelper.isValidUpiId(shop.upiId);
-    final uniqueTr = 'BZ${_billNo}$_upiSessionRef';
     final upiUri = (hasValidUpi && checkoutUpiAmount > 0.009)
         ? UpiService.generateUpiUri(
             upiId: shop.upiId!.trim(),
@@ -829,9 +823,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 ? shop.upiPayeeName!.trim()
                 : shop.name,
             amount: checkoutUpiAmount,
-            note: 'Bill #$_billNo',
+            note: 'Bill $_billNo',
             billNo: '$_billNo',
-            tr: uniqueTr,
+            includeTr: false,
           )
         : null;
 
@@ -1009,26 +1003,6 @@ class _PaymentDialogState extends State<PaymentDialog> {
                           shop.qrImageUrl!.trim().isNotEmpty;
 
                       Widget renderQrVisual() {
-                        // PhonePe Dynamic QR has highest priority when PhonePe integration is enabled
-                        if (shop.phonePeEnabled) {
-                          if (_activePhonePeTx?.qrData != null && _activePhonePeTx!.qrData!.isNotEmpty) {
-                            return QrImageView(
-                              data: _activePhonePeTx!.qrData!,
-                              version: QrVersions.auto,
-                              size: qrSize,
-                              backgroundColor: Colors.white,
-                            );
-                          }
-                          if (upiUri != null && upiUri.isNotEmpty) {
-                            return QrImageView(
-                              data: upiUri,
-                              version: QrVersions.auto,
-                              size: qrSize,
-                              backgroundColor: Colors.white,
-                            );
-                          }
-                        }
-
                         // Always prioritize live Dynamic Amount UPI QR when valid UPI ID is set
                         if (upiUri != null && upiUri.isNotEmpty) {
                           return QrImageView(
@@ -1072,44 +1046,38 @@ class _PaymentDialogState extends State<PaymentDialog> {
                         return _buildNoUpiWarning();
                       }
 
-                      final isPhonePeActive = shop.phonePeEnabled;
+                      // Auto-verify countdown timer and MID box disabled per user request
+                      const isPhonePeActive = false;
 
                       return Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: isPhonePeActive ? const Color(0xFFFAF5FF) : Colors.blue.shade50,
+                          color: const Color(0xFFF8FAFC),
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: _onlinePaymentVerified
                                 ? Colors.green.shade400
-                                : (isPhonePeActive ? const Color(0xFFC084FC) : Colors.blue.shade200),
+                                : AppColors.primary.withValues(alpha: 0.35),
                             width: 1.4,
                           ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            if (isPhonePeActive)
-                              const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.bolt_rounded, color: Color(0xFF5F259F), size: 18),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'PhonePe ऑटोमैटिक Dynamic QR',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF5F259F)),
-                                  ),
-                                ],
-                              )
-                            else
-                              Text(
-                                _paymentMode == 'split'
-                                    ? 'Split UPI QR कोड स्कैन करें (केवल UPI हिस्सा)'
-                                    : 'UPI QR कोड स्कैन करें',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue),
-                              ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.qr_code_2_rounded, color: AppColors.primary, size: 20),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _paymentMode == 'split'
+                                      ? 'Split UPI QR कोड स्कैन करें (केवल UPI हिस्सा)'
+                                      : 'डायनामिक UPI QR कोड (Dynamic QR)',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Color(0xFF1E293B)),
+                                ),
+                              ],
+                            ),
                             const SizedBox(height: 12),
                             // Center QR with generous Quiet Zone (16px white padding)
                             Center(

@@ -103,28 +103,34 @@ class PaymentQrHelper {
     required String payeeName,
     required double amount,
     String? billNo,
+    bool? includeTr,
   }) {
     if (!isValidUpiId(upiId)) return null;
     final safeAmount = round2(amount);
     if (safeAmount <= 0) return null;
 
     final cleanUpi = upiId!.trim();
+    final sanitizedPayee = payeeName.trim().replaceAll(RegExp(r'[^\w\s\.-]'), '');
     final cleanName = Uri.encodeComponent(
-      payeeName.trim().isEmpty ? 'ShopPOS' : payeeName.trim(),
+      sanitizedPayee.isEmpty ? 'ShopPOS' : sanitizedPayee,
     );
     final formattedAmount = safeAmount.toStringAsFixed(2);
     // Strictly alphanumeric TR for Google Pay / NPCI compatibility (no underscores or special chars)
     final cleanRef = (billNo != null && billNo.trim().isNotEmpty)
         ? billNo.trim().replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
         : null;
+    final rawBillNo = (billNo != null && billNo.trim().isNotEmpty)
+        ? billNo.trim().replaceAll(RegExp(r'[#@&?=_]'), '').trim()
+        : '';
     final cleanNote = Uri.encodeComponent(
-      (billNo != null && billNo.trim().isNotEmpty) ? 'Bill ${billNo.trim()}' : 'POS Bill Payment',
+      rawBillNo.isNotEmpty ? 'Bill $rawBillNo' : 'POS Bill Payment',
     );
 
     final buffer = StringBuffer(
       'upi://pay?pa=$cleanUpi&pn=$cleanName&am=$formattedAmount&cu=INR&tn=$cleanNote',
     );
-    if (cleanRef != null && cleanRef.isNotEmpty) {
+    final shouldIncludeTr = includeTr ?? (cleanRef != null && cleanRef.isNotEmpty);
+    if (shouldIncludeTr && cleanRef != null && cleanRef.isNotEmpty) {
       buffer.write('&tr=$cleanRef');
     }
     return buffer.toString();

@@ -10,11 +10,13 @@ class UpiService {
   /// Google Pay / NPCI Compatibility Requirements:
   /// - [tr]: Strictly alphanumeric [a-zA-Z0-9], max 35 characters, NO underscores, hyphens, or symbols.
   ///         Must be unique per transaction attempt to prevent "Duplicate transaction reference" errors.
+  ///         When [includeTr] is false, [tr] is omitted, ensuring Google Pay treats the QR as a direct
+  ///         retail payment and never throws merchant gateway / reference errors.
   /// - [pa]: Valid, trimmed UPI ID.
   /// - [pn]: URL-encoded payee name (fallback to 'ShopPOS' if empty).
   /// - [am]: Formatted with exactly 2 decimal places.
   /// - [cu]: Strictly 'INR'.
-  /// - [tn]: URL-encoded note.
+  /// - [tn]: URL-encoded note (sanitized to remove fragment '#' and reserved characters).
   /// - Never include fake 'mc' or 'tid' for standard/personal VPAs to prevent Google Pay security blocks.
   static String generateUpiUri({
     required String upiId,
@@ -23,22 +25,33 @@ class UpiService {
     String? note,
     String? billNo,
     String? tr,
+    bool? includeTr,
   }) {
     if (!PaymentQrHelper.isValidUpiId(upiId)) return '';
     final safeAmount = PaymentQrHelper.round2(amount);
     if (safeAmount <= 0) return '';
 
     final cleanUpi = upiId.trim();
+    // Sanitize payee name
+    final sanitizedPayee = payeeName.trim().replaceAll(RegExp(r'[^\w\s\.-]'), '');
     final cleanName = Uri.encodeComponent(
-      payeeName.trim().isEmpty ? 'ShopPOS' : payeeName.trim(),
+      sanitizedPayee.isEmpty ? 'ShopPOS' : sanitizedPayee,
     );
     final formattedAmount = safeAmount.toStringAsFixed(2);
+
+    // Sanitize note: NEVER include #, @, &, ?, =, _, or control characters
+    // GPay and several UPI apps fail or treat # as a URL fragment delimiter
+    final rawNote = (note != null && note.trim().isNotEmpty)
+        ? note.trim()
+        : (billNo != null && billNo.trim().isNotEmpty
+            ? 'Bill ${billNo.trim()}'
+            : 'POS Bill Payment');
+    final sanitizedNote = rawNote
+        .replaceAll(RegExp(r'[#@&?=_]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
     final cleanNote = Uri.encodeComponent(
-      (note != null && note.trim().isNotEmpty)
-          ? note.trim()
-          : (billNo != null && billNo.trim().isNotEmpty
-              ? 'Bill ${billNo.trim()}'
-              : 'POS Bill Payment'),
+      sanitizedNote.isEmpty ? 'Bill' : sanitizedNote,
     );
 
     // Strictly alphanumeric TR for Google Pay & NPCI compatibility
@@ -58,7 +71,8 @@ class UpiService {
     final buffer = StringBuffer(
       'upi://pay?pa=$cleanUpi&pn=$cleanName&am=$formattedAmount&cu=INR&tn=$cleanNote',
     );
-    if (validTr != null && validTr.isNotEmpty) {
+    final shouldIncludeTr = includeTr ?? (tr != null || billNo != null);
+    if (shouldIncludeTr && validTr != null && validTr.isNotEmpty) {
       buffer.write('&tr=$validTr');
     }
     return buffer.toString();
