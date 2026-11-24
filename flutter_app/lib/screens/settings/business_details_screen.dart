@@ -9,6 +9,7 @@ import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/locale_provider.dart';
 import '../../providers/shop_provider.dart';
+import '../auth/login_screen.dart';
 
 class BusinessDetailsScreen extends StatefulWidget {
   const BusinessDetailsScreen({super.key});
@@ -113,6 +114,130 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
         SnackBar(content: Text('फोटो अपलोड में त्रुटि: $e'), backgroundColor: AppColors.error),
       );
     }
+  }
+
+  void _confirmLogout(BuildContext context) {
+    SoundService.instance.playButtonClick();
+    final authProvider = context.read<AuthProvider>();
+    final shop = context.read<ShopProvider>().shop;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isHindi = context.read<LocaleProvider>().localeCode == 'hi';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      useSafeArea: true,
+      builder: (ctx) {
+        final bottomInset = MediaQuery.of(ctx).viewPadding.bottom + MediaQuery.of(ctx).viewInsets.bottom;
+        return SafeArea(
+          bottom: true,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 28 + bottomInset),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.logout_rounded, color: Colors.red, size: 28),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  isHindi ? 'लॉगआउट करें?' : 'Confirm Logout?',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isHindi
+                      ? 'क्या आप वाकई "${shop.name}" के खाते से लॉगआउट करना चाहते हैं?'
+                      : 'Are you sure you want to sign out from "${shop.name}"?',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00875A).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.cloud_done_rounded, color: Color(0xFF00875A), size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isHindi
+                              ? 'चिंता न करें! आपका सारा डेटा (बिल, स्टॉक, खाता) सुरक्षित है।'
+                              : 'Your data (bills, stock, khata) is safe and backed up.',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF00875A)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                        child: Text(isHindi ? 'रद्द करें' : 'Cancel', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await authProvider.signOut();
+                          if (context.mounted) {
+                            Navigator.pushAndRemoveUntil(
+                              context,
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          }
+                        },
+                        child: Text(isHindi ? 'हाँ, लॉगआउट करें' : 'Sign Out', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _saveSettings() async {
@@ -478,6 +603,33 @@ class _BusinessDetailsScreenState extends State<BusinessDetailsScreen> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 20),
+
+            // Sign Out / Logout Option inside Business Details
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFDC2626),
+                  side: BorderSide(color: const Color(0xFFDC2626).withValues(alpha: 0.5), width: 1.2),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                ),
+                icon: const Icon(Icons.logout_rounded, size: 18),
+                onPressed: () => _confirmLogout(context),
+                label: Text(
+                  isHindi ? 'लॉगआउट करें (Sign Out)' : 'Sign Out',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Color(0xFFDC2626),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
           ],
         ),
       ),

@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shop_pos/data/models/shop.dart';
 import 'package:shop_pos/data/services/upi_service.dart';
 import 'package:shop_pos/core/utils/payment_qr_helper.dart';
 

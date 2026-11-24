@@ -90,8 +90,11 @@ class _MainShellState extends State<MainShell> {
         final syncedShop = await shopProvider.loadForUser(u.id, email: u.email);
 
         if (mounted) {
-          await productProvider.loadProducts(syncedShop.id);
-          await customerProvider.loadCustomers(syncedShop.id);
+          // Parallel fast load: Products and Customers concurrently
+          await Future.wait([
+            productProvider.loadProducts(syncedShop.id),
+            customerProvider.loadCustomers(syncedShop.id),
+          ]);
           debugPrint("Cloud sync complete: Shop=${syncedShop.id} Products=${productProvider.products.length}");
 
           // Establish Real-time WebSocket listener across all devices
@@ -122,8 +125,10 @@ class _MainShellState extends State<MainShell> {
 
         final syncedShop = await shopProvider.syncStaffShop();
         if (mounted) {
-          await productProvider.loadProducts(syncedShop.id);
-          await customerProvider.loadCustomers(syncedShop.id);
+          await Future.wait([
+            productProvider.loadProducts(syncedShop.id),
+            customerProvider.loadCustomers(syncedShop.id),
+          ]);
           SupabaseService.instance.subscribeToShopChanges(
             shopId: syncedShop.id,
             onEvent: (table, eventType, record) {
@@ -371,67 +376,70 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: isMenuHidden
           ? null
-          : Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).cardColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, -2),
-                  ),
-                ],
-              ),
-              child: NavigationBarTheme(
-                data: NavigationBarThemeData(
-                  height: 62,
-                  indicatorColor: const Color(0xFFE0F2FE),
-                  indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  iconTheme: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) {
-                      return const IconThemeData(color: Color(0xFF1A4B8E), size: 22);
-                    }
-                    return const IconThemeData(size: 21);
-                  }),
-                  labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                    final isSel = states.contains(WidgetState.selected);
-                    return TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
-                      color: isSel ? const Color(0xFF1A4B8E) : null,
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  }),
-                ),
-                child: NavigationBar(
-                  height: 62,
-                  elevation: 0,
-                  backgroundColor: Colors.transparent,
-                  selectedIndex: _currentIndex.clamp(0, 3),
-                  onDestinationSelected: _onNavigationChanged,
-                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                  destinations: [
-                    NavigationDestination(
-                      icon: const Icon(Icons.point_of_sale_outlined),
-                      selectedIcon: const Icon(Icons.point_of_sale_rounded),
-                      label: context.tr('nav_home'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.receipt_long_outlined),
-                      selectedIcon: const Icon(Icons.receipt_long_rounded),
-                      label: context.tr('nav_bills'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.people_alt_outlined),
-                      selectedIcon: const Icon(Icons.people_alt_rounded),
-                      label: context.tr('nav_khata'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.inventory_2_outlined),
-                      selectedIcon: const Icon(Icons.inventory_2_rounded),
-                      label: context.tr('nav_stock'),
+          : SafeArea(
+              top: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -2),
                     ),
                   ],
+                ),
+                child: NavigationBarTheme(
+                  data: NavigationBarThemeData(
+                    height: 62,
+                    indicatorColor: const Color(0xFFE0F2FE),
+                    indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    iconTheme: WidgetStateProperty.resolveWith((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const IconThemeData(color: Color(0xFF1A4B8E), size: 22);
+                      }
+                      return const IconThemeData(size: 21);
+                    }),
+                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                      final isSel = states.contains(WidgetState.selected);
+                      return TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                        color: isSel ? const Color(0xFF1A4B8E) : null,
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    }),
+                  ),
+                  child: NavigationBar(
+                    height: 62,
+                    elevation: 0,
+                    backgroundColor: Colors.transparent,
+                    selectedIndex: _currentIndex.clamp(0, 3),
+                    onDestinationSelected: _onNavigationChanged,
+                    labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+                    destinations: [
+                      NavigationDestination(
+                        icon: const Icon(Icons.point_of_sale_outlined),
+                        selectedIcon: const Icon(Icons.point_of_sale_rounded),
+                        label: context.tr('nav_home'),
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.receipt_long_outlined),
+                        selectedIcon: const Icon(Icons.receipt_long_rounded),
+                        label: context.tr('nav_bills'),
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.people_alt_outlined),
+                        selectedIcon: const Icon(Icons.people_alt_rounded),
+                        label: context.tr('nav_khata'),
+                      ),
+                      NavigationDestination(
+                        icon: const Icon(Icons.inventory_2_outlined),
+                        selectedIcon: const Icon(Icons.inventory_2_rounded),
+                        label: context.tr('nav_stock'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -228,7 +228,7 @@ class _PosScreenState extends State<PosScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-      bottomNavigationBar: isTablet ? null : _buildBottomTabBar(isDark, cart),
+      bottomNavigationBar: isTablet ? null : SafeArea(top: false, child: _buildBottomTabBar(isDark, cart)),
       body: SafeArea(
         top: true,
         child: Stack(

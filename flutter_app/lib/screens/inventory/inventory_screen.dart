@@ -601,10 +601,14 @@ class _InventoryScreenState extends State<InventoryScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
+      builder: (ctx) => SafeArea(
+        top: false,
+        bottom: true,
+        child: DraggableScrollableSheet(
         initialChildSize: 0.7,
         maxChildSize: 0.95,
         minChildSize: 0.4,
@@ -698,7 +702,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 
   @override

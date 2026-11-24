@@ -28,7 +28,6 @@ class AppDrawer extends StatelessWidget {
     final shopProvider = context.watch<ShopProvider>();
     final shop = shopProvider.shop;
     final auth = context.watch<AuthProvider>();
-    final isStaff = auth.isStaffSession;
     final locale = context.watch<LocaleProvider>();
     final isHindi = locale.localeCode == 'hi';
 

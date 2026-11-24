@@ -296,6 +296,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
@@ -671,52 +672,60 @@ class _CustomersScreenState extends State<CustomersScreen> {
 
                 // Bottom Floating Action Button: Send Next Unsent
                 if (unsent.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF0F172A) : Colors.white,
-                      border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
-                    ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF16A34A),
-                          foregroundColor: Colors.white,
-                          elevation: 3,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  SafeArea(
+                    top: false,
+                    bottom: true,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+                        border: Border(top: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))),
+                      ),
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF16A34A),
+                            foregroundColor: Colors.white,
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          icon: const Icon(Icons.fast_forward_rounded, size: 20),
+                          label: Text(
+                            'अगले ग्राहक को भेजें: ${unsent.first.name} (${CurrencyFormatter.format(unsent.first.balance)})',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onPressed: () async {
+                            final nextCust = unsent.first;
+                            SoundService.instance.playButtonClick();
+                            await _sendWhatsAppReminder(context, nextCust);
+                            setSheetState(() {
+                              sentIds.add(nextCust.id);
+                            });
+                          },
                         ),
-                        icon: const Icon(Icons.fast_forward_rounded, size: 20),
-                        label: Text(
-                          'अगले ग्राहक को भेजें: ${unsent.first.name} (${CurrencyFormatter.format(unsent.first.balance)})',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onPressed: () async {
-                          final nextCust = unsent.first;
-                          SoundService.instance.playButtonClick();
-                          await _sendWhatsAppReminder(context, nextCust);
-                          setSheetState(() {
-                            sentIds.add(nextCust.id);
-                          });
-                        },
                       ),
                     ),
                   )
                 else
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 22),
-                        SizedBox(width: 8),
-                        Text(
-                          'सभी उधारी ग्राहकों को रिमाइंडर भेजा जा चुका है! ✓',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF16A34A), fontSize: 13.5),
-                        ),
-                      ],
+                  SafeArea(
+                    top: false,
+                    bottom: true,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_rounded, color: Color(0xFF16A34A), size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'सभी उधारी ग्राहकों को रिमाइंडर भेजा जा चुका है! ✓',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF16A34A), fontSize: 13.5),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
               ],

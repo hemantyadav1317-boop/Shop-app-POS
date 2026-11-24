@@ -80,11 +80,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final user = auth.user;
     if (user != null) {
       try {
-        final syncedShop = await shopProvider.loadForUser(user.id, email: user.email);
-        if (context.mounted) {
-          await productProvider.loadProducts(syncedShop.id);
-          await customerProvider.loadCustomers(syncedShop.id);
-        }
+        await shopProvider.loadForUser(user.id, email: user.email);
       } catch (e) {
         debugPrint("Error syncing shop in _navigateAfterAuth: $e");
       }

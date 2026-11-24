@@ -352,11 +352,12 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (bottomSheetCtx, setSheetState) {
           final isDark = Theme.of(ctx).brightness == Brightness.dark;
-          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).viewPadding.bottom;
 
           void addChipAmount(double val) {
             final curr = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
@@ -365,16 +366,19 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
             setSheetState(() {});
           }
 
-          return Container(
-            padding: EdgeInsets.only(bottom: bottomInset + 16, left: 20, right: 20, top: 12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -4)),
-              ],
-            ),
-            child: SingleChildScrollView(
+          return SafeArea(
+            top: false,
+            bottom: true,
+            child: Container(
+              padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset + 16 : 16, left: 20, right: 20, top: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -4)),
+                ],
+              ),
+              child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -562,11 +566,12 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
-  }
+          ),
+        );
+      },
+    ),
+  );
+}
 
   void _showReceiveCashDialog() {
     SoundService.instance.playButtonClick();
@@ -577,11 +582,12 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (bottomSheetCtx, setSheetState) {
           final isDark = Theme.of(ctx).brightness == Brightness.dark;
-          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom;
+          final bottomInset = MediaQuery.of(ctx).viewInsets.bottom + MediaQuery.of(ctx).viewPadding.bottom;
 
           void setFullBalance() {
             amountCtrl.text = _currentCustomer.balance % 1 == 0
@@ -597,16 +603,19 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
             setSheetState(() {});
           }
 
-          return Container(
-            padding: EdgeInsets.only(bottom: bottomInset + 16, left: 20, right: 20, top: 12),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-              boxShadow: const [
-                BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -4)),
-              ],
-            ),
-            child: SingleChildScrollView(
+          return SafeArea(
+            top: false,
+            bottom: true,
+            child: Container(
+              padding: EdgeInsets.only(bottom: bottomInset > 0 ? bottomInset + 16 : 16, left: 20, right: 20, top: 12),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 20, offset: Offset(0, -4)),
+                ],
+              ),
+              child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -891,11 +900,12 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
-  }
+          ),
+        );
+      },
+    ),
+  );
+}
 
   void _showEditCustomerDialog() {
     SoundService.instance.playButtonClick();

@@ -36,14 +36,18 @@ class _CartPanelState extends State<CartPanel> {
   void _showCustomerPicker(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) {
         final custProvider = ctx.watch<CustomerProvider>();
         final cart = ctx.read<CartProvider>();
 
-        return Container(
-          padding: const EdgeInsets.all(16),
-          constraints: const BoxConstraints(maxHeight: 450),
+        return SafeArea(
+          top: false,
+          bottom: true,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(maxHeight: 450),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -110,9 +114,10 @@ class _CartPanelState extends State<CartPanel> {
               ),
             ],
           ),
-        );
-      },
-    );
+        ),
+      );
+    },
+  );
   }
 
   void _showClearCartConfirmationDialog(BuildContext context, CartProvider cart) {

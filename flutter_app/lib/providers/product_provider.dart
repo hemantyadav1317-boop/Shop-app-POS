@@ -288,10 +288,29 @@ class ProductProvider extends ChangeNotifier {
       notifyListeners();
     }
 
-    // 2. Load & merge cloud categories config
+    // 2 & 3: Concurrently fetch fresh categories config and products from Supabase
+    Map<String, dynamic> remoteCfg = const {};
+    List<Product> loaded = const [];
+
     try {
-      final remoteCfg = await SupabaseService.instance.getCategoriesConfig(shopId);
-      if (remoteCfg.isNotEmpty) {
+      final results = await Future.wait([
+        SupabaseService.instance.getCategoriesConfig(shopId).catchError((e) {
+          debugPrint("Error fetching categories config: $e");
+          return <String, dynamic>{};
+        }),
+        SupabaseService.instance.getProducts(shopId).catchError((e) {
+          debugPrint("Error fetching products: $e");
+          return <Product>[];
+        }),
+      ]);
+      remoteCfg = results[0] as Map<String, dynamic>;
+      loaded = results[1] as List<Product>;
+    } catch (e) {
+      debugPrint("Error fetching cloud data concurrently: $e");
+    }
+
+    if (remoteCfg.isNotEmpty) {
+      try {
         final remoteDeleted = (remoteCfg['deleted_categories'] as List?)
                 ?.map((e) => e.toString().trim().toUpperCase())
                 .where((e) => e.isNotEmpty)
@@ -322,12 +341,13 @@ class ProductProvider extends ChangeNotifier {
         }
         await _saveCustomCategories();
         await _saveDeletedCategories();
-      }
-    } catch (_) {}
+      } catch (_) {}
+    }
 
-    // 3. Fetch fresh products from Supabase (NEVER auto-delete user products!)
-    final loaded = await SupabaseService.instance.getProducts(shopId);
-    _products = loaded;
+    // Apply fetched fresh products (NEVER auto-delete user products!)
+    if (loaded.isNotEmpty) {
+      _products = loaded;
+    }
 
     // Unblock any category that has active products
     bool changedDeletedCats = false;

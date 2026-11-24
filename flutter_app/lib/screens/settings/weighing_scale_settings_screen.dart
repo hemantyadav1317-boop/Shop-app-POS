@@ -1054,39 +1054,44 @@ class _WeighingScaleSettingsScreenState
   void _showInstructionsSheet(BuildContext context, bool isDark, bool isHindi) {
     showModalBottomSheet(
       context: context,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(22))),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.help_outline_rounded, color: Color(0xFFFF5722), size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  isHindi ? 'ब्लूटूथ कांटा जोड़ने की विधि' : 'How to Connect Any Bluetooth Scale',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              isHindi
-                  ? '1. अपने इलेक्ट्रॉनिक तौल कांटे का स्विच ऑन करें।\n'
-                    '2. मोबाइल सेटिंग्स > ब्लूटूथ में जाएं और कांटे को पेयर करें।\n'
-                    '3. पिन कोड मांगे तो 1234 या 0000 दर्ज करें।\n'
-                    '4. इस स्क्रीन पर आकर "तौल कांटा खोजें और जोड़ें" दबाएं।\n'
-                    '5. अब सब्जी व फल बिलिंग में वजन अपने आप लाइव चलेगा!'
-                  : '1. Turn ON the power switch on your electronic weighing scale.\n'
-                    '2. Open your phone Settings > Bluetooth and pair the scale.\n'
-                    '3. Enter Bluetooth PIN if prompted (usually 1234 or 0000).\n'
-                    '4. Return here, tap "Scan & Connect Weighing Scale" and select your scale.\n'
-                    '5. Live weight reading is now active for billing!',
-              style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF64748B)),
-            ),
-          ],
+      builder: (ctx) => SafeArea(
+        top: false,
+        bottom: true,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.help_outline_rounded, color: Color(0xFFFF5722), size: 22),
+                  const SizedBox(width: 8),
+                  Text(
+                    isHindi ? 'ब्लूटूथ कांटा जोड़ने की विधि' : 'How to Connect Any Bluetooth Scale',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isHindi
+                    ? '1. अपने इलेक्ट्रॉनिक तौल कांटे का स्विच ऑन करें।\n'
+                      '2. मोबाइल सेटिंग्स > ब्लूटूथ में जाएं और कांटे को पेयर करें।\n'
+                      '3. पिन कोड मांगे तो 1234 या 0000 दर्ज करें।\n'
+                      '4. इस स्क्रीन पर आकर "तौल कांटा खोजें और जोड़ें" दबाएं।\n'
+                      '5. अब सब्जी व फल बिलिंग में वजन अपने आप लाइव चलेगा!'
+                    : '1. Turn ON the power switch on your electronic weighing scale.\n'
+                      '2. Open your phone Settings > Bluetooth and pair the scale.\n'
+                      '3. Enter Bluetooth PIN if prompted (usually 1234 or 0000).\n'
+                      '4. Return here, tap "Scan & Connect Weighing Scale" and select your scale.\n'
+                      '5. Live weight reading is now active for billing!',
+                style: const TextStyle(fontSize: 13, height: 1.5, color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1122,6 +1127,7 @@ class _WeighingScaleSettingsScreenState
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -1130,11 +1136,14 @@ class _WeighingScaleSettingsScreenState
 
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
-            return Container(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(ctx).size.height * 0.75,
-              ),
+            return SafeArea(
+              top: false,
+              bottom: true,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+                ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1404,11 +1413,12 @@ class _WeighingScaleSettingsScreenState
                   ],
                 ],
               ),
-            );
-          },
-        );
-      },
-    );
+            ),
+          );
+        },
+      );
+    },
+  );
   }
 
   void _showConnectionMessage(
