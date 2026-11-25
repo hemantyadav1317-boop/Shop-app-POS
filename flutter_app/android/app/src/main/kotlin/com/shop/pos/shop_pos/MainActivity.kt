@@ -16,11 +16,17 @@ class MainActivity : FlutterActivity() {
     private var soundPool: SoundPool? = null
     private val soundMap = HashMap<String, Int>()
     private var paymentEventSink: EventChannel.EventSink? = null
+    private var bluetoothScaleManager: BluetoothScaleManager? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
         initSoundPool()
+        bluetoothScaleManager?.release()
+        bluetoothScaleManager = BluetoothScaleManager(
+            applicationContext,
+            flutterEngine.dartExecutor.binaryMessenger
+        )
 
         // 1. Native Sound Effects
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SOUND_CHANNEL).setMethodCallHandler { call, result ->
@@ -131,6 +137,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        bluetoothScaleManager?.release()
+        bluetoothScaleManager = null
         paymentEventSink = null
         soundPool?.release()
         soundPool = null

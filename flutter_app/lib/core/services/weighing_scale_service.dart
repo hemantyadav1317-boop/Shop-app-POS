@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:bluetooth_classic/bluetooth_classic.dart';
 import 'package:bluetooth_classic/models/device.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'scale_data_parser.dart';
@@ -17,16 +17,32 @@ class WeighingScaleService {
   static const String _prefUnitModeKey = 'saved_scale_unit_mode';
   static const String _prefAutoFillKey = 'saved_scale_auto_fill';
   static const String _prefAutoAddKey = 'saved_scale_auto_add_stable';
+  static const String _prefKeepAliveKey = 'saved_scale_keep_alive_ping';
 
   static const String sppUuid = "00001101-0000-1000-8000-00805f9b34fb";
 
-  BluetoothClassic? _bluetoothClassic;
+  static const MethodChannel _nativeMethodChannel =
+      MethodChannel('com.shop.pos/bluetooth_scale');
+  static const EventChannel _nativeDataChannel =
+      EventChannel('com.shop.pos/bluetooth_scale_data');
+  static const EventChannel _nativeStatusChannel =
+      EventChannel('com.shop.pos/bluetooth_scale_status');
+
   StreamSubscription? _dataSubscription;
   StreamSubscription? _statusSubscription;
   Timer? _reconnectTimer;
   Timer? _keepAliveWatchdog;
+  Completer<bool>? _connectCompleter;
+
   DateTime? _lastDataReceivedAt;
-  bool _isReconnecting = false;
+  DateTime? _previousPacketAt;
+  DateTime? _lastKeepAliveWriteAt;
+  int _fastPacketStreak = 0;
+  bool _observedContinuousStream = false;
+
+  int _reconnectAttempt = 0;
+  bool _isConnecting = false;
+  bool _isRefreshingSocket = false;
   bool _userExplicitDisconnect = false;
   String _buffer = "";
 
@@ -38,11 +54,24 @@ class WeighingScaleService {
       StreamController<bool>.broadcast();
   Stream<bool> get onConnectionStateChanged => _connectionStateController.stream;
 
+  final StreamController<void> _statusTickController =
+      StreamController<void>.broadcast();
+  Stream<void> get onStatusChanged => _statusTickController.stream;
+
   ScaleReading? _lastReading;
   ScaleReading? get lastReading => _lastReading;
 
   bool _isConnected = false;
   bool get isConnected => _isConnected;
+
+  bool get isConnecting => _isConnecting;
+
+  bool get isReconnecting =>
+      !_isConnected &&
+      !_userExplicitDisconnect &&
+      _connectedMac != null &&
+      _connectedMac!.isNotEmpty &&
+      (_isConnecting || (_reconnectTimer?.isActive ?? false));
 
   String? _connectedMac;
   String? get connectedMac => _connectedMac;
@@ -62,8 +91,30 @@ class WeighingScaleService {
   bool _autoAddOnStable = false;
   bool get autoAddOnStable => _autoAddOnStable;
 
+  bool _keepAlivePing = true;
+  bool get keepAlivePing => _keepAlivePing;
+
   bool get isHardwareSupported =>
-      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+      hardwareSupportedOverrideForTest ??
+      (!kIsWeb && defaultTargetPlatform == TargetPlatform.android);
+
+  // Testing hooks
+  @visibleForTesting
+  bool? hardwareSupportedOverrideForTest;
+  @visibleForTesting
+  Future<bool> Function(String mac, String uuid)? nativeConnectOverrideForTest;
+  @visibleForTesting
+  Future<bool> Function()? nativeDisconnectOverrideForTest;
+  @visibleForTesting
+  Future<bool> Function()? nativeSocketAliveOverrideForTest;
+  @visibleForTesting
+  Future<bool> Function(String msg)? nativeWriteOverrideForTest;
+  @visibleForTesting
+  Duration reconnectBaseDelayForTest = const Duration(seconds: 2);
+  @visibleForTesting
+  Duration heartbeatSilenceThresholdForTest = const Duration(seconds: 12);
+  @visibleForTesting
+  Duration continuousStallThresholdForTest = const Duration(seconds: 25);
 
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
@@ -73,24 +124,83 @@ class WeighingScaleService {
     _unitMode = ScaleUnitMode.values[unitModeIndex.clamp(0, ScaleUnitMode.values.length - 1)];
     _autoFillDialog = prefs.getBool(_prefAutoFillKey) ?? true;
     _autoAddOnStable = prefs.getBool(_prefAutoAddKey) ?? false;
+    _keepAlivePing = prefs.getBool(_prefKeepAliveKey) ?? true;
 
     if (isHardwareSupported) {
-      _bluetoothClassic = BluetoothClassic();
-      _listenToDeviceStatus();
+      _listenToNativeStreams();
     }
   }
 
-  void _listenToDeviceStatus() {
-    if (_statusSubscription != null) return;
-    try {
-      _statusSubscription = _bluetoothClassic?.onDeviceStatusChanged().listen((status) {
-        debugPrint("BluetoothClassic scale status changed: $status");
-        // 0 = disconnected, 1 = connecting, 2 = connected
-        if (status == 0 && _isConnected && !_userExplicitDisconnect) {
-          _handleConnectionDrop();
-        }
-      });
-    } catch (_) {}
+  void _listenToNativeStreams() {
+    if (_statusSubscription == null && nativeConnectOverrideForTest == null) {
+      try {
+        _statusSubscription = _nativeStatusChannel.receiveBroadcastStream().listen(
+          (dynamic status) {
+            if (status is int) {
+              _handleNativeStatus(status);
+            } else if (status is num) {
+              _handleNativeStatus(status.toInt());
+            }
+          },
+          onError: (e) {
+            debugPrint("Native scale status stream error: $e");
+          },
+        );
+      } catch (_) {}
+    }
+
+    if (_dataSubscription == null && nativeConnectOverrideForTest == null) {
+      try {
+        _dataSubscription = _nativeDataChannel.receiveBroadcastStream().listen(
+          (dynamic data) {
+            if (data is Uint8List) {
+              _handleIncomingData(data);
+            } else if (data is List<int>) {
+              _handleIncomingData(Uint8List.fromList(data));
+            }
+          },
+          onError: (e) {
+            debugPrint("Native scale data stream error: $e");
+            _handleConnectionDrop();
+          },
+          onDone: () {
+            debugPrint("Native scale data stream closed");
+            _handleConnectionDrop();
+          },
+        );
+      } catch (_) {}
+    }
+  }
+
+  void _handleNativeStatus(int status) {
+    // 0 = disconnected, 1 = connecting, 2 = connected, 3 = BT adapter back ON
+    debugPrint("Bluetooth scale native status changed: $status (refreshing=$_isRefreshingSocket)");
+    if (_isRefreshingSocket && status == 0) {
+      return;
+    }
+    if (status == 0) {
+      if ((_isConnected || _isConnecting) && !_userExplicitDisconnect) {
+        _handleConnectionDrop();
+      } else {
+        _isConnected = false;
+        _isConnecting = false;
+        _connectionStateController.add(false);
+        _statusTickController.add(null);
+      }
+    } else if (status == 2) {
+      _isConnected = true;
+      _isConnecting = false;
+      _reconnectAttempt = 0;
+      _reconnectTimer?.cancel();
+      _connectionStateController.add(true);
+      _statusTickController.add(null);
+    } else if (status == 3) {
+      // Bluetooth radio was turned back ON on the phone
+      if (!_userExplicitDisconnect && _connectedMac != null && _connectedMac!.isNotEmpty) {
+        _reconnectAttempt = 0;
+        unawaited(ensureConnected(force: true));
+      }
+    }
   }
 
   Future<void> saveSettings({
@@ -98,6 +208,7 @@ class WeighingScaleService {
     ScaleUnitMode? unitMode,
     bool? autoFillDialog,
     bool? autoAddOnStable,
+    bool? keepAlivePing,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     if (protocol != null) {
@@ -115,6 +226,10 @@ class WeighingScaleService {
     if (autoAddOnStable != null) {
       _autoAddOnStable = autoAddOnStable;
       await prefs.setBool(_prefAutoAddKey, autoAddOnStable);
+    }
+    if (keepAlivePing != null) {
+      _keepAlivePing = keepAlivePing;
+      await prefs.setBool(_prefKeepAliveKey, keepAlivePing);
     }
   }
 
@@ -141,6 +256,7 @@ class WeighingScaleService {
     await prefs.remove(_prefNameKey);
     _connectedMac = null;
     _connectedName = null;
+    _statusTickController.add(null);
   }
 
   Future<List<Device>> getPairedDevices() async {
@@ -150,7 +266,29 @@ class WeighingScaleService {
 
     final List<Device> result = [];
 
-    // 1. Primary & Rock-Solid: PrintBluetoothThermal bonded devices query
+    // 1. Native BluetoothAdapter.bondedDevices (works immediately with BLUETOOTH_CONNECT)
+    try {
+      final List<dynamic>? bonded =
+          await _nativeMethodChannel.invokeMethod<List<dynamic>>('getBondedDevices');
+      if (bonded != null && bonded.isNotEmpty) {
+        for (final entry in bonded) {
+          if (entry is Map) {
+            final name = (entry['name']?.toString() ?? '').trim();
+            final addr = (entry['address']?.toString() ?? '').trim();
+            if (addr.isNotEmpty) {
+              result.add(Device(name: name.isNotEmpty ? name : 'Bluetooth Device', address: addr));
+            }
+          }
+        }
+        if (result.isNotEmpty) {
+          return result;
+        }
+      }
+    } catch (e) {
+      debugPrint("Native getBondedDevices err: $e");
+    }
+
+    // 2. Fallback: PrintBluetoothThermal bonded devices query
     try {
       final List<BluetoothInfo> thermalList = await PrintBluetoothThermal.pairedBluetooths;
       if (thermalList.isNotEmpty) {
@@ -161,146 +299,332 @@ class WeighingScaleService {
             result.add(Device(name: devName, address: devMac));
           }
         }
-        if (result.isNotEmpty) {
-          debugPrint("Found ${result.length} paired Bluetooth devices via PrintBluetoothThermal");
-          return result;
-        }
       }
     } catch (e) {
       debugPrint("PrintBluetoothThermal paired query err: $e");
     }
 
-    // 2. Secondary fallback: BluetoothClassic getPairedDevices
-    if (_bluetoothClassic != null) {
-      try {
-        final list = await _bluetoothClassic!.getPairedDevices();
-        if (list.isNotEmpty) {
-          return list;
-        }
-      } catch (e) {
-        debugPrint("BluetoothClassic getPairedDevices fallback err: $e");
-      }
-    }
-
     return result;
   }
 
-  Future<bool> connect(String macAddress, {String? name}) async {
-    if (!isHardwareSupported || _bluetoothClassic == null) {
-      // In simulator / web mode, simulate connection
-      _isConnected = true;
-      _connectedMac = macAddress;
-      _connectedName = name ?? 'Simulated Scale';
-      _connectionStateController.add(true);
-      return true;
+  Future<bool> _invokeNativeConnect(String mac, String uuid) async {
+    if (nativeConnectOverrideForTest != null) {
+      return await nativeConnectOverrideForTest!(mac, uuid);
+    }
+    final ok = await _nativeMethodChannel.invokeMethod<bool>('connect', {
+      'address': mac,
+      'serviceUuid': uuid,
+    });
+    return ok ?? false;
+  }
+
+  Future<void> _invokeNativeDisconnect() async {
+    if (nativeDisconnectOverrideForTest != null) {
+      await nativeDisconnectOverrideForTest!();
+      return;
+    }
+    await _nativeMethodChannel.invokeMethod<bool>('disconnect');
+  }
+
+  Future<bool> _checkNativeSocketAlive() async {
+    if (!isHardwareSupported) return _isConnected;
+    if (nativeSocketAliveOverrideForTest != null) {
+      return await nativeSocketAliveOverrideForTest!();
+    }
+    try {
+      final alive = await _nativeMethodChannel.invokeMethod<bool>('isSocketAlive');
+      return alive ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> _invokeNativeWrite(String message) async {
+    if (!isHardwareSupported) return true;
+    if (nativeWriteOverrideForTest != null) {
+      return await nativeWriteOverrideForTest!(message);
+    }
+    try {
+      final ok = await _nativeMethodChannel.invokeMethod<bool>('write', {
+        'message': message,
+      });
+      return ok ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> connect(
+    String macAddress, {
+    String? name,
+    bool isAutoRetry = false,
+  }) async {
+    if (_connectCompleter != null && !_connectCompleter!.isCompleted) {
+      return await _connectCompleter!.future;
     }
 
-    _userExplicitDisconnect = false;
+    final completer = Completer<bool>();
+    _connectCompleter = completer;
 
     try {
-      await _cleanConnection(userExplicit: false);
-      // Ensure bluetooth permissions are granted smoothly without throwing crash
-      try {
-        await PrintBluetoothThermal.isPermissionBluetoothGranted;
-      } catch (_) {}
+      _userExplicitDisconnect = false;
+      _connectedMac = macAddress;
+      _connectedName = name ?? _connectedName ?? 'Bluetooth Scale';
 
-      final bool success = await _bluetoothClassic!.connect(macAddress, sppUuid);
+      if (!isAutoRetry) {
+        _reconnectAttempt = 0;
+      }
+      _reconnectTimer?.cancel();
 
-      if (success) {
+      if (!isHardwareSupported) {
         _isConnected = true;
-        _connectedMac = macAddress;
-        _connectedName = name ?? 'Bluetooth Scale';
+        _isConnecting = false;
         _lastDataReceivedAt = DateTime.now();
         await saveSelectedScale(macAddress, _connectedName!);
+        _connectionStateController.add(true);
+        _statusTickController.add(null);
+        completer.complete(true);
+        return true;
+      }
 
-        _dataSubscription = _bluetoothClassic!.onDeviceDataReceived().listen(
-          (Uint8List data) {
-            _handleIncomingData(data);
-          },
-          onError: (e) {
-            debugPrint("Scale data stream error: $e");
-            _handleConnectionDrop();
-          },
-          onDone: () {
-            debugPrint("Scale stream closed remotely");
-            _handleConnectionDrop();
-          },
-        );
+      _listenToNativeStreams();
+      _isConnecting = true;
+      _statusTickController.add(null);
 
+      // Persist selected scale immediately so auto-reconnect stays active even if scale is momentarily asleep
+      await saveSelectedScale(macAddress, _connectedName!);
+
+      // Ensure bluetooth permissions are granted smoothly without throwing crash
+      if (nativeConnectOverrideForTest == null) {
+        try {
+          await PrintBluetoothThermal.isPermissionBluetoothGranted;
+        } catch (_) {}
+      }
+
+      _isRefreshingSocket = true;
+      try {
+        await _cleanConnection(emitDisconnectedEvent: false);
+      } finally {
+        _isRefreshingSocket = false;
+      }
+
+      final bool success = await _invokeNativeConnect(macAddress, sppUuid);
+      if (success && !_userExplicitDisconnect) {
+        _isConnected = true;
+        _isConnecting = false;
+        _reconnectAttempt = 0;
+        _lastDataReceivedAt = DateTime.now();
+        _previousPacketAt = null;
+        _lastKeepAliveWriteAt = null;
+        _fastPacketStreak = 0;
+        _observedContinuousStream = false;
         _startWatchdog();
         _connectionStateController.add(true);
+        _statusTickController.add(null);
+        completer.complete(true);
         return true;
       }
     } catch (e) {
       debugPrint("Error connecting to scale: $e");
+    } finally {
+      _isRefreshingSocket = false;
+      if (_connectCompleter == completer) {
+        _connectCompleter = null;
+      }
     }
 
     _isConnected = false;
+    _isConnecting = false;
     _connectionStateController.add(false);
+    _statusTickController.add(null);
+
+    if (!_userExplicitDisconnect && _connectedMac != null) {
+      _startWatchdog();
+      _scheduleAutoReconnect();
+    }
+
+    if (!completer.isCompleted) {
+      completer.complete(false);
+    }
     return false;
   }
 
+  /// Ensures a saved/active scale stays connected (safe to call on AppResume or periodic health checks).
+  Future<void> ensureConnected({bool force = false}) async {
+    if (_userExplicitDisconnect) return;
+
+    final targetMac = (_connectedMac != null && _connectedMac!.isNotEmpty)
+        ? _connectedMac
+        : await getSavedScaleMac();
+    if (targetMac == null || targetMac.isEmpty) return;
+
+    final targetName = _connectedName ?? await getSavedScaleName();
+    _connectedMac = targetMac;
+    _connectedName = targetName;
+
+    if (_isConnected) {
+      final alive = await _checkNativeSocketAlive();
+      if (alive && !force) {
+        return;
+      }
+      debugPrint("ensureConnected detected dead socket; triggering recovery...");
+      _handleConnectionDrop();
+      return;
+    }
+
+    if (!_isConnecting) {
+      if (force) _reconnectAttempt = 0;
+      await connect(targetMac, name: targetName, isAutoRetry: !force);
+    }
+  }
+
   void _handleConnectionDrop() {
+    if (_isRefreshingSocket) return;
     _isConnected = false;
+    _isConnecting = false;
     _connectionStateController.add(false);
-    if (!_userExplicitDisconnect && _connectedMac != null) {
+    _statusTickController.add(null);
+
+    if (!_userExplicitDisconnect && _connectedMac != null && _connectedMac!.isNotEmpty) {
+      _startWatchdog();
       _scheduleAutoReconnect();
     }
   }
 
+  Duration _computeReconnectDelay(int attempt) {
+    final baseMs = reconnectBaseDelayForTest.inMilliseconds;
+    // Backoff schedule: 1x (2s), 2x (4s), 3x (6s), 5x (10s cap)
+    final multiplier = attempt <= 0
+        ? 1
+        : attempt == 1
+            ? 2
+            : attempt == 2
+                ? 3
+                : 5;
+    return Duration(milliseconds: baseMs * multiplier);
+  }
+
   void _scheduleAutoReconnect() {
-    if (_isReconnecting || _userExplicitDisconnect || _connectedMac == null) return;
-    _reconnectTimer?.cancel();
-    debugPrint("Scheduling automatic scale reconnection in 3 seconds to $_connectedMac");
-    _reconnectTimer = Timer(const Duration(seconds: 3), () async {
+    if (_userExplicitDisconnect || _connectedMac == null || _connectedMac!.isEmpty) return;
+    if (_reconnectTimer != null && _reconnectTimer!.isActive) return;
+
+    final delay = _computeReconnectDelay(_reconnectAttempt);
+    debugPrint("Scheduling scale auto-reconnect attempt #${_reconnectAttempt + 1} in ${delay.inMilliseconds}ms to $_connectedMac");
+
+    _reconnectTimer = Timer(delay, () async {
+      _reconnectTimer = null;
       if (_userExplicitDisconnect || _isConnected || _connectedMac == null) return;
-      _isReconnecting = true;
-      try {
-        debugPrint("Watchdog attempting auto-reconnect to scale: $_connectedMac");
-        await connect(_connectedMac!, name: _connectedName);
-      } catch (e) {
-        debugPrint("Auto-reconnect attempt failed: $e");
-      } finally {
-        _isReconnecting = false;
-      }
+      _reconnectAttempt++;
+      await connect(_connectedMac!, name: _connectedName, isAutoRetry: true);
     });
+    _statusTickController.add(null);
   }
 
   void _startWatchdog() {
-    _keepAliveWatchdog?.cancel();
-    _keepAliveWatchdog = Timer.periodic(const Duration(seconds: 6), (_) {
-      if (!_isConnected || _userExplicitDisconnect || _connectedMac == null) return;
-      // If we haven't received any data for 30s and scale was connected, check if still alive
-      if (_lastDataReceivedAt != null && DateTime.now().difference(_lastDataReceivedAt!).inSeconds > 30) {
-        debugPrint("Scale data silent for >30s, checking socket health...");
-      }
+    if (_keepAliveWatchdog != null && _keepAliveWatchdog!.isActive) return;
+    _keepAliveWatchdog = Timer.periodic(const Duration(seconds: 5), (_) {
+      unawaited(_runWatchdogTick());
     });
+  }
+
+  Future<void> _runWatchdogTick() async {
+    if (_userExplicitDisconnect || _connectedMac == null || _connectedMac!.isEmpty) {
+      return;
+    }
+
+    if (!_isConnected) {
+      if (!_isConnecting && (_reconnectTimer == null || !_reconnectTimer!.isActive)) {
+        _scheduleAutoReconnect();
+      }
+      return;
+    }
+
+    // 1. Ask native Android stack if RFCOMM socket & read thread are still alive
+    if (isHardwareSupported) {
+      final alive = await _checkNativeSocketAlive();
+      if (!alive) {
+        debugPrint("Scale watchdog: native socket is dead -> reconnecting");
+        _handleConnectionDrop();
+        return;
+      }
+    }
+
+    final now = DateTime.now();
+    final lastData = _lastDataReceivedAt;
+    if (lastData == null) return;
+
+    final silenceDuration = now.difference(lastData);
+
+    // 2. If a scale that normally streams continuously went completely silent for too long,
+    //    refresh the RFCOMM link so a sleeping/half-open connection recovers automatically.
+    if (_observedContinuousStream && silenceDuration >= continuousStallThresholdForTest) {
+      debugPrint(
+        "Scale continuous stream stalled for ${silenceDuration.inSeconds}s -> refreshing socket",
+      );
+      _isConnected = false;
+      _connectionStateController.add(false);
+      await connect(_connectedMac!, name: _connectedName, isAutoRetry: true);
+      return;
+    }
+
+    // 3. Optional lightweight keep-alive CRLF heartbeat during extended silence
+    if (_keepAlivePing && silenceDuration >= heartbeatSilenceThresholdForTest) {
+      final sinceLastPing = _lastKeepAliveWriteAt == null
+          ? const Duration(days: 1)
+          : now.difference(_lastKeepAliveWriteAt!);
+      if (sinceLastPing >= heartbeatSilenceThresholdForTest) {
+        _lastKeepAliveWriteAt = now;
+        final ok = await _invokeNativeWrite("\r\n");
+        if (!ok && isHardwareSupported) {
+          debugPrint("Scale keep-alive ping write failed -> socket lost, reconnecting");
+          _handleConnectionDrop();
+        }
+      }
+    }
   }
 
   Future<void> disconnect({bool userExplicit = true}) async {
     _userExplicitDisconnect = userExplicit;
     _reconnectTimer?.cancel();
-    _keepAliveWatchdog?.cancel();
-    await _cleanConnection(userExplicit: userExplicit);
+    _reconnectTimer = null;
+    if (userExplicit) {
+      _keepAliveWatchdog?.cancel();
+      _keepAliveWatchdog = null;
+      _reconnectAttempt = 0;
+    }
+    await _cleanConnection(emitDisconnectedEvent: true);
+    _statusTickController.add(null);
   }
 
-  Future<void> _cleanConnection({bool userExplicit = false}) async {
-    await _dataSubscription?.cancel();
-    _dataSubscription = null;
+  Future<void> _cleanConnection({bool emitDisconnectedEvent = true}) async {
     _buffer = "";
 
-    if (isHardwareSupported && _bluetoothClassic != null) {
+    if (isHardwareSupported) {
       try {
-        await _bluetoothClassic!.disconnect();
+        await _invokeNativeDisconnect();
       } catch (_) {}
     }
 
     _isConnected = false;
-    _connectionStateController.add(false);
+    _isConnecting = false;
+    if (emitDisconnectedEvent) {
+      _connectionStateController.add(false);
+    }
   }
 
   void _handleIncomingData(Uint8List bytes) {
-    _lastDataReceivedAt = DateTime.now();
+    final now = DateTime.now();
+    if (_previousPacketAt != null && now.difference(_previousPacketAt!).inSeconds <= 3) {
+      _fastPacketStreak++;
+      if (_fastPacketStreak >= 4) {
+        _observedContinuousStream = true;
+      }
+    } else {
+      _fastPacketStreak = 1;
+    }
+    _previousPacketAt = now;
+    _lastDataReceivedAt = now;
+
     try {
       final String chunk = ascii.decode(bytes, allowInvalid: true);
       _buffer += chunk;
@@ -337,15 +661,14 @@ class WeighingScaleService {
 
   /// Sends a Tare / Zero command to scales that support remote zeroing
   Future<bool> sendTareCommand() async {
-    if (!isHardwareSupported || _bluetoothClassic == null || !_isConnected) {
+    if (!isHardwareSupported || !_isConnected) {
       // In simulator mode, emit 0.000 kg
       simulateReading(0.000, isStable: true);
       return true;
     }
     try {
-      // Standard scale tare commands: 'T\r\n' or 'Z\r\n'
-      await _bluetoothClassic!.write("T\r\n");
-      return true;
+      // Standard scale tare command
+      return await _invokeNativeWrite("T\r\n");
     } catch (e) {
       debugPrint("Error sending tare to scale: $e");
       return false;
@@ -365,5 +688,53 @@ class WeighingScaleService {
     _lastReading = reading;
     _readingController.add(reading);
   }
-}
 
+  @visibleForTesting
+  Future<void> runWatchdogTickForTest() => _runWatchdogTick();
+
+  @visibleForTesting
+  void simulateNativeStatusForTest(int status) => _handleNativeStatus(status);
+
+  @visibleForTesting
+  void simulateIncomingBytesForTest(Uint8List bytes) => _handleIncomingData(bytes);
+
+  @visibleForTesting
+  void backdateLastDataForTest(DateTime timestamp, {bool observedContinuous = false}) {
+    _lastDataReceivedAt = timestamp;
+    _observedContinuousStream = observedContinuous;
+  }
+
+  @visibleForTesting
+  Future<void> resetForTest() async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _keepAliveWatchdog?.cancel();
+    _keepAliveWatchdog = null;
+    await _dataSubscription?.cancel();
+    _dataSubscription = null;
+    await _statusSubscription?.cancel();
+    _statusSubscription = null;
+    _connectCompleter = null;
+    _isConnected = false;
+    _isConnecting = false;
+    _isRefreshingSocket = false;
+    _userExplicitDisconnect = false;
+    _connectedMac = null;
+    _connectedName = null;
+    _reconnectAttempt = 0;
+    _lastDataReceivedAt = null;
+    _previousPacketAt = null;
+    _lastKeepAliveWriteAt = null;
+    _fastPacketStreak = 0;
+    _observedContinuousStream = false;
+    _lastReading = null;
+    hardwareSupportedOverrideForTest = null;
+    nativeConnectOverrideForTest = null;
+    nativeDisconnectOverrideForTest = null;
+    nativeSocketAliveOverrideForTest = null;
+    nativeWriteOverrideForTest = null;
+    reconnectBaseDelayForTest = const Duration(seconds: 2);
+    heartbeatSilenceThresholdForTest = const Duration(seconds: 12);
+    continuousStallThresholdForTest = const Duration(seconds: 25);
+  }
+}

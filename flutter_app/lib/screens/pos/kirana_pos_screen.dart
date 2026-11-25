@@ -293,12 +293,16 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
             decoration: BoxDecoration(
               color: scale.isConnected
                   ? const Color(0xFF10B981).withValues(alpha: 0.25)
-                  : Colors.white.withValues(alpha: 0.14),
+                  : scale.isReconnecting
+                      ? const Color(0xFFF59E0B).withValues(alpha: 0.25)
+                      : Colors.white.withValues(alpha: 0.14),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: scale.isConnected
                     ? const Color(0xFF10B981)
-                    : Colors.white24,
+                    : scale.isReconnecting
+                        ? const Color(0xFFF59E0B)
+                        : Colors.white24,
                 width: 1,
               ),
             ),
@@ -309,18 +313,24 @@ class _KiranaPosScreenState extends State<KiranaPosScreen> {
                   Icons.scale_rounded,
                   color: scale.isConnected
                       ? const Color(0xFF34D399)
-                      : Colors.white70,
+                      : scale.isReconnecting
+                          ? const Color(0xFFFCD34D)
+                          : Colors.white70,
                   size: 15,
                 ),
                 const SizedBox(width: 4),
                 Text(
                   scale.isConnected
                       ? '${scale.liveWeight.toStringAsFixed(3)} kg'
-                      : 'Scale',
+                      : scale.isReconnecting
+                          ? 'Sync...'
+                          : 'Scale',
                   style: TextStyle(
                     color: scale.isConnected
                         ? const Color(0xFF34D399)
-                        : Colors.white,
+                        : scale.isReconnecting
+                            ? const Color(0xFFFCD34D)
+                            : Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 11,
                     fontFamily: scale.isConnected ? 'monospace' : null,

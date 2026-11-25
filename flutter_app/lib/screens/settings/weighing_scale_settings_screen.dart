@@ -503,6 +503,42 @@ class _WeighingScaleSettingsScreenState
               ),
             ),
           ] else ...[
+            if (scale.isReconnecting) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFCD34D)),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFFD97706),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        isHindi
+                            ? '${scale.scaleName ?? 'कांटा'} से अपने-आप दोबारा जुड़ने की कोशिश जारी है...'
+                            : 'Auto-reconnecting to ${scale.scaleName ?? 'scale'}...',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF92400E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             SizedBox(
               width: double.infinity,
               height: 46,
@@ -910,13 +946,80 @@ class _WeighingScaleSettingsScreenState
       ),
     );
 
-    if (maxWidth > 650) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final card3 = Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFFFFBEB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? const Color(0xFF78350F) : const Color(0xFFFEF3C7),
+          width: 1,
+        ),
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(child: card1),
-          const SizedBox(width: 14),
-          Expanded(child: card2),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFDE68A),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.wifi_tethering_rounded, color: Color(0xFFD97706), size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isHindi ? 'हमेशा चालू रखें (Anti-Sleep Heartbeat)' : 'Keep Scale Awake (Anti-Sleep Heartbeat)',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13.5,
+                    color: isDark ? Colors.white : const Color(0xFF1E293B),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isHindi
+                      ? 'कांटा खाली रहने पर भी ब्लूटूथ कनेक्शन जगाए रखता है और टूटने पर तुरंत जोड़ता है'
+                      : 'Prevents idle Bluetooth sleep with safe keep-alive checks and instant auto-reconnect',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: Color(0xFF64748B),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: scale.keepAlivePing,
+            activeThumbColor: const Color(0xFF10B981),
+            activeTrackColor: const Color(0xFFA7F3D0),
+            onChanged: (val) {
+              SoundService.instance.playButtonClick();
+              scale.toggleKeepAlivePing(val);
+            },
+          ),
+        ],
+      ),
+    );
+
+    if (maxWidth > 650) {
+      return Column(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: card1),
+              const SizedBox(width: 14),
+              Expanded(child: card2),
+            ],
+          ),
+          const SizedBox(height: 12),
+          card3,
         ],
       );
     }
@@ -926,6 +1029,8 @@ class _WeighingScaleSettingsScreenState
         card1,
         const SizedBox(height: 12),
         card2,
+        const SizedBox(height: 12),
+        card3,
       ],
     );
   }
