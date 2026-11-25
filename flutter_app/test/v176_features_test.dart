@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:shop_pos/core/services/printer_settings_service.dart';
+import 'package:shop_pos/core/services/time_sync_service.dart';
 import 'package:shop_pos/core/services/update_service.dart';
 import 'package:shop_pos/core/utils/payment_qr_helper.dart';
 import 'package:shop_pos/data/models/cart_item.dart';
@@ -25,6 +27,7 @@ import 'package:shop_pos/screens/customers/customers_screen.dart';
 import 'package:shop_pos/screens/inventory/inventory_screen.dart';
 import 'package:shop_pos/screens/pos/widgets/bill_receipt_card.dart';
 import 'package:shop_pos/screens/pos/widgets/payment_dialog.dart';
+import 'package:shop_pos/screens/settings/feature_settings_screen.dart';
 import 'package:shop_pos/screens/settings/settings_screen.dart';
 
 void main() {
@@ -872,6 +875,162 @@ void main() {
       expect(find.text('Add Product'), findsNothing);
       expect(find.byIcon(Icons.delete_outline_rounded), findsNWidgets(2));
       expect(find.byTooltip('Add Product'), findsWidgets);
+    });
+
+    test('TimeSyncService parses HTTP Date headers and heals +5:30 future cloud timestamps', () {
+      final parsedUtc = TimeSyncService.parseHttpDateHeader('Wed, 25 Nov 2026 13:45:12 GMT');
+      expect(parsedUtc, DateTime.utc(2026, 11, 25, 13, 45, 12));
+
+      addTearDown(() => TimeSyncService.instance.setForTest());
+      // Simulate real Internet clock matches device UTC now and network sync is active
+      TimeSyncService.instance.setForTest(offset: Duration.zero, hasNetworkSync: true);
+
+      // Corrupted DB row appearing 3 hours in the future (e.g. IST saved as UTC -> +5:30 ahead)
+      final realLocalNow = TimeSyncService.instance.nowLocal();
+      final corruptedFutureLocal = realLocalNow.add(const Duration(hours: 1, minutes: 30));
+      final healed = TimeSyncService.instance.healCloudTimestampIfFuture(corruptedFutureLocal);
+      final expectedMinus530 = corruptedFutureLocal.toUtc().subtract(const Duration(hours: 5, minutes: 30)).toLocal();
+      expect(healed.difference(expectedMinus530).inSeconds.abs(), lessThanOrEqualTo(1));
+
+      // Normal past timestamp must NEVER be altered
+      final validPast = realLocalNow.subtract(const Duration(minutes: 20));
+      expect(TimeSyncService.instance.healCloudTimestampIfFuture(validPast), validPast);
+    });
+
+    test('PaymentQrHelper.applyRoundOff rounds Nearest Rupee and Floor accurately & Sale preserves roundOff', () {
+      final r1 = PaymentQrHelper.applyRoundOff(451.75, enabled: true, mode: 'nearest');
+      expect(r1.roundedTotal, 452.0);
+      expect(r1.roundOff, 0.25);
+
+      final r2 = PaymentQrHelper.applyRoundOff(451.80, enabled: true, mode: 'nearest');
+      expect(r2.roundedTotal, 452.0);
+      expect(r2.roundOff, 0.20);
+
+      final r3 = PaymentQrHelper.applyRoundOff(436.40, enabled: true, mode: 'nearest');
+      expect(r3.roundedTotal, 436.0);
+      expect(r3.roundOff, -0.40);
+
+      final r4 = PaymentQrHelper.applyRoundOff(451.50, enabled: true, mode: 'nearest');
+      expect(r4.roundedTotal, 452.0);
+      expect(r4.roundOff, 0.50);
+
+      final rFloor = PaymentQrHelper.applyRoundOff(451.75, enabled: true, mode: 'floor');
+      expect(rFloor.roundedTotal, 451.0);
+      expect(rFloor.roundOff, -0.75);
+
+      final rOff = PaymentQrHelper.applyRoundOff(451.75, enabled: false, mode: 'nearest');
+      expect(rOff.roundedTotal, 451.75);
+      expect(rOff.roundOff, 0.0);
+
+      final sale = Sale(
+        id: 'round-sale-1',
+        shopId: 'shop-1',
+        billNo: 200,
+        items: const [],
+        subtotal: 451.75,
+        roundOff: 0.25,
+        total: 452.0,
+        paid: 452.0,
+        paymentMode: 'cash',
+        createdAt: DateTime.utc(2026, 11, 25, 14, 0),
+      );
+      final decoded = Sale.fromJson(sale.toJson());
+      expect(decoded.roundOff, 0.25);
+      expect(decoded.total, 452.0);
+    });
+
+    testWidgets('PaymentDialog applies Nearest Rupee Round-Off on checkout total, UPI QR, and BillReceiptCard', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest(disable: true);
+      addTearDown(() => PrinterSettingsService.instance.setRoundOffForTest(enabled: false));
+      PrinterSettingsService.instance.setRoundOffForTest(enabled: true, mode: 'nearest');
+
+      final shopProvider = ShopProvider(
+        initialShop: Shop(
+          id: 'demo-shop-101',
+          name: 'Yadav Store',
+          upiId: 'yadavstore@okicici',
+          upiPayeeName: 'Yadav Store',
+        ),
+      );
+      final cartProvider = CartProvider();
+      cartProvider.incrementOrAdd(
+        Product(
+          id: 'prod-r1',
+          shopId: 'demo-shop-101',
+          name: 'Paneer',
+          category: 'DAIRY',
+          price: 451.75,
+          unit: 'kg',
+          stock: 10,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: shopProvider),
+            ChangeNotifierProvider.value(value: cartProvider),
+            ChangeNotifierProvider(create: (_) => CustomerProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(body: PaymentDialog(onSaleCompleted: () {})),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.textContaining('452'), findsWidgets);
+      expect(find.textContaining('Round Off'), findsWidgets);
+      expect(find.text('Round Off :'), findsOneWidget);
+      expect(find.text('+ Rs 0.25'), findsOneWidget);
+      expect(find.text('Total : Rs 452.00'), findsOneWidget);
+
+      await tester.tap(find.text('ऑनलाइन (UPI)'));
+      await tester.pump();
+      final qr = tester.widget<QrImageView>(find.byType(QrImageView));
+      expect((qr.key as ValueKey<String>).value, contains('am=452.00'));
+    });
+
+    testWidgets('FeatureSettingsScreen shows Auto Round-Off toggle with Nearest Rupee default', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      addTearDown(() => PrinterSettingsService.instance.setRoundOffForTest(enabled: false));
+      PrinterSettingsService.instance.setRoundOffForTest(enabled: false, mode: 'nearest');
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
+            ChangeNotifierProvider(create: (_) => CustomerProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: const MaterialApp(home: FeatureSettingsScreen()),
+        ),
+      );
+      await tester.pump();
+
+      final toggleFinder = find.byWidgetPredicate(
+        (w) => w is SwitchListTile && w.title is Text && ((w.title as Text).data ?? '').contains('Auto Round-Off'),
+      );
+      await tester.scrollUntilVisible(toggleFinder, 250, scrollable: find.byType(Scrollable).first);
+      await tester.ensureVisible(toggleFinder);
+      await tester.pump();
+      expect(toggleFinder, findsOneWidget);
+
+      await tester.tap(find.descendant(of: toggleFinder, matching: find.byType(Switch)));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 150));
+
+      expect(PrinterSettingsService.instance.autoRoundOffEnabled, isTrue);
+      expect(PrinterSettingsService.instance.roundOffMode, 'nearest');
+      expect(find.text('नज़दीकी रुपया (Nearest Rupee)'), findsOneWidget);
+      expect(find.text('पैसे हटाएं (Drop Paise / Floor)'), findsOneWidget);
     });
   });
 }

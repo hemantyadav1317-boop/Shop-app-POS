@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/backup_service.dart';
 import '../../core/services/payment_notification_service.dart';
+import '../../core/services/printer_settings_service.dart';
 import '../../core/services/sound_service.dart';
 import '../../core/utils/payment_qr_helper.dart';
 import '../../data/models/shop.dart';
@@ -34,8 +35,10 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
   bool _cloudRelayEnabled = false;
   bool _notificationPermissionGranted = false;
 
-  // Stock
+  // Stock & Checkout Billing
   late bool _allowNegativeStock;
+  late bool _autoRoundOffEnabled;
+  late String _roundOffMode;
 
   // Backup & Sync
   bool _syncingCloud = false;
@@ -49,6 +52,8 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
     _upiIdCtrl = TextEditingController(text: shop.upiId ?? '');
     _upiNameCtrl = TextEditingController(text: shop.upiPayeeName ?? '');
     _allowNegativeStock = shop.allowNegativeStock;
+    _autoRoundOffEnabled = PrinterSettingsService.instance.autoRoundOffEnabled;
+    _roundOffMode = PrinterSettingsService.instance.roundOffMode;
 
     _autoVerifyEnabled = PaymentNotificationService.instance.isAutoVerifyEnabled;
     _cloudRelayEnabled = PaymentNotificationService.instance.isCloudRelayEnabled;
@@ -95,6 +100,8 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
       allowNegativeStock: _allowNegativeStock,
     );
     await context.read<ShopProvider>().updateShop(updated);
+    await PrinterSettingsService.instance.setAutoRoundOffEnabled(_autoRoundOffEnabled);
+    await PrinterSettingsService.instance.setRoundOffMode(_roundOffMode);
     SoundService.instance.playSuccess();
 
     if (mounted) {
@@ -356,14 +363,16 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             // ⚡ 1. Auto-Payment Verification Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF0FDF4),
+            Material(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF0FDF4),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
+                side: BorderSide(color: const Color(0xFF00875A).withValues(alpha: 0.3)),
               ),
-              child: Column(
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
@@ -488,6 +497,7 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
                   ),
                 ],
               ),
+            ),
             ),
             const SizedBox(height: 16),
 
@@ -683,66 +693,153 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
             const SizedBox(height: 16),
 
             // 📦 5. Negative Stock Control Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+            Material(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
               ),
-              child: SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _allowNegativeStock,
-                activeColor: AppColors.primary,
-                title: const Text('नेगेटिव स्टॉक में बिक्री की अनुमति (Negative Stock)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                subtitle: const Text('स्टॉक 0 होने पर भी बिल बनाने की अनुमति दें', style: TextStyle(fontSize: 11.5)),
-                onChanged: (val) {
-                  SoundService.instance.playButtonClick();
-                  setState(() => _allowNegativeStock = val);
-                },
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _allowNegativeStock,
+                  activeThumbColor: AppColors.primary,
+                  title: const Text('नेगेटिव स्टॉक में बिक्री की अनुमति (Negative Stock)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                  subtitle: const Text('स्टॉक 0 होने पर भी बिल बनाने की अनुमति दें', style: TextStyle(fontSize: 11.5)),
+                  onChanged: (val) {
+                    SoundService.instance.playButtonClick();
+                    setState(() => _allowNegativeStock = val);
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 💰 5b. Auto Round-Off Bill Total Card
+            Material(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: _autoRoundOffEnabled,
+                      activeThumbColor: AppColors.primary,
+                      title: const Text(
+                        'बिल अमाउंट राउंड फिगर (Auto Round-Off)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
+                      ),
+                      subtitle: const Text(
+                        'चेकआउट के समय पैसे (जैसे ₹451.75 / ₹451.80) को ऑटो .00 में बदलें',
+                        style: TextStyle(fontSize: 11.5),
+                      ),
+                      onChanged: (val) async {
+                        if (context.read<AuthProvider>().isStaffSession) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              backgroundColor: AppColors.error,
+                              content: Text('सुरक्षा: केवल दुकान मालिक सेटिंग्स बदल सकते हैं।'),
+                            ),
+                          );
+                          return;
+                        }
+                        SoundService.instance.playButtonClick();
+                        setState(() => _autoRoundOffEnabled = val);
+                        await PrinterSettingsService.instance.setAutoRoundOffEnabled(val);
+                      },
+                    ),
+                    if (_autoRoundOffEnabled) ...[
+                      const Divider(height: 16),
+                      const Text(
+                        'राउंड करने का नियम चुनें (Rounding Rule):',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 8),
+                      RadioGroup<String>(
+                        groupValue: _roundOffMode,
+                        onChanged: (val) async {
+                          if (val == null) return;
+                          SoundService.instance.playClick();
+                          setState(() => _roundOffMode = val);
+                          await PrinterSettingsService.instance.setRoundOffMode(val);
+                        },
+                        child: const Column(
+                          children: [
+                            RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              value: 'nearest',
+                              title: Text('नज़दीकी रुपया (Nearest Rupee)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: Text('₹451.75 / ₹451.80 → ₹452.00 · ₹436.40 → ₹436.00', style: TextStyle(fontSize: 11)),
+                            ),
+                            RadioListTile<String>(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              value: 'floor',
+                              title: Text('पैसे हटाएं (Drop Paise / Floor)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                              subtitle: Text('₹451.75 / ₹451.80 → ₹451.00 (हमेशा पैसे .00 करें)', style: TextStyle(fontSize: 11)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),
 
             // 🔊 6. POS Sound & Haptics Card
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+            Material(
+              color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                side: BorderSide(color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: SoundService.instance.isSoundEnabled,
-                    activeColor: const Color(0xFF00875A),
-                    title: const Text('बिलिंग साउंड इफेक्ट्स (Beep & Cash Sound)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
-                    subtitle: const Text('स्कैनर बीप, कीपैड टैप और बिल पूरा होने पर आवाज़ पाएं', style: TextStyle(fontSize: 11.5)),
-                    onChanged: (val) async {
-                      await SoundService.instance.setSoundEnabled(val);
-                      if (val) SoundService.instance.playBeep();
-                      setState(() {});
-                    },
-                  ),
-                  if (SoundService.instance.isSoundEnabled) ...[
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        OutlinedButton(onPressed: () => SoundService.instance.playBeep(), child: const Text('Beep')),
-                        OutlinedButton(onPressed: () => SoundService.instance.playClick(), child: const Text('Click')),
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00875A), foregroundColor: Colors.white),
-                          onPressed: () => SoundService.instance.playSuccess(),
-                          child: const Text('Cha-Ching!'),
-                        ),
-                      ],
+              clipBehavior: Clip.antiAlias,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: SoundService.instance.isSoundEnabled,
+                      activeThumbColor: const Color(0xFF00875A),
+                      title: const Text('बिलिंग साउंड इफेक्ट्स (Beep & Cash Sound)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                      subtitle: const Text('स्कैनर बीप, कीपैड टैप और बिल पूरा होने पर आवाज़ पाएं', style: TextStyle(fontSize: 11.5)),
+                      onChanged: (val) async {
+                        await SoundService.instance.setSoundEnabled(val);
+                        if (val) SoundService.instance.playBeep();
+                        setState(() {});
+                      },
                     ),
+                    if (SoundService.instance.isSoundEnabled) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          OutlinedButton(onPressed: () => SoundService.instance.playBeep(), child: const Text('Beep')),
+                          OutlinedButton(onPressed: () => SoundService.instance.playClick(), child: const Text('Click')),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00875A), foregroundColor: Colors.white),
+                            onPressed: () => SoundService.instance.playSuccess(),
+                            child: const Text('Cha-Ching!'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             const SizedBox(height: 16),

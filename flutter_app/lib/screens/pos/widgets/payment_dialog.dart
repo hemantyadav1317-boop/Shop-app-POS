@@ -16,6 +16,7 @@ import '../../../../core/services/receipt_print_service.dart';
 import '../../../../core/services/printer_settings_service.dart';
 import '../../../../core/services/bluetooth_printer_service.dart';
 import '../../../../core/services/payment_notification_service.dart';
+import '../../../../core/services/time_sync_service.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/payment_qr_helper.dart';
 import '../../../../data/models/sale.dart';
@@ -70,8 +71,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
   void initState() {
     super.initState();
     // Unique alphanumeric checkout reference for Google Pay & NPCI compliance
-    _upiSessionRef = 'T${(DateTime.now().millisecondsSinceEpoch % 100000000).toString().padLeft(8, '0')}';
+    _upiSessionRef = 'T${(TimeSyncService.instance.nowUtc().millisecondsSinceEpoch % 100000000).toString().padLeft(8, '0')}';
     final cart = context.read<CartProvider>();
+    final payableTotal = _roundInfo(cart).roundedTotal;
     final editing = cart.editingSale;
     if (editing != null) {
       _billNo = editing.billNo;
@@ -81,27 +83,27 @@ class _PaymentDialogState extends State<PaymentDialog> {
       _onlinePaymentVerified = editing.onlineVerified;
 
       if (_paymentMode == 'cash') {
-        _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
+        _paidController = TextEditingController(text: payableTotal.toStringAsFixed(2));
         _upiController = TextEditingController(text: '0.00');
         _creditController = TextEditingController(text: '0.00');
       } else if (_paymentMode == 'online') {
         _paidController = TextEditingController(text: '0.00');
-        _upiController = TextEditingController(text: cart.total.toStringAsFixed(2));
+        _upiController = TextEditingController(text: payableTotal.toStringAsFixed(2));
         _creditController = TextEditingController(text: '0.00');
       } else if (_paymentMode == 'credit') {
         _paidController = TextEditingController(text: '0.00');
         _upiController = TextEditingController(text: '0.00');
-        _creditController = TextEditingController(text: cart.total.toStringAsFixed(2));
+        _creditController = TextEditingController(text: payableTotal.toStringAsFixed(2));
       } else {
-        final initialCash = editing.cashPaid.clamp(0.0, cart.total);
-        final initialCredit = editing.creditAmount.clamp(0.0, math.max(0.0, cart.total - initialCash));
-        final remUpi = math.max(0.0, cart.total - initialCash - initialCredit);
+        final initialCash = editing.cashPaid.clamp(0.0, payableTotal);
+        final initialCredit = editing.creditAmount.clamp(0.0, math.max(0.0, payableTotal - initialCash));
+        final remUpi = math.max(0.0, payableTotal - initialCash - initialCredit);
         _paidController = TextEditingController(text: initialCash.toStringAsFixed(2));
         _upiController = TextEditingController(text: remUpi.toStringAsFixed(2));
         _creditController = TextEditingController(text: initialCredit.toStringAsFixed(2));
       }
     } else {
-      _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
+      _paidController = TextEditingController(text: payableTotal.toStringAsFixed(2));
       _upiController = TextEditingController(text: '0.00');
       _creditController = TextEditingController(text: '0.00');
       _billNo = 1;
@@ -140,7 +142,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final cart = context.read<CartProvider>();
     final upiAmount = _paymentMode == 'split'
         ? (double.tryParse(_upiController.text.trim()) ?? 0.0)
-        : cart.total;
+        : _roundInfo(cart).roundedTotal;
 
     if (upiAmount <= 0.009) return;
 
@@ -225,7 +227,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final cart = context.read<CartProvider>();
     final upiAmount = _paymentMode == 'split'
         ? (double.tryParse(_upiController.text.trim()) ?? 0.0)
-        : cart.total;
+        : _roundInfo(cart).roundedTotal;
 
     if (upiAmount <= 0.009) return;
 
@@ -292,6 +294,15 @@ class _PaymentDialogState extends State<PaymentDialog> {
     super.dispose();
   }
 
+  RoundOffResult _roundInfo(CartProvider cart) {
+    final settings = PrinterSettingsService.instance;
+    return PaymentQrHelper.applyRoundOff(
+      cart.total,
+      enabled: settings.autoRoundOffEnabled,
+      mode: settings.roundOffMode,
+    );
+  }
+
   String _fmtAmt(double val) {
     final rounded = PaymentQrHelper.round2(math.max(0.0, val));
     return rounded % 1 == 0 ? rounded.toInt().toString() : rounded.toStringAsFixed(2);
@@ -303,15 +314,16 @@ class _PaymentDialogState extends State<PaymentDialog> {
       return;
     }
     _onlinePaymentVerified = false;
-    final cash = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, cart.total);
+    final payableTotal = _roundInfo(cart).roundedTotal;
+    final cash = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, payableTotal);
     final currentCredit = double.tryParse(_creditController.text.trim()) ?? 0.0;
     if (currentCredit > 0.009) {
-      final safeCredit = math.min(currentCredit, PaymentQrHelper.round2(math.max(0.0, cart.total - cash)));
-      final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - cash - safeCredit));
+      final safeCredit = math.min(currentCredit, PaymentQrHelper.round2(math.max(0.0, payableTotal - cash)));
+      final remUpi = PaymentQrHelper.round2(math.max(0.0, payableTotal - cash - safeCredit));
       _upiController.text = _fmtAmt(remUpi);
       _creditController.text = _fmtAmt(safeCredit);
     } else {
-      final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - cash));
+      final remUpi = PaymentQrHelper.round2(math.max(0.0, payableTotal - cash));
       _upiController.text = _fmtAmt(remUpi);
       _creditController.text = '0';
     }
@@ -325,13 +337,14 @@ class _PaymentDialogState extends State<PaymentDialog> {
       return;
     }
     _onlinePaymentVerified = false;
-    final upi = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, cart.total);
-    var cash = (double.tryParse(_paidController.text.trim()) ?? 0.0).clamp(0.0, cart.total);
-    if (cash + upi > cart.total) {
-      cash = PaymentQrHelper.round2(math.max(0.0, cart.total - upi));
+    final payableTotal = _roundInfo(cart).roundedTotal;
+    final upi = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, payableTotal);
+    var cash = (double.tryParse(_paidController.text.trim()) ?? 0.0).clamp(0.0, payableTotal);
+    if (cash + upi > payableTotal) {
+      cash = PaymentQrHelper.round2(math.max(0.0, payableTotal - upi));
       _paidController.text = _fmtAmt(cash);
     }
-    final remCredit = PaymentQrHelper.round2(math.max(0.0, cart.total - cash - upi));
+    final remCredit = PaymentQrHelper.round2(math.max(0.0, payableTotal - cash - upi));
     _creditController.text = _fmtAmt(remCredit);
     setState(() {});
     _triggerUpiQrDebounced();
@@ -343,13 +356,14 @@ class _PaymentDialogState extends State<PaymentDialog> {
       return;
     }
     _onlinePaymentVerified = false;
-    final credit = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, cart.total);
-    var cash = (double.tryParse(_paidController.text.trim()) ?? 0.0).clamp(0.0, cart.total);
-    if (cash + credit > cart.total) {
-      cash = PaymentQrHelper.round2(math.max(0.0, cart.total - credit));
+    final payableTotal = _roundInfo(cart).roundedTotal;
+    final credit = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, payableTotal);
+    var cash = (double.tryParse(_paidController.text.trim()) ?? 0.0).clamp(0.0, payableTotal);
+    if (cash + credit > payableTotal) {
+      cash = PaymentQrHelper.round2(math.max(0.0, payableTotal - credit));
       _paidController.text = _fmtAmt(cash);
     }
-    final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - cash - credit));
+    final remUpi = PaymentQrHelper.round2(math.max(0.0, payableTotal - cash - credit));
     _upiController.text = _fmtAmt(remUpi);
     setState(() {});
     _triggerUpiQrDebounced();
@@ -362,24 +376,25 @@ class _PaymentDialogState extends State<PaymentDialog> {
   void _onModeChanged(String mode) {
     SoundService.instance.playClick();
     final cart = context.read<CartProvider>();
+    final payableTotal = _roundInfo(cart).roundedTotal;
     setState(() {
       _paymentMode = mode;
       _onlinePaymentVerified = false;
       if (mode == 'cash') {
-        _paidController.text = cart.total.toStringAsFixed(2);
+        _paidController.text = payableTotal.toStringAsFixed(2);
         _upiController.text = '0.00';
         _creditController.text = '0.00';
       } else if (mode == 'online') {
         _paidController.text = '0.00';
-        _upiController.text = cart.total.toStringAsFixed(2);
+        _upiController.text = payableTotal.toStringAsFixed(2);
         _creditController.text = '0.00';
       } else if (mode == 'credit') {
         _paidController.text = '0.00';
         _upiController.text = '0.00';
-        _creditController.text = cart.total.toStringAsFixed(2);
+        _creditController.text = payableTotal.toStringAsFixed(2);
       } else if (mode == 'split') {
-        final halfCash = PaymentQrHelper.round2(cart.total / 2);
-        final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - halfCash));
+        final halfCash = PaymentQrHelper.round2(payableTotal / 2);
+        final remUpi = PaymentQrHelper.round2(math.max(0.0, payableTotal - halfCash));
         _paidController.text = halfCash.toStringAsFixed(2);
         _upiController.text = remUpi.toStringAsFixed(2);
         _creditController.text = '0.00';
@@ -503,8 +518,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final upiInput = double.tryParse(_upiController.text.trim()) ?? 0.0;
     final creditInput = double.tryParse(_creditController.text.trim()) ?? 0.0;
     final shop = context.read<ShopProvider>().shop;
+    final payableTotal = _roundInfo(cart).roundedTotal;
     return PaymentQrHelper.calculateBreakdown(
-      total: cart.total,
+      total: payableTotal,
       paymentMode: _paymentMode,
       cashAmount: cashInput,
       upiAmount: upiInput,
@@ -524,7 +540,9 @@ class _PaymentDialogState extends State<PaymentDialog> {
     if (_completedSale != null) return _completedSale!;
 
     final breakdown = _computeBreakdown(cart);
+    final roundRes = _roundInfo(cart);
     final editing = cart.editingSale;
+    final nowLocal = TimeSyncService.instance.nowLocal();
 
     return Sale(
       id: editing?.id ?? _clientRef,
@@ -536,7 +554,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
       items: List.from(cart.lines),
       subtotal: cart.subtotal,
       discount: cart.discount,
-      total: cart.total,
+      roundOff: roundRes.roundOff,
+      total: roundRes.roundedTotal,
       paid: breakdown.paid,
       due: breakdown.due,
       paymentMode: _paymentMode,
@@ -548,10 +567,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
       onlineVerified: breakdown.onlineVerified,
       verificationSource: breakdown.verificationSource,
       note: editing?.note,
-      createdAt: editing?.createdAt ?? DateTime.now(),
+      createdAt: editing?.createdAt ?? nowLocal,
       clientRef: editing?.clientRef ?? _clientRef,
       editCount: editing != null ? editing.editCount + 1 : 0,
-      lastEditedAt: editing != null ? DateTime.now() : null,
+      lastEditedAt: editing != null ? nowLocal : null,
     );
   }
 
@@ -605,7 +624,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
     if (_paymentMode == 'split') {
       final splitErr = PaymentQrHelper.validateSplitAmounts(
-        total: cart.total,
+        total: _roundInfo(cart).roundedTotal,
         cashAmount: double.tryParse(_paidController.text.trim()) ?? 0.0,
         upiAmount: double.tryParse(_upiController.text.trim()) ?? 0.0,
         creditAmount: double.tryParse(_creditController.text.trim()) ?? 0.0,
@@ -742,6 +761,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
     });
 
     try {
+      final roundRes = _roundInfo(cart);
+      final calibratedNowLocal = TimeSyncService.instance.nowLocal();
       final Sale saved;
       if (editing != null) {
         final updatedSale = Sale(
@@ -754,7 +775,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
           items: List.from(cart.lines),
           subtotal: cart.subtotal,
           discount: cart.discount,
-          total: cart.total,
+          roundOff: roundRes.roundOff,
+          total: roundRes.roundedTotal,
           paid: breakdown.paid,
           due: breakdown.due,
           paymentMode: _paymentMode,
@@ -769,7 +791,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
           createdAt: editing.createdAt,
           clientRef: editing.clientRef ?? _clientRef,
           editCount: editing.editCount + 1,
-          lastEditedAt: DateTime.now(),
+          lastEditedAt: calibratedNowLocal,
         );
         saved = await SupabaseService.instance.updateSale(
           updatedSale,
@@ -798,7 +820,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
           items: List.from(cart.lines),
           subtotal: cart.subtotal,
           discount: cart.discount,
-          total: cart.total,
+          roundOff: roundRes.roundOff,
+          total: roundRes.roundedTotal,
           paid: breakdown.paid,
           due: breakdown.due,
           paymentMode: _paymentMode,
@@ -809,7 +832,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
           creditAmount: breakdown.creditAmount,
           onlineVerified: breakdown.onlineVerified,
           verificationSource: breakdown.verificationSource,
-          createdAt: DateTime.now(),
+          createdAt: TimeSyncService.instance.nowLocal(),
           clientRef: _clientRef,
         );
 
@@ -973,14 +996,16 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final shop = context.watch<ShopProvider>().shop;
     final userEmail = SupabaseService.instance.client?.auth.currentUser?.email;
 
+    final roundRes = _roundInfo(cart);
+    final payableTotal = roundRes.roundedTotal;
     final cashInput = double.tryParse(_paidController.text.trim()) ?? 0.0;
-    final changeDue = (_paymentMode == 'cash' && cashInput > cart.total)
-        ? (cashInput - cart.total)
+    final changeDue = (_paymentMode == 'cash' && cashInput > payableTotal)
+        ? (cashInput - payableTotal)
         : 0.0;
     final breakdown = _computeBreakdown(cart);
 
     final checkoutUpiAmount = _paymentMode == 'online'
-        ? cart.total
+        ? payableTotal
         : (_paymentMode == 'split' ? breakdown.upiDeclared : 0.0);
 
     final hasValidUpi = PaymentQrHelper.isValidUpiId(shop.upiId);
@@ -1101,13 +1126,24 @@ class _PaymentDialogState extends State<PaymentDialog> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              CurrencyFormatter.format(cart.total),
+                              CurrencyFormatter.format(_roundInfo(cart).roundedTotal),
                               style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w900,
                                 color: AppColors.primary,
                               ),
                             ),
+                            if (_roundInfo(cart).roundOff.abs() > 0.001) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                'Subtotal ${CurrencyFormatter.format(cart.total)} · Round Off ${_roundInfo(cart).roundOff >= 0 ? '+' : '-'}${CurrencyFormatter.format(_roundInfo(cart).roundOff.abs())}',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF475569),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -1723,10 +1759,11 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 if (_paymentMode == 'credit') ...[
                   Builder(
                     builder: (context) {
+                      final payableTotal = _roundInfo(cart).roundedTotal;
                       final hasCustomer = cart.customer != null;
                       final isOverLimit = hasCustomer &&
                           cart.customer!.creditLimit > 0 &&
-                          (cart.customer!.balance + cart.total) > cart.customer!.creditLimit;
+                          (cart.customer!.balance + payableTotal) > cart.customer!.creditLimit;
 
                       return Container(
                         padding: const EdgeInsets.all(10),
@@ -1751,7 +1788,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                 children: [
                                   Text(
                                     hasCustomer
-                                        ? 'ग्राहक: ${cart.customer!.name} के खाते में ${CurrencyFormatter.format(cart.total)} जुड़ेगा।'
+                                        ? 'ग्राहक: ${cart.customer!.name} के खाते में ${CurrencyFormatter.format(payableTotal)} जुड़ेगा।'
                                         : 'कृपया पहले ग्राहक (Customer) चुनें।',
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                   ),
@@ -1759,8 +1796,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                     const SizedBox(height: 3),
                                     Text(
                                       isOverLimit
-                                          ? '⚠️ क्रेडिट लिमिट पार! तय सीमा: ₹${cart.customer!.creditLimit.toStringAsFixed(0)}, नया कुल बकाया: ₹${(cart.customer!.balance + cart.total).toStringAsFixed(0)}'
-                                          : 'क्रेडिट लिमिट: ₹${cart.customer!.creditLimit.toStringAsFixed(0)} (शेष लिमिट: ₹${(cart.customer!.creditLimit - (cart.customer!.balance + cart.total)).toStringAsFixed(0)})',
+                                          ? '⚠️ क्रेडिट लिमिट पार! तय सीमा: ₹${cart.customer!.creditLimit.toStringAsFixed(0)}, नया कुल बकाया: ₹${(cart.customer!.balance + payableTotal).toStringAsFixed(0)}'
+                                          : 'क्रेडिट लिमिट: ₹${cart.customer!.creditLimit.toStringAsFixed(0)} (शेष लिमिट: ₹${(cart.customer!.creditLimit - (cart.customer!.balance + payableTotal)).toStringAsFixed(0)})',
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -1809,13 +1846,14 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   shopEmail: (userEmail != null && userEmail.isNotEmpty) ? userEmail : null,
                   gstin: shop.gstin,
                   billNo: '$_billNo',
-                  dateString: DateFormat('dd-MM-yyyy h:mm a').format(DateTime.now()),
+                  dateString: DateFormat('dd-MM-yyyy h:mm a').format(TimeSyncService.instance.nowLocal()),
                   customerName: cart.customer?.name,
                   customerPhone: cart.customer?.phone,
                   items: cart.lines,
                   subtotal: cart.subtotal,
                   discount: cart.discount,
-                  total: cart.total,
+                  roundOff: _roundInfo(cart).roundOff,
+                  total: _roundInfo(cart).roundedTotal,
                   paid: breakdown.paid,
                   due: breakdown.due,
                   paymentMode: _paymentMode,
@@ -1868,8 +1906,8 @@ class _PaymentDialogState extends State<PaymentDialog> {
                       ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : Text(
                           cart.isEditingBill
-                              ? 'बिल अपडेट करें · ${CurrencyFormatter.format(cart.total)}'
-                              : 'बिल पूरा करें · ${CurrencyFormatter.format(cart.total)}',
+                              ? 'बिल अपडेट करें · ${CurrencyFormatter.format(_roundInfo(cart).roundedTotal)}'
+                              : 'बिल पूरा करें · ${CurrencyFormatter.format(_roundInfo(cart).roundedTotal)}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
                         ),
                 ),
@@ -1956,6 +1994,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 items: sale.items,
                 subtotal: sale.subtotal,
                 discount: sale.discount,
+                roundOff: sale.roundOff,
                 total: sale.total,
                 paid: sale.paid,
                 due: sale.due,

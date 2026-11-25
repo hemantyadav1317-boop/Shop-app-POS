@@ -66,6 +66,16 @@ class BillQrDecision {
       type != BillQrType.none && qrData != null && qrData!.trim().isNotEmpty;
 }
 
+class RoundOffResult {
+  final double roundedTotal;
+  final double roundOff;
+
+  const RoundOffResult({
+    required this.roundedTotal,
+    required this.roundOff,
+  });
+}
+
 class PaymentQrHelper {
   static const String googleReviewInstructionHindi =
       'हमारी सेवा पसंद आई? हमें Google पर अपना Review दें। धन्यवाद!';
@@ -75,6 +85,34 @@ class PaymentQrHelper {
   static double round2(double value) {
     if (!value.isFinite) return 0.0;
     return (value * 100).roundToDouble() / 100.0;
+  }
+
+  /// Rounds [rawTotal] to whole rupees when [enabled] is true.
+  /// - `mode == 'nearest'` (default): >= .50 rounds up, < .50 rounds down (e.g. 451.75 -> 452.00, 436.40 -> 436.00)
+  /// - `mode == 'floor'`: always drops paise to .00 (e.g. 451.75 -> 451.00)
+  static RoundOffResult applyRoundOff(
+    double rawTotal, {
+    required bool enabled,
+    String mode = 'nearest',
+  }) {
+    final raw = round2(math.max(0.0, rawTotal));
+    if (!enabled || raw <= 0.0) {
+      return RoundOffResult(roundedTotal: raw, roundOff: 0.0);
+    }
+    final totalPaise = (raw * 100).round();
+    final wholeRupees = totalPaise ~/ 100;
+    final paise = totalPaise % 100;
+    final int roundedRupees;
+    if (mode == 'floor') {
+      roundedRupees = wholeRupees;
+    } else {
+      roundedRupees = paise >= 50 ? wholeRupees + 1 : wholeRupees;
+    }
+    final roundedTotal = roundedRupees.toDouble();
+    return RoundOffResult(
+      roundedTotal: roundedTotal,
+      roundOff: round2(roundedTotal - raw),
+    );
   }
 
   static bool isValidUpiId(String? upiId) {

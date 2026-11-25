@@ -22,6 +22,8 @@ class PrinterSettingsService extends ChangeNotifier {
   static const String _keyShowFooter = 'printer_show_footer';
   static const String _keyShowQr = 'printer_show_qr';
   static const String _keyAutoPrintOnPayment = 'printer_auto_print_on_payment';
+  static const String _keyAutoRoundOffEnabled = 'billing_auto_round_off_enabled';
+  static const String _keyRoundOffMode = 'billing_round_off_mode';
 
   // Config State with sensible Indian POS defaults
   String _paperSize = '58mm'; // '58mm' or '80mm'
@@ -37,6 +39,8 @@ class PrinterSettingsService extends ChangeNotifier {
   bool _showFooter = true;
   bool _showQr = true;
   bool _autoPrintOnPayment = true; // D-Mart style auto-print on payment completion
+  bool _autoRoundOffEnabled = false;
+  String _roundOffMode = 'nearest'; // 'nearest' (default) or 'floor'
 
   // Getters
   String get paperSize => _paperSize;
@@ -58,6 +62,8 @@ class PrinterSettingsService extends ChangeNotifier {
   bool get showFooter => _showFooter;
   bool get showQr => _showQr;
   bool get autoPrintOnPayment => _autoPrintOnPayment;
+  bool get autoRoundOffEnabled => _autoRoundOffEnabled;
+  String get roundOffMode => _roundOffMode;
 
   Future<void>? _activeLoadFuture;
 
@@ -84,8 +90,36 @@ class PrinterSettingsService extends ChangeNotifier {
       _showFooter = prefs.getBool(_keyShowFooter) ?? true;
       _showQr = prefs.getBool(_keyShowQr) ?? true;
       _autoPrintOnPayment = prefs.getBool(_keyAutoPrintOnPayment) ?? true;
+      _autoRoundOffEnabled = prefs.getBool(_keyAutoRoundOffEnabled) ?? false;
+      final savedMode = prefs.getString(_keyRoundOffMode) ?? 'nearest';
+      _roundOffMode = (savedMode == 'floor') ? 'floor' : 'nearest';
       notifyListeners();
     } catch (_) {}
+  }
+
+  Future<void> setAutoRoundOffEnabled(bool value) async {
+    _autoRoundOffEnabled = value;
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyAutoRoundOffEnabled, value);
+    } catch (_) {}
+  }
+
+  Future<void> setRoundOffMode(String mode) async {
+    _roundOffMode = (mode == 'floor') ? 'floor' : 'nearest';
+    notifyListeners();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_keyRoundOffMode, _roundOffMode);
+    } catch (_) {}
+  }
+
+  @visibleForTesting
+  void setRoundOffForTest({required bool enabled, String mode = 'nearest'}) {
+    _autoRoundOffEnabled = enabled;
+    _roundOffMode = (mode == 'floor') ? 'floor' : 'nearest';
+    notifyListeners();
   }
 
   Future<void> setAutoPrintOnPayment(bool value) async {

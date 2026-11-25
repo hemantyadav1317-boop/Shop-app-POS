@@ -15,6 +15,7 @@ class Sale {
   final List<CartItem> items;
   final double subtotal;
   final double discount;
+  final double roundOff;
   final double total;
   final double paid;
   final double due;
@@ -42,6 +43,7 @@ class Sale {
     required this.items,
     required this.subtotal,
     this.discount = 0.0,
+    this.roundOff = 0.0,
     required this.total,
     required this.paid,
     this.due = 0.0,
@@ -122,8 +124,10 @@ class Sale {
       if (verificationSource != null && verificationSource!.isNotEmpty)
         'vs': verificationSource,
       if (clientRef != null && clientRef!.isNotEmpty) 'cref': clientRef,
+      if (roundOff.abs() > 0.001) 'ro': PaymentQrHelper.round2(roundOff),
+      'ca': createdAt.toUtc().toIso8601String(),
       if (editCount > 0) 'ec': editCount,
-      if (lastEditedAt != null) 'lea': lastEditedAt!.toIso8601String(),
+      if (lastEditedAt != null) 'lea': lastEditedAt!.toUtc().toIso8601String(),
     };
     final metaJson = '$_metaPrefix${jsonEncode(meta)}';
     final cleanNote = _stripMetaFromNote(note);
@@ -254,6 +258,7 @@ class Sale {
       items: parsedItems,
       subtotal: ((json['subtotal'] ?? json['sub_total']) as num?)?.toDouble() ?? 0.0,
       discount: (json['discount'] as num?)?.toDouble() ?? 0.0,
+      roundOff: ((json['round_off'] ?? meta?['ro']) as num?)?.toDouble() ?? 0.0,
       total: totalVal,
       paid: paidVal,
       due: dueVal,
@@ -287,6 +292,7 @@ class Sale {
       'items': items.map((e) => e.toJson()).toList(),
       'subtotal': subtotal,
       'discount': discount,
+      if (roundOff.abs() > 0.001) 'round_off': PaymentQrHelper.round2(roundOff),
       'total': total,
       'paid': paid,
       'due': due,
@@ -317,6 +323,7 @@ class Sale {
     List<CartItem>? items,
     double? subtotal,
     double? discount,
+    double? roundOff,
     double? total,
     double? paid,
     double? due,
@@ -344,6 +351,7 @@ class Sale {
       items: items ?? this.items,
       subtotal: subtotal ?? this.subtotal,
       discount: discount ?? this.discount,
+      roundOff: roundOff ?? this.roundOff,
       total: total ?? this.total,
       paid: paid ?? this.paid,
       due: due ?? this.due,

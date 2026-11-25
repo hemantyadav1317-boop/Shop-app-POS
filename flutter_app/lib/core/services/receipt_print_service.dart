@@ -189,7 +189,7 @@ class ReceiptPrintService {
               pw.Divider(thickness: 0.8),
 
               // Totals
-              if (sale.discount > 0)
+              if (sale.discount > 0 || sale.roundOff.abs() > 0.001)
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
@@ -203,6 +203,17 @@ class ReceiptPrintService {
                   children: [
                     pw.Text('Discount:', style: const pw.TextStyle(fontSize: 8)),
                     pw.Text('-₹${sale.discount.toStringAsFixed(2)}', style: const pw.TextStyle(fontSize: 8)),
+                  ],
+                ),
+              if (sale.roundOff.abs() > 0.001)
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('Round Off:', style: const pw.TextStyle(fontSize: 8)),
+                    pw.Text(
+                      '${sale.roundOff >= 0 ? '+' : '-'}₹${sale.roundOff.abs().toStringAsFixed(2)}',
+                      style: const pw.TextStyle(fontSize: 8),
+                    ),
                   ],
                 ),
               pw.SizedBox(height: 2),
@@ -522,6 +533,9 @@ class ReceiptPrintService {
     sb.writeln('कुल राशि (Subtotal): ₹${sale.subtotal.toStringAsFixed(2)}');
     if (sale.discount > 0) {
       sb.writeln('छूट (Discount): -₹${sale.discount.toStringAsFixed(2)}');
+    }
+    if (sale.roundOff.abs() > 0.001) {
+      sb.writeln('राउंड ऑफ (Round Off): ${sale.roundOff >= 0 ? '+' : '-'}₹${sale.roundOff.abs().toStringAsFixed(2)}');
     }
     sb.writeln('💰 *कुल देय (Total): ₹${sale.total.toStringAsFixed(2)}*');
     sb.writeln('भुगतान (Paid): ₹${sale.paid.toStringAsFixed(2)} (${sale.paymentMode.toUpperCase()})');

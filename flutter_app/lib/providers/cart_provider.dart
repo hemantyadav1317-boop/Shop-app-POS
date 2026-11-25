@@ -8,6 +8,7 @@ import '../data/models/customer.dart';
 import '../data/models/sale.dart';
 import '../data/services/supabase_service.dart';
 import '../core/services/sound_service.dart';
+import '../core/services/time_sync_service.dart';
 
 class SavedCart {
   final String id;
@@ -44,7 +45,7 @@ class SavedCart {
     'discount': discount,
     'shop_id': shopId,
     'label': label,
-    'created_at': (createdAt ?? DateTime.now()).toIso8601String(),
+    'created_at': (createdAt ?? TimeSyncService.instance.nowLocal()).toUtc().toIso8601String(),
   };
 
   factory SavedCart.fromJson(Map<String, dynamic> json) {
@@ -346,7 +347,7 @@ class CartProvider extends ChangeNotifier {
   Future<void> saveCurrentCart([String? shopId]) async {
     if (_lines.isEmpty) return;
     final orderId = const Uuid().v4();
-    final now = DateTime.now();
+    final now = TimeSyncService.instance.nowLocal();
     final saved = SavedCart(
       id: orderId,
       time: DateFormat('hh:mm a').format(now),

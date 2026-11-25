@@ -362,6 +362,7 @@ class _BillsScreenState extends State<BillsScreen> {
                         items: currentSale.items,
                         subtotal: currentSale.subtotal,
                         discount: currentSale.discount,
+                        roundOff: currentSale.roundOff,
                         total: currentSale.total,
                         paid: currentSale.paid,
                         due: currentSale.due,

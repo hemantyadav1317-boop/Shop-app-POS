@@ -11,6 +11,7 @@ import '../models/customer_payment.dart';
 import '../models/sale.dart';
 import '../models/expense.dart';
 import '../models/shop.dart';
+import '../../core/services/time_sync_service.dart';
 import 'local_db_service.dart';
 
 class SupabaseService {
@@ -1258,9 +1259,14 @@ class SupabaseService {
             '_pin': staffPin,
           });
           if (rpcRes is Map && rpcRes['success'] == true && rpcRes['sales'] is List) {
-            final rpcList = (rpcRes['sales'] as List)
-                .map((e) => Sale.fromJson(e as Map<String, dynamic>))
-                .toList();
+            try {
+              await TimeSyncService.instance.syncWithInternet();
+            } catch (_) {}
+            final rpcList = (rpcRes['sales'] as List).map((e) {
+              final parsed = Sale.fromJson(Map<String, dynamic>.from(e as Map));
+              final healed = TimeSyncService.instance.healCloudTimestampIfFuture(parsed.createdAt);
+              return healed != parsed.createdAt ? parsed.copyWith(createdAt: healed) : parsed;
+            }).toList();
             await _saveCachedSales(validShopId, rpcList);
             final mergedList = await LocalDbService.instance.getSales(validShopId);
             final finalRpcList = mergedList.isNotEmpty ? mergedList : rpcList;
@@ -1274,6 +1280,16 @@ class SupabaseService {
       }
 
       try {
+        try {
+          await TimeSyncService.instance.syncWithInternet();
+        } catch (_) {}
+
+        Sale parseCloudSale(dynamic raw) {
+          final parsed = Sale.fromJson(Map<String, dynamic>.from(raw as Map));
+          final healed = TimeSyncService.instance.healCloudTimestampIfFuture(parsed.createdAt);
+          return healed != parsed.createdAt ? parsed.copyWith(createdAt: healed) : parsed;
+        }
+
         final List<Sale> rawCloudList = [];
         if (limit != null) {
           final response = await client!
@@ -1282,7 +1298,7 @@ class SupabaseService {
               .eq('shop_id', validShopId)
               .order('created_at', ascending: false)
               .limit(limit);
-          rawCloudList.addAll((response as List).map((e) => Sale.fromJson(e)));
+          rawCloudList.addAll((response as List).map(parseCloudSale));
         } else {
           // Paginate in 1000-row chunks so Supabase's default 1000-row cap never cuts off bills #1..#299
           const int pageSize = 1000;
@@ -1294,7 +1310,7 @@ class SupabaseService {
                 .eq('shop_id', validShopId)
                 .order('created_at', ascending: false)
                 .range(offset, offset + pageSize - 1);
-            final batch = (response as List).map((e) => Sale.fromJson(e)).toList();
+            final batch = (response as List).map(parseCloudSale).toList();
             rawCloudList.addAll(batch);
             if (batch.length < pageSize) break;
             offset += pageSize;
@@ -1444,6 +1460,7 @@ class SupabaseService {
   /// Fetches the highest authoritative bill number from Supabase (counter + sales)
   /// and reconciles the local SQLite counter so devices stay sequential and self-heal.
   Future<int> syncCloudBillCounterFloor(String shopId) async {
+    unawaited(TimeSyncService.instance.syncWithInternet());
     final validShopId = await _ensureValidShopId(shopId);
     final localPeek = await LocalDbService.instance.peekNextBillNo(validShopId);
     int floor = localPeek > 1 ? localPeek - 1 : 0;
@@ -1630,27 +1647,45 @@ class SupabaseService {
           try {
             final createdRow = await client!
                 .from('sales')
-                .select('bill_no')
+                .select('bill_no, total, created_at')
                 .eq('id', saleId)
                 .maybeSingle()
                 .timeout(const Duration(milliseconds: 2500));
             final serverBillNo = (createdRow?['bill_no'] as num?)?.toInt() ?? 0;
+            final cloudTotal = (createdRow?['total'] as num?)?.toDouble();
+            final patchUpdates = <String, dynamic>{};
 
             if (serverBillNo > targetSale.billNo && serverBillNo < 1000000000) {
               resolvedBillNo = serverBillNo;
               await LocalDbService.instance.syncCounterFloor(validShopId, serverBillNo);
             } else if (targetSale.billNo > serverBillNo && targetSale.billNo < 1000000000) {
-              await client!
-                  .from('sales')
-                  .update({'bill_no': targetSale.billNo})
-                  .eq('id', saleId)
-                  .timeout(const Duration(milliseconds: 2500));
+              patchUpdates['bill_no'] = targetSale.billNo;
               await LocalDbService.instance.syncCounterFloor(validShopId, targetSale.billNo);
             } else if (serverBillNo > 0) {
               await LocalDbService.instance.syncCounterFloor(validShopId, serverBillNo);
             }
+
+            if (cloudTotal != null && (cloudTotal - targetSale.total).abs() > 0.009) {
+              patchUpdates['total'] = targetSale.total;
+              patchUpdates['due'] = targetSale.due;
+            }
+            if (createdRow?['created_at'] != null) {
+              final cloudCreated = DateTime.tryParse(createdRow!['created_at'].toString())?.toUtc();
+              final expectedUtc = targetSale.createdAt.toUtc();
+              if (cloudCreated != null && cloudCreated.difference(expectedUtc).abs() > const Duration(minutes: 2)) {
+                patchUpdates['created_at'] = expectedUtc.toIso8601String();
+              }
+            }
+
+            if (patchUpdates.isNotEmpty) {
+              await client!
+                  .from('sales')
+                  .update(patchUpdates)
+                  .eq('id', saleId)
+                  .timeout(const Duration(milliseconds: 2500));
+            }
           } catch (e) {
-            debugPrint("Failed to reconcile bill_no for sale $saleId: $e");
+            debugPrint("Failed to reconcile bill_no/roundOff/created_at for sale $saleId: $e");
           }
 
           // Reconcile local sale ID & bill_no with server UUID so CustomerDetails & Bills stay 100% deduplicated

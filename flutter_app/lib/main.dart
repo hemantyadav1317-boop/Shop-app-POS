@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,13 +20,16 @@ import 'core/services/sound_service.dart';
 import 'core/services/local_image_cache_service.dart';
 import 'core/services/payment_notification_service.dart';
 import 'core/services/network_sync_service.dart';
+import 'core/services/time_sync_service.dart';
 import 'screens/splash/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Sound Service
+  // Initialize Sound & Time Calibration Services
   await SoundService.instance.init();
+  await TimeSyncService.instance.init();
+  unawaited(TimeSyncService.instance.syncWithInternet());
 
   // Initialize Persistent Local Image Cache for instant offline photos
   await LocalImageCacheService.instance.init();

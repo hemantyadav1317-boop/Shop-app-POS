@@ -56,6 +56,7 @@ class BillReceiptCard extends StatelessWidget {
   final List<CartItem> items;
   final double subtotal;
   final double discount;
+  final double roundOff;
   final double total;
   final double paid;
   final double due;
@@ -102,6 +103,7 @@ class BillReceiptCard extends StatelessWidget {
     required this.items,
     required this.subtotal,
     this.discount = 0.0,
+    this.roundOff = 0.0,
     required this.total,
     required this.paid,
     this.due = 0.0,
@@ -559,6 +561,40 @@ class BillReceiptCard extends StatelessWidget {
                       '- Rs ${discount.toStringAsFixed(2)}',
                       style: TextStyle(
                         fontSize: 13.0 * scale,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          if (roundOff.abs() > 0.001) ...[
+            SizedBox(height: 2 * scale),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Flexible(
+                  child: Text(
+                    'Round Off :',
+                    style: TextStyle(
+                      fontSize: 12.5 * scale,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${roundOff >= 0 ? '+' : '-'} Rs ${roundOff.abs().toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 12.5 * scale,
                         fontWeight: FontWeight.w700,
                         color: Colors.black,
                       ),
