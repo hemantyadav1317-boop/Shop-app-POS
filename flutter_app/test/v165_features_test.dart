@@ -12,17 +12,17 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  group('🚀 v1.7.9 Release & Features Verification', () {
+  group('🚀 v1.7.10 Release & Features Verification', () {
     test('UpdateService has correct release version constant', () {
-      expect(UpdateService.currentVersion, '1.7.9');
+      expect(UpdateService.currentVersion, '1.7.10');
     });
 
     test('Semantic version comparison behaves accurately', () {
-      expect(UpdateService.isNewerVersion('1.7.9', '1.7.8'), isFalse);
-      expect(UpdateService.isNewerVersion('1.7.9', '1.7.9'), isFalse);
-      expect(UpdateService.isNewerVersion('1.7.9', '1.7.10'), isTrue);
-      expect(UpdateService.isNewerVersion('1.7.9', 'v1.7.9'), isFalse);
-      expect(UpdateService.isNewerVersion('1.7.9', 'v1.7.10'), isTrue);
+      expect(UpdateService.isNewerVersion('1.7.10', '1.7.9'), isFalse);
+      expect(UpdateService.isNewerVersion('1.7.10', '1.7.10'), isFalse);
+      expect(UpdateService.isNewerVersion('1.7.10', '1.7.11'), isTrue);
+      expect(UpdateService.isNewerVersion('1.7.10', 'v1.7.10'), isFalse);
+      expect(UpdateService.isNewerVersion('1.7.10', 'v1.7.11'), isTrue);
     });
 
     test('ContactService cleans Indian phone numbers correctly', () {

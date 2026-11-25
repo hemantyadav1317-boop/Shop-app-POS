@@ -23,7 +23,7 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '1.7.9';
+  static const String currentVersion = '1.7.10';
 
   // GitHub repository for auto updates
   static String githubRepo = 'hemantyadav1317-boop/Shop-app-POS';
