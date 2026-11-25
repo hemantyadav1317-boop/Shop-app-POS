@@ -32,6 +32,9 @@ class _CustomersScreenState extends State<CustomersScreen> {
   String _sortOption = 'name_asc'; // 'name_asc', 'balance_desc', 'sale_desc'
   Map<String, double> _customerTotalSales = {};
 
+  CustomerProvider? _custProvider;
+  double _lastKnownUdhar = -1;
+
   @override
   void initState() {
     super.initState();
@@ -39,7 +42,29 @@ class _CustomersScreenState extends State<CustomersScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final prov = context.read<CustomerProvider>();
+    if (_custProvider != prov) {
+      _custProvider?.removeListener(_onCustomersChanged);
+      _custProvider = prov;
+      _custProvider?.addListener(_onCustomersChanged);
+    }
+  }
+
+  void _onCustomersChanged() {
+    if (!mounted) return;
+    final udhar = _custProvider?.totalUdhar ?? 0.0;
+    if ((udhar - _lastKnownUdhar).abs() > 0.009) {
+      _lastKnownUdhar = udhar;
+      // Refresh customer sales totals immediately from local DB/cache whenever Khata balances change
+      _loadCustomerSales();
+    }
+  }
+
+  @override
   void dispose() {
+    _custProvider?.removeListener(_onCustomersChanged);
     _searchCtrl.dispose();
     super.dispose();
   }

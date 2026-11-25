@@ -1735,7 +1735,7 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        DateFormat('dd MMM yyyy, hh:mm a').format(sale.createdAt),
+                        DateFormat('dd MMM yyyy, hh:mm a').format(sale.createdAt.toLocal()),
                         style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B)),
                       ),
                       const SizedBox(height: 2),

@@ -12,6 +12,7 @@ import 'package:shop_pos/data/models/product.dart';
 import 'package:shop_pos/data/models/sale.dart';
 import 'package:shop_pos/data/models/shop.dart';
 import 'package:shop_pos/data/services/local_db_service.dart';
+import 'package:shop_pos/data/services/supabase_service.dart';
 import 'package:shop_pos/data/services/upi_service.dart';
 import 'package:shop_pos/providers/auth_provider.dart';
 import 'package:shop_pos/providers/cart_provider.dart';
@@ -397,6 +398,91 @@ void main() {
       // Verify no D-Mart label and no double checkbox exist
       expect(find.textContaining('D-Mart'), findsNothing);
       expect(find.byType(CheckboxListTile), findsNothing);
+    });
+
+    test('Full Credit sale updates customer balance in SQLite/RAM immediately and getCustomerSales preserves other customers bills', () async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest();
+      await LocalDbService.instance.init(dbPathOverride: inMemoryDatabasePath);
+
+      const shopId = 'demo-shop-101';
+      final custA = await SupabaseService.instance.addCustomer(
+        Customer(
+          id: '11111111-1111-1111-1111-111111111111',
+          shopId: shopId,
+          name: 'Suresh',
+          phone: '9999900001',
+          balance: 100.0,
+          createdAt: DateTime.now(),
+        ),
+      );
+      final custB = await SupabaseService.instance.addCustomer(
+        Customer(
+          id: '22222222-2222-2222-2222-222222222222',
+          shopId: shopId,
+          name: 'Mahesh',
+          phone: '9999900002',
+          balance: 50.0,
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      // Bill 1: Customer A buys ₹250 on Full Credit -> balance must become 350.0 immediately
+      final saleA = Sale(
+        id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        shopId: shopId,
+        billNo: 201,
+        customerId: custA.id,
+        customerName: custA.name,
+        customerPhone: custA.phone,
+        items: [CartItem(productId: 'p1', name: 'Atta', unit: 'kg', price: 250, qty: 1)],
+        subtotal: 250,
+        total: 250,
+        paid: 0,
+        due: 250,
+        paymentMode: 'credit',
+        paymentStatus: 'pending',
+        creditAmount: 250,
+        createdAt: DateTime.now(),
+      );
+      await SupabaseService.instance.createSale(saleA);
+
+      // Bill 2: Customer B buys ₹150 on Full Credit -> balance must become 200.0 immediately
+      final saleB = Sale(
+        id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        shopId: shopId,
+        billNo: 202,
+        customerId: custB.id,
+        customerName: custB.name,
+        customerPhone: custB.phone,
+        items: [CartItem(productId: 'p2', name: 'Rice', unit: 'kg', price: 150, qty: 1)],
+        subtotal: 150,
+        total: 150,
+        paid: 0,
+        due: 150,
+        paymentMode: 'credit',
+        paymentStatus: 'pending',
+        creditAmount: 150,
+        createdAt: DateTime.now(),
+      );
+      await SupabaseService.instance.createSale(saleB);
+
+      // Verify SQLite & getCustomerById reflect exact live balances
+      final dbCusts = await LocalDbService.instance.getCustomers(shopId);
+      expect(dbCusts.firstWhere((c) => c.id == custA.id).balance, 350.0);
+      expect(dbCusts.firstWhere((c) => c.id == custB.id).balance, 200.0);
+      expect((await SupabaseService.instance.getCustomerById(custA.id))!.balance, 350.0);
+
+      // Verify getCustomerSales returns each customer's bill immediately AND preserves all shop sales in SQLite
+      final custASales = await SupabaseService.instance.getCustomerSales(shopId, custA.id, customerPhone: custA.phone);
+      expect(custASales.any((s) => s.id == saleA.id && s.total == 250.0), isTrue);
+
+      final allDbSalesAfterCustA = await LocalDbService.instance.getSales(shopId);
+      expect(allDbSalesAfterCustA.any((s) => s.id == saleB.id), isTrue);
+
+      await LocalDbService.instance.closeForTest();
     });
   });
 }

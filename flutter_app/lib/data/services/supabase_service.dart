@@ -1087,19 +1087,30 @@ class SupabaseService {
         final list = (res as List).map((row) => Sale.fromJson(row)).toList();
         cloudSales.addAll(list);
 
-        // Update local cache and SQLite with new cloud sales
-        if (cloudSales.isNotEmpty) {
-          await _saveCachedSales(validShopId, cloudSales);
+        // Upsert ONLY this customer's cloud bills into SQLite (NEVER wipe shop-wide sales table!)
+        for (final s in cloudSales) {
+          await LocalDbService.instance.upsertSale(validShopId, s);
         }
       } catch (e) {
         debugPrint("Error fetching customer sales from cloud: $e");
       }
     }
 
-    // Merge with local DB sales for complete offline + multi-device history
+    // Merge with local DB sales + in-memory _localSales for 0ms instant & offline history
     final dbSales = await LocalDbService.instance.getSales(validShopId);
     final Set<String> seenIds = {};
     final List<Sale> merged = [];
+
+    bool isDuplicateOfMerged(Sale candidate) {
+      if (seenIds.contains(candidate.id)) return true;
+      return merged.any((existing) =>
+          (candidate.clientRef != null &&
+              existing.clientRef != null &&
+              existing.clientRef == candidate.clientRef) ||
+          (existing.total == candidate.total &&
+              existing.paymentMode == candidate.paymentMode &&
+              existing.createdAt.difference(candidate.createdAt).abs().inSeconds < 15));
+    }
 
     // Prioritize cloudSales
     for (final s in cloudSales) {
@@ -1107,13 +1118,14 @@ class SupabaseService {
         merged.add(s);
       }
     }
-    // Add local DB sales matching customer
-    for (final s in dbSales) {
+    // Add in-memory + SQLite local sales matching customer
+    for (final s in [..._localSales, ...dbSales]) {
       final matchesCustomer = (s.customerId != null && s.customerId == customerId) ||
           (customerPhone != null &&
               customerPhone.isNotEmpty &&
               s.customerPhone == customerPhone);
-      if (matchesCustomer && seenIds.add(s.id)) {
+      if (matchesCustomer && !isDuplicateOfMerged(s)) {
+        seenIds.add(s.id);
         merged.add(s);
       }
     }
@@ -1122,8 +1134,9 @@ class SupabaseService {
     return merged;
   }
 
-  /// Fetches an individual customer's latest cloud balance & profile
+  /// Fetches an individual customer's latest cloud balance & profile, preserving pending outbox credit
   Future<Customer?> getCustomerById(String customerId) async {
+    final activeShopId = await _ensureValidShopId(_localShop.id);
     if (_isInitialized && client != null) {
       try {
         final res = await client!
@@ -1132,13 +1145,37 @@ class SupabaseService {
             .eq('id', customerId)
             .maybeSingle();
         if (res != null) {
-          final cust = Customer.fromJson(res);
+          var cust = Customer.fromJson(res);
+          // Add any pending offline/in-flight credit sales from sync_outbox for this customer
+          try {
+            final outboxItems = await LocalDbService.instance.getOutboxItems(cust.shopId.isNotEmpty ? cust.shopId : activeShopId);
+            double pendingOutboxCredit = 0.0;
+            for (final item in outboxItems) {
+              if (item.entityType == 'sale' && item.operation == 'create') {
+                final rawSale = item.payload['sale'];
+                if (rawSale is Map) {
+                  final pendingSale = Sale.fromJson(Map<String, dynamic>.from(rawSale));
+                  if (pendingSale.customerId == customerId) {
+                    final amt = pendingSale.paymentMode == 'split'
+                        ? pendingSale.creditAmount
+                        : pendingSale.due;
+                    if (amt > 0.009) pendingOutboxCredit += amt;
+                  }
+                }
+              }
+            }
+            if (pendingOutboxCredit > 0.009) {
+              cust = cust.copyWith(balance: cust.balance + pendingOutboxCredit);
+            }
+          } catch (_) {}
+
           final idx = _localCustomers.indexWhere((c) => c.id == customerId);
           if (idx >= 0) {
             _localCustomers[idx] = cust;
           } else {
             _localCustomers.add(cust);
           }
+          await LocalDbService.instance.upsertCustomer(cust.shopId.isNotEmpty ? cust.shopId : activeShopId, cust);
           return cust;
         }
       } catch (e) {
@@ -1146,7 +1183,13 @@ class SupabaseService {
       }
     }
     final idx = _localCustomers.indexWhere((c) => c.id == customerId);
-    return idx >= 0 ? _localCustomers[idx] : null;
+    if (idx >= 0) return _localCustomers[idx];
+    try {
+      final dbCusts = await LocalDbService.instance.getCustomers(activeShopId);
+      final found = dbCusts.where((c) => c.id == customerId).toList();
+      if (found.isNotEmpty) return found.first;
+    } catch (_) {}
+    return null;
   }
 
   Future<void> deleteCustomer(String customerId) async {
@@ -1327,10 +1370,20 @@ class SupabaseService {
         ? targetSale.creditAmount
         : targetSale.due;
     if (khataCreditToAdd > 0.009 && targetSale.customerId != null) {
+      if (_localCustomers.isEmpty) {
+        try {
+          final dbCusts = await LocalDbService.instance.getCustomers(validShopId);
+          if (dbCusts.isNotEmpty) {
+            _localCustomers.addAll(dbCusts);
+          }
+        } catch (_) {}
+      }
       final cIndex = _localCustomers.indexWhere((c) => c.id == targetSale.customerId);
       if (cIndex != -1) {
         final c = _localCustomers[cIndex];
-        _localCustomers[cIndex] = c.copyWith(balance: c.balance + khataCreditToAdd);
+        final updatedCust = c.copyWith(balance: c.balance + khataCreditToAdd);
+        _localCustomers[cIndex] = updatedCust;
+        await LocalDbService.instance.upsertCustomer(validShopId, updatedCust);
         await _saveCachedCustomers(validShopId, _localCustomers);
       }
     }
@@ -1440,34 +1493,30 @@ class SupabaseService {
           '_customer_name': targetSale.customerName,
           '_customer_phone': targetSale.customerPhone,
           '_note': targetSale.encodedNote,
-        }).timeout(const Duration(milliseconds: 2000));
+        }).timeout(const Duration(milliseconds: 5000));
         debugPrint("Sale successfully synced to cloud via create_sale RPC");
 
         if (rpcRes != null) {
           final saleId = rpcRes.toString();
+          int resolvedBillNo = targetSale.billNo;
           try {
             final createdRow = await client!
                 .from('sales')
                 .select('bill_no')
                 .eq('id', saleId)
                 .maybeSingle()
-                .timeout(const Duration(milliseconds: 2000));
+                .timeout(const Duration(milliseconds: 2500));
             final serverBillNo = (createdRow?['bill_no'] as num?)?.toInt() ?? 0;
 
             if (serverBillNo > targetSale.billNo && serverBillNo < 1000000) {
-              // Server already has higher sequential bills from another device/session:
-              // adopt server's authoritative bill_no locally so series stays strictly sequential!
-              final updatedLocal = targetSale.copyWith(billNo: serverBillNo);
-              final idx = _localSales.indexWhere((s) => s.id == targetSale.id);
-              if (idx != -1) _localSales[idx] = updatedLocal;
-              await LocalDbService.instance.upsertSale(validShopId, updatedLocal);
+              resolvedBillNo = serverBillNo;
               await LocalDbService.instance.syncCounterFloor(validShopId, serverBillNo);
             } else if (targetSale.billNo > serverBillNo && targetSale.billNo < 1000000) {
               await client!
                   .from('sales')
                   .update({'bill_no': targetSale.billNo})
                   .eq('id', saleId)
-                  .timeout(const Duration(milliseconds: 2000));
+                  .timeout(const Duration(milliseconds: 2500));
               await LocalDbService.instance.syncCounterFloor(validShopId, targetSale.billNo);
             } else if (serverBillNo > 0) {
               await LocalDbService.instance.syncCounterFloor(validShopId, serverBillNo);
@@ -1475,6 +1524,15 @@ class SupabaseService {
           } catch (e) {
             debugPrint("Failed to reconcile bill_no for sale $saleId: $e");
           }
+
+          // Reconcile local sale ID & bill_no with server UUID so CustomerDetails & Bills stay 100% deduplicated
+          final reconciled = targetSale.copyWith(id: saleId, billNo: resolvedBillNo);
+          final idx = _localSales.indexWhere((s) => s.id == targetSale.id);
+          if (idx != -1) _localSales[idx] = reconciled;
+          if (saleId != targetSale.id) {
+            await LocalDbService.instance.deleteSale(validShopId, targetSale.id);
+          }
+          await LocalDbService.instance.upsertSale(validShopId, reconciled);
 
           // Successfully synced to cloud - remove from outbox!
           await LocalDbService.instance.removeOutboxForEntity('sale', targetSale.id);
@@ -1506,9 +1564,10 @@ class SupabaseService {
           'note': targetSale.encodedNote,
           'created_at': targetSale.createdAt.toUtc().toIso8601String(),
         };
-        await client!.from('sales').upsert(salePayload).timeout(const Duration(milliseconds: 2500));
+        await client!.from('sales').upsert(salePayload).timeout(const Duration(milliseconds: 5000));
 
         // ⚡ BATCH INSERT ALL SALE ITEMS IN ONE SINGLE CALL INSTEAD OF N SEPARATE CALLS!
+        await client!.from('sale_items').delete().eq('sale_id', saleId).timeout(const Duration(milliseconds: 2500));
         if (targetSale.items.isNotEmpty) {
           final itemRows = targetSale.items.map((item) => {
             'shop_id': validShopId,
@@ -1520,21 +1579,21 @@ class SupabaseService {
             'qty': item.qty,
             'line_total': item.price * item.qty,
           }).toList();
-          await client!.from('sale_items').insert(itemRows).timeout(const Duration(milliseconds: 2500));
+          await client!.from('sale_items').insert(itemRows).timeout(const Duration(milliseconds: 3500));
         }
 
         // Deduct stock in Cloud Supabase products table
         for (final item in targetSale.items) {
           if (item.productId != null && item.productId!.length >= 30) {
             try {
-              final pRow = await client!.from('products').select('stock').eq('id', item.productId!).maybeSingle().timeout(const Duration(milliseconds: 1500));
+              final pRow = await client!.from('products').select('stock').eq('id', item.productId!).maybeSingle().timeout(const Duration(milliseconds: 2000));
               if (pRow != null && pRow['stock'] != null) {
                 final curr = (pRow['stock'] as num).toDouble();
                 final updatedStock = curr - item.qty;
                 await client!.from('products').update({
                   'stock': updatedStock,
-                  'updated_at': DateTime.now().toIso8601String(),
-                }).eq('id', item.productId!).timeout(const Duration(milliseconds: 1500));
+                  'updated_at': DateTime.now().toUtc().toIso8601String(),
+                }).eq('id', item.productId!).timeout(const Duration(milliseconds: 2000));
 
                 try {
                   await client!.from('stock_movements').insert({
@@ -1543,27 +1602,39 @@ class SupabaseService {
                     'change': -item.qty,
                     'reason': 'sale',
                     'ref_id': saleId,
-                  }).timeout(const Duration(milliseconds: 1500));
+                  }).timeout(const Duration(milliseconds: 2000));
                 } catch (_) {}
               }
             } catch (_) {}
           }
         }
 
-        // Update customer balance in cloud for credit portion (credit mode uses full due; split uses creditAmount)
+        // Update customer balance & ledger in cloud idempotently for credit/split-credit sales
         final double khataCreditToAdd = targetSale.paymentMode == 'split'
             ? targetSale.creditAmount
             : targetSale.due;
         if (khataCreditToAdd > 0.009 && targetSale.customerId != null && targetSale.customerId!.length >= 30) {
-          try {
-            final cRow = await client!.from('customers').select('balance').eq('id', targetSale.customerId!).maybeSingle().timeout(const Duration(milliseconds: 1500));
+          final existingLedger = await client!
+              .from('customer_ledger')
+              .select('id')
+              .eq('sale_id', saleId)
+              .limit(1)
+              .maybeSingle()
+              .timeout(const Duration(milliseconds: 2500));
+          if (existingLedger == null) {
+            final cRow = await client!
+                .from('customers')
+                .select('balance')
+                .eq('id', targetSale.customerId!)
+                .maybeSingle()
+                .timeout(const Duration(milliseconds: 3000));
             if (cRow != null && cRow['balance'] != null) {
               final currBal = (cRow['balance'] as num).toDouble();
               final nextBal = currBal + khataCreditToAdd;
               await client!.from('customers').update({
                 'balance': nextBal,
                 'updated_at': DateTime.now().toUtc().toIso8601String(),
-              }).eq('id', targetSale.customerId!).timeout(const Duration(milliseconds: 1500));
+              }).eq('id', targetSale.customerId!).timeout(const Duration(milliseconds: 3500));
               try {
                 await client!.from('customer_ledger').insert({
                   'shop_id': validShopId,
@@ -1573,16 +1644,16 @@ class SupabaseService {
                   'balance_after': nextBal,
                   'sale_id': saleId,
                   'note': 'Credit on Bill #${targetSale.billNo}',
-                }).timeout(const Duration(milliseconds: 1500));
+                }).timeout(const Duration(milliseconds: 2500));
               } catch (_) {}
             }
-          } catch (_) {}
+          }
         }
 
-        // Successfully synced to cloud - remove from outbox!
+        // Successfully synced BOTH sale & customer credit balance to cloud - remove from outbox!
         await LocalDbService.instance.removeOutboxForEntity('sale', targetSale.id);
       } catch (inner) {
-        debugPrint("Failed to write sale directly to cloud (queued in outbox): $inner");
+        debugPrint("Failed to write sale/Khata directly to cloud (kept in outbox for retry): $inner");
       }
     }
   }
@@ -2677,7 +2748,13 @@ class SupabaseService {
                 ? offlineSale.creditAmount
                 : offlineSale.due;
             if (offlineKhataCredit > 0.009 && _isValidUuid(offlineSale.customerId)) {
-              try {
+              final existingLedger = await client!
+                  .from('customer_ledger')
+                  .select('id')
+                  .eq('sale_id', saleUuid)
+                  .limit(1)
+                  .maybeSingle();
+              if (existingLedger == null) {
                 final cRow = await client!
                     .from('customers')
                     .select('balance')
@@ -2685,12 +2762,24 @@ class SupabaseService {
                     .maybeSingle();
                 if (cRow != null && cRow['balance'] != null) {
                   final currBal = (cRow['balance'] as num).toDouble();
+                  final nextBal = currBal + offlineKhataCredit;
                   await client!.from('customers').update({
-                    'balance': currBal + offlineKhataCredit,
+                    'balance': nextBal,
                     'updated_at': DateTime.now().toUtc().toIso8601String(),
                   }).eq('id', offlineSale.customerId!);
+                  try {
+                    await client!.from('customer_ledger').insert({
+                      'shop_id': validShopId,
+                      'customer_id': offlineSale.customerId!,
+                      'entry_type': 'credit_sale',
+                      'amount': offlineKhataCredit,
+                      'balance_after': nextBal,
+                      'sale_id': saleUuid,
+                      'note': 'Credit on Bill #${offlineSale.billNo}',
+                    });
+                  } catch (_) {}
                 }
-              } catch (_) {}
+              }
             }
           }
           await LocalDbService.instance.removeOutboxItem(item.id);
