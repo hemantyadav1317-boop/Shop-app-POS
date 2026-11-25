@@ -827,23 +827,31 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         indicatorSize: TabBarIndicatorSize.tab,
                         tabs: [
                           Tab(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.inventory_2_rounded, size: 16),
-                                const SizedBox(width: 6),
-                                Text('Products (${products.length})'),
-                              ],
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.inventory_2_rounded, size: 16),
+                                  const SizedBox(width: 6),
+                                  Text('Products (${products.length})'),
+                                ],
+                              ),
                             ),
                           ),
                           Tab(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.grid_view_rounded, size: 16),
-                                const SizedBox(width: 6),
-                                Text('Category (${allCats.length})'),
-                              ],
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.grid_view_rounded, size: 16),
+                                  const SizedBox(width: 6),
+                                  Text('Category (${allCats.length})'),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -1232,29 +1240,42 @@ class _InventoryScreenState extends State<InventoryScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'कुल उपलब्ध कैटेगरी',
-                            style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            '${allCats.length} कैटेगरी',
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primaryDark),
-                          ),
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'कुल उपलब्ध कैटेगरी',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${allCats.length} कैटेगरी',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppColors.primaryDark),
+                            ),
+                          ],
+                        ),
                       ),
+                      const SizedBox(width: 10),
                       if (!context.watch<AuthProvider>().isStaffSession)
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.add, size: 18),
-                          label: const Text('नई कैटेगरी जोड़ें', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.add, size: 18),
+                              label: const Text('नई कैटेगरी जोड़ें', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                foregroundColor: Colors.white,
+                              ),
+                              onPressed: () => _showAddCategoryDialog(context),
+                            ),
                           ),
-                          onPressed: () => _showAddCategoryDialog(context),
                         ),
                     ],
                   ),
@@ -1307,6 +1328,8 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                           children: [
                                             Text(
                                               cat.toUpperCase(),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
                                                 fontWeight: FontWeight.w800,
                                                 fontSize: 14.5,
@@ -1326,28 +1349,47 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                         ),
                                       ),
                                       if (!context.watch<AuthProvider>().isStaffSession) ...[
-                                        TextButton.icon(
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: AppColors.error,
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            visualDensity: VisualDensity.compact,
+                                        const SizedBox(width: 8),
+                                        Tooltip(
+                                          message: 'Delete Category',
+                                          child: Material(
+                                            color: AppColors.error.withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(8),
+                                              onTap: () => _confirmDeleteCategory(context, cat),
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(8),
+                                                child: Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  size: 18,
+                                                  color: AppColors.error,
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                          icon: const Icon(Icons.delete_outline, size: 16),
-                                          label: const Text('Delete', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                          onPressed: () => _confirmDeleteCategory(context, cat),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Tooltip(
+                                          message: 'Add Product',
+                                          child: Material(
+                                            color: AppColors.primary.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(8),
+                                              onTap: () => _showAddEditProductDialogDirect(context, null, cat),
+                                              child: const Padding(
+                                                padding: EdgeInsets.all(8),
+                                                child: Icon(
+                                                  Icons.add_rounded,
+                                                  size: 18,
+                                                  color: AppColors.primary,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                         const SizedBox(width: 4),
-                                        TextButton.icon(
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: AppColors.primary,
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            visualDensity: VisualDensity.compact,
-                                          ),
-                                          icon: const Icon(Icons.add, size: 16),
-                                          label: const Text('Add Product', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                          onPressed: () => _showAddEditProductDialogDirect(context, null, cat),
-                                        ),
-                                        const SizedBox(width: 2),
                                       ],
                                       const Icon(Icons.keyboard_arrow_right_rounded, size: 20, color: Colors.grey),
                                     ],

@@ -22,6 +22,7 @@ import 'package:shop_pos/providers/product_provider.dart';
 import 'package:shop_pos/providers/shop_provider.dart';
 import 'package:shop_pos/screens/bills/bills_screen.dart';
 import 'package:shop_pos/screens/customers/customers_screen.dart';
+import 'package:shop_pos/screens/inventory/inventory_screen.dart';
 import 'package:shop_pos/screens/pos/widgets/bill_receipt_card.dart';
 import 'package:shop_pos/screens/pos/widgets/payment_dialog.dart';
 import 'package:shop_pos/screens/settings/settings_screen.dart';
@@ -207,7 +208,7 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       SharedPreferences.setMockInitialValues({});
-      await LocalDbService.instance.closeForTest();
+      await LocalDbService.instance.closeForTest(disable: true);
 
       const shopId = 'demo-shop-101';
       await SupabaseService.instance.createSale(
@@ -253,6 +254,7 @@ void main() {
             ChangeNotifierProvider(create: (_) => AuthProvider()),
             ChangeNotifierProvider(create: (_) => CartProvider()),
             ChangeNotifierProvider(create: (_) => CustomerProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
             ChangeNotifierProvider(create: (_) => LocaleProvider()),
           ],
           child: const MaterialApp(
@@ -673,6 +675,203 @@ void main() {
       expect(await LocalDbService.instance.peekNextBillNo(shopId), 1103);
 
       await LocalDbService.instance.closeForTest();
+    });
+
+    testWidgets('BillsScreen Clear Bill History popup clears bills and resets counter to #1', (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest(disable: true);
+
+      const shopId = 'demo-shop-101';
+      await SupabaseService.instance.clearBillHistory(shopId);
+      await LocalDbService.instance.setLastBillNo(shopId, 50);
+      await SupabaseService.instance.createSale(
+        Sale(
+          id: 'clr-sale-1',
+          shopId: shopId,
+          billNo: 50,
+          customerName: 'Ramesh',
+          items: [CartItem(productId: 'p1', name: 'Tomato', unit: 'kg', price: 40, qty: 1)],
+          subtotal: 40,
+          total: 40,
+          paid: 40,
+          due: 0,
+          paymentMode: 'cash',
+          createdAt: DateTime(2026, 11, 25, 16, 0),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => CartProvider()),
+            ChangeNotifierProvider(create: (_) => CustomerProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: const MaterialApp(home: BillsScreen(isMainTab: true)),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text('50'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.delete_sweep_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Clear Bill History?'), findsOneWidget);
+      expect(find.textContaining('Are you sure you want to delete all 1 saved bills?'), findsOneWidget);
+
+      await tester.tap(find.text('हाँ, साफ़ करें (Clear)'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('No bills found'), findsOneWidget);
+      expect(await LocalDbService.instance.peekNextBillNo(shopId), 1);
+      await LocalDbService.instance.closeForTest();
+    });
+
+    test('clearBillHistory wipes SQLite sales/outbox and resets bill counter to #1', () async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest();
+      await LocalDbService.instance.init(dbPathOverride: inMemoryDatabasePath);
+
+      const shopId = 'demo-shop-101';
+      await LocalDbService.instance.setLastBillNo(shopId, 75);
+      await SupabaseService.instance.createSale(
+        Sale(
+          id: 'clr-db-sale-1',
+          shopId: shopId,
+          billNo: 75,
+          customerName: 'Mohan',
+          items: [CartItem(productId: 'p1', name: 'Gobi', unit: 'kg', price: 30, qty: 1)],
+          subtotal: 30,
+          total: 30,
+          paid: 30,
+          due: 0,
+          paymentMode: 'cash',
+          createdAt: DateTime.now(),
+        ),
+      );
+      expect(await LocalDbService.instance.getSales(shopId), isNotEmpty);
+
+      await SupabaseService.instance.clearBillHistory(shopId, resetCounterToOne: true);
+
+      expect(await LocalDbService.instance.getSales(shopId), isEmpty);
+      expect(await LocalDbService.instance.getPendingOutboxCount(shopId), 0);
+      expect(await LocalDbService.instance.peekNextBillNo(shopId), 1);
+
+      await LocalDbService.instance.closeForTest();
+    });
+
+    test('deleteSale can restore sold product stock and reverse customer Khata credit', () async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest();
+      await LocalDbService.instance.init(dbPathOverride: inMemoryDatabasePath);
+
+      const shopId = 'demo-shop-101';
+      final prod = Product(
+        id: 'prod-rev-1',
+        shopId: shopId,
+        name: 'Aloo',
+        price: 30,
+        stock: 10,
+        category: 'VEGETABLES',
+        unit: 'kg',
+      );
+      await LocalDbService.instance.saveProducts(shopId, [prod]);
+
+      final cust = Customer(
+        id: 'cust-rev-1',
+        shopId: shopId,
+        name: 'Kishan',
+        phone: '9988776655',
+        balance: 150,
+        createdAt: DateTime.now(),
+      );
+      await LocalDbService.instance.saveCustomers(shopId, [cust]);
+
+      final sale = Sale(
+        id: 'sale-rev-1',
+        shopId: shopId,
+        billNo: 10,
+        customerId: cust.id,
+        customerName: cust.name,
+        items: [CartItem(productId: prod.id, name: 'Aloo', unit: 'kg', price: 30, qty: 2)],
+        subtotal: 60,
+        total: 60,
+        paid: 10,
+        due: 50,
+        paymentMode: 'split',
+        createdAt: DateTime.now(),
+      );
+      await LocalDbService.instance.upsertSale(shopId, sale);
+
+      await SupabaseService.instance.deleteSale(
+        sale.id,
+        reverseStock: true,
+        reverseCustomerCredit: true,
+      );
+
+      final updatedProds = await LocalDbService.instance.getProducts(shopId);
+      expect(updatedProds.firstWhere((p) => p.id == prod.id).stock, 12.0);
+      final updatedCusts = await LocalDbService.instance.getCustomers(shopId);
+      expect(updatedCusts.firstWhere((c) => c.id == cust.id).balance, 100.0);
+      expect(await LocalDbService.instance.getSales(shopId), isEmpty);
+
+      await LocalDbService.instance.closeForTest();
+    });
+
+    testWidgets('InventoryScreen Category rows show icon-only Delete/Add buttons so DAIRY PRODUCTS renders on one clean line', (tester) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest(disable: true);
+      final prodProv = ProductProvider();
+      await prodProv.addCategory('DAIRY PRODUCTS');
+      await prodProv.addCategory('GREEN VEGGIES');
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider.value(value: prodProv),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: const MaterialApp(home: InventoryScreen(isMainTab: true)),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      await tester.tap(find.textContaining('Category ('));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(tester.takeException(), isNull);
+      final dairyTitle = find.text('DAIRY PRODUCTS');
+      expect(dairyTitle, findsOneWidget);
+      expect(tester.getSize(dairyTitle).width, greaterThanOrEqualTo(180));
+
+      // Action buttons use compact icon buttons without verbose Delete / Add Product text
+      expect(find.text('Delete'), findsNothing);
+      expect(find.text('Add Product'), findsNothing);
+      expect(find.byIcon(Icons.delete_outline_rounded), findsNWidgets(2));
+      expect(find.byTooltip('Add Product'), findsWidgets);
     });
   });
 }

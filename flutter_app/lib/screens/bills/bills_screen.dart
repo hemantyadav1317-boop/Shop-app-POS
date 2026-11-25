@@ -10,6 +10,7 @@ import '../../core/utils/payment_qr_helper.dart';
 import '../../data/models/sale.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/customer_provider.dart';
+import '../../providers/product_provider.dart';
 import '../../data/services/local_db_service.dart';
 import '../../data/services/supabase_service.dart';
 import '../../providers/auth_provider.dart';
@@ -599,32 +600,251 @@ class _BillsScreenState extends State<BillsScreen> {
       );
       return;
     }
+
+    final hasTrackedProducts = sale.items.any((i) => i.productId != null && i.productId!.isNotEmpty);
+    final hasCustomerDue = sale.customerId != null && sale.customerId!.isNotEmpty && sale.due > 0.009;
+    bool restoreStock = hasTrackedProducts;
+    bool reverseKhata = hasCustomerDue;
+
     showDialog(
       context: context,
-      builder: (delCtx) => AlertDialog(
-        title: const Text('बिल डिलीट करें?', style: TextStyle(fontWeight: FontWeight.bold)),
-        content: Text('क्या आप वाकई बिल #${sale.billNo} (${CurrencyFormatter.format(sale.total)}) को डिलीट/रद्द करना चाहते हैं?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(delCtx),
-            child: const Text('रद्द करें (Cancel)'),
+      builder: (delCtx) => StatefulBuilder(
+        builder: (delCtx, setDelState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.delete_outline_rounded, color: AppColors.error, size: 22),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text('बिल डिलीट करें?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              ),
+            ],
           ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
-            onPressed: () async {
-              SoundService.instance.playDelete();
-              Navigator.pop(delCtx);
-              await SupabaseService.instance.deleteSale(sale.id);
-              _loadSales();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(backgroundColor: AppColors.error, content: Text('बिल डिलीट कर दिया गया।')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'क्या आप वाकई बिल #${sale.billNo} (${CurrencyFormatter.format(sale.total)}) को डिलीट/रद्द करना चाहते हैं?',
+                style: const TextStyle(fontSize: 13.5),
+              ),
+              if (hasTrackedProducts) ...[
+                const SizedBox(height: 10),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  value: restoreStock,
+                  activeColor: AppColors.primary,
+                  onChanged: (v) => setDelState(() => restoreStock = v ?? true),
+                  title: const Text('स्टॉक वापस जोड़ें (Restore Item Stock)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+              ],
+              if (hasCustomerDue)
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  value: reverseKhata,
+                  activeColor: AppColors.primary,
+                  onChanged: (v) => setDelState(() => reverseKhata = v ?? true),
+                  title: Text(
+                    'खाता उधार घटाएं (-${CurrencyFormatter.format(sale.due)})',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(delCtx),
+              child: const Text('रद्द करें (Cancel)'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.error, foregroundColor: Colors.white),
+              onPressed: () async {
+                SoundService.instance.playDelete();
+                ProductProvider? productProv;
+                CustomerProvider? customerProv;
+                try {
+                  productProv = context.read<ProductProvider>();
+                } catch (_) {}
+                try {
+                  customerProv = context.read<CustomerProvider>();
+                } catch (_) {}
+                Navigator.pop(delCtx);
+                await SupabaseService.instance.deleteSale(
+                  sale.id,
+                  reverseStock: restoreStock,
+                  reverseCustomerCredit: reverseKhata,
                 );
-              }
-            },
-            child: const Text('हाँ, डिलीट करें'),
+                if (restoreStock && productProv != null) {
+                  productProv.applyStockDiff(sale.items, const []);
+                }
+                if (reverseKhata && sale.customerId != null && customerProv != null) {
+                  customerProv.adjustLocalBalance(sale.customerId!, -sale.due);
+                }
+                _loadSales();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(backgroundColor: AppColors.error, content: Text('बिल डिलीट कर दिया गया।')),
+                  );
+                }
+              },
+              child: const Text('हाँ, डिलीट करें'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _confirmClearBillHistory() {
+    final auth = context.read<AuthProvider>();
+    if (auth.isStaffSession) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: AppColors.error,
+          content: Text('सुरक्षा नियम: केवल दुकान मालिक बिल हिस्ट्री साफ़ कर सकते हैं।'),
+        ),
+      );
+      return;
+    }
+    if (_sales.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('बिल हिस्ट्री पहले से खाली है।')),
+      );
+      return;
+    }
+
+    bool resetCounterToOne = true;
+    final totalBills = _sales.length;
+    final shopId = context.read<ShopProvider>().shop.id;
+
+    showDialog(
+      context: context,
+      builder: (clrCtx) => StatefulBuilder(
+        builder: (clrCtx, setClrState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          contentPadding: const EdgeInsets.fromLTRB(22, 22, 22, 14),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.28), width: 1.5),
+                ),
+                child: const Icon(Icons.delete_sweep_rounded, color: AppColors.error, size: 30),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Clear Bill History?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'क्या आप वाकई अपनी पूरी बिल हिस्ट्री साफ़ करना चाहते हैं?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: Color(0xFF475569)),
+              ),
+              const SizedBox(height: 10),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.error.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.error.withValues(alpha: 0.2)),
+                ),
+                child: Text(
+                  'Are you sure you want to delete all $totalBills saved bills? This action cannot be undone.\n(आपके प्रोडक्ट और ग्राहक खाता बैलेंस सुरक्षित रहेंगे।)',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 12.5, height: 1.4, color: Color(0xFF64748B)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: resetCounterToOne,
+                activeColor: AppColors.primary,
+                onChanged: (val) => setClrState(() => resetCounterToOne = val ?? true),
+                title: const Text(
+                  'नया बिल #1 से शुरू करें (Reset counter to #1)',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
-        ],
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+          actions: [
+            OutlinedButton(
+              onPressed: () => Navigator.pop(clrCtx),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('नहीं (Cancel)'),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.delete_forever_rounded, size: 18),
+              label: const Text('हाँ, साफ़ करें (Clear)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () async {
+                SoundService.instance.playDelete();
+                Navigator.pop(clrCtx);
+                try {
+                  await SupabaseService.instance.clearBillHistory(
+                    shopId,
+                    resetCounterToOne: resetCounterToOne,
+                  );
+                  await _loadSales();
+                  if (mounted) {
+                    setState(() {
+                      _sales = [];
+                      _isLoading = false;
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: AppColors.success,
+                        content: Text(
+                          resetCounterToOne
+                              ? 'बिल हिस्ट्री साफ़ हो गई — अगला बिल #1 से बनेगा।'
+                              : 'बिल हिस्ट्री साफ़ हो गई।',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: AppColors.error,
+                        content: Text('बिल हिस्ट्री साफ़ करने में समस्या: $e'),
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1230,6 +1450,15 @@ class _BillsScreenState extends State<BillsScreen> {
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.white, letterSpacing: 0.3),
         ),
         actions: [
+          if (!context.watch<AuthProvider>().isStaffSession && _sales.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.white),
+              tooltip: 'Clear Bill History',
+              onPressed: () {
+                SoundService.instance.playButtonClick();
+                _confirmClearBillHistory();
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
             tooltip: 'रिफ्रेश करें',

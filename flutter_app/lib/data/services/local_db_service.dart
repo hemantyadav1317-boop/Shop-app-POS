@@ -512,6 +512,39 @@ class LocalDbService {
         where: 'id = ? AND shop_id = ?', whereArgs: [saleId, shopId]);
   }
 
+  /// Clears all saved bills and pending sale outbox entries for [shopId].
+  /// When [resetCounter] is true, resets the local bill counter back to 0 so
+  /// the next created bill starts fresh at #1.
+  Future<void> clearSalesForShop(String shopId, {bool resetCounter = true}) async {
+    if (resetCounter) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('shop_last_bill_no_$shopId', 0);
+      } catch (_) {}
+    }
+    final db = await _ensureDb();
+    if (db == null) return;
+    await db.transaction((txn) async {
+      await txn.delete('sales', where: 'shop_id = ?', whereArgs: [shopId]);
+      await txn.delete(
+        'sync_outbox',
+        where: "shop_id = ? AND entity_type = 'sale'",
+        whereArgs: [shopId],
+      );
+      if (resetCounter) {
+        await txn.insert(
+          'shop_bill_counters',
+          {
+            'shop_id': shopId,
+            'last_bill_no': 0,
+            'updated_at': DateTime.now().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    });
+  }
+
   Future<List<Sale>> getSales(String shopId) async {
     final db = await _ensureDb();
     if (db == null) return [];
@@ -1104,11 +1137,11 @@ class LocalDbService {
 
   /// Close and clear tables in unit tests
   @visibleForTesting
-  Future<void> closeForTest() async {
+  Future<void> closeForTest({bool disable = false}) async {
     await _db?.close();
     _db = null;
     _dbPathOverride = null;
-    _disabled = false;
+    _disabled = disable;
   }
 }
 

@@ -1941,29 +1941,190 @@ class SupabaseService {
     }
   }
 
-  /// Delete / cancel an existing bill
-  Future<void> deleteSale(String saleId) async {
+  /// Delete / cancel an existing bill, optionally restoring sold item stock
+  /// and reversing unpaid customer Khata credit.
+  Future<void> deleteSale(
+    String saleId, {
+    bool reverseStock = false,
+    bool reverseCustomerCredit = false,
+  }) async {
+    final validShopId = await _ensureValidShopId(_localShop.id);
+    Sale? targetSale;
+    for (final s in _localSales) {
+      if (s.id == saleId) {
+        targetSale = s;
+        break;
+      }
+    }
+    if (targetSale == null) {
+      try {
+        final dbSales = await LocalDbService.instance.getSales(validShopId);
+        for (final s in dbSales) {
+          if (s.id == saleId) {
+            targetSale = s;
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
     _localSales.removeWhere((s) => s.id == saleId);
-    await LocalDbService.instance.deleteSale(_localShop.id, saleId);
+    await LocalDbService.instance.deleteSale(validShopId, saleId);
     await LocalDbService.instance.removeOutboxForEntity('sale', saleId);
-    await _saveCachedSales(_localShop.id, _localSales);
+    await _saveCachedSales(validShopId, _localSales);
 
     final prefs = await SharedPreferences.getInstance();
-    final queueKey = 'pending_deleted_sales_${_localShop.id}';
+    final queueKey = 'pending_deleted_sales_$validShopId';
     final pendingDeletions = prefs.getStringList(queueKey) ?? [];
     if (!pendingDeletions.contains(saleId)) {
       pendingDeletions.add(saleId);
       await prefs.setStringList(queueKey, pendingDeletions);
     }
 
-    if (_isInitialized && client != null && _localShop.id != 'demo-shop-101') {
+    // Reverse local stock & Khata immediately if requested
+    if (targetSale != null && reverseStock) {
+      final qtyByProd = <String, double>{};
+      for (final item in targetSale.items) {
+        final pid = item.productId;
+        if (pid != null && pid.isNotEmpty) {
+          qtyByProd[pid] = (qtyByProd[pid] ?? 0.0) + item.qty;
+        }
+      }
+      List<Product>? dbProds;
+      for (final entry in qtyByProd.entries) {
+        final pIdx = _localProducts.indexWhere((p) => p.id == entry.key);
+        if (pIdx != -1) {
+          final updatedProd = _localProducts[pIdx].copyWith(
+            stock: _localProducts[pIdx].stock + entry.value,
+          );
+          _localProducts[pIdx] = updatedProd;
+          await LocalDbService.instance.upsertProduct(validShopId, updatedProd);
+        } else {
+          dbProds ??= await LocalDbService.instance.getProducts(validShopId);
+          final dbIdx = dbProds.indexWhere((p) => p.id == entry.key);
+          if (dbIdx != -1) {
+            final updatedProd = dbProds[dbIdx].copyWith(
+              stock: dbProds[dbIdx].stock + entry.value,
+            );
+            await LocalDbService.instance.upsertProduct(validShopId, updatedProd);
+          }
+        }
+      }
+    }
+    if (targetSale != null &&
+        reverseCustomerCredit &&
+        targetSale.customerId != null &&
+        targetSale.customerId!.isNotEmpty &&
+        targetSale.due > 0.009) {
+      final cIdx = _localCustomers.indexWhere((c) => c.id == targetSale!.customerId);
+      if (cIdx != -1) {
+        final nextBal = max(0.0, _localCustomers[cIdx].balance - targetSale.due);
+        final updatedCust = _localCustomers[cIdx].copyWith(balance: nextBal);
+        _localCustomers[cIdx] = updatedCust;
+        await LocalDbService.instance.upsertCustomer(validShopId, updatedCust);
+      } else {
+        final dbCusts = await LocalDbService.instance.getCustomers(validShopId);
+        final dbIdx = dbCusts.indexWhere((c) => c.id == targetSale!.customerId);
+        if (dbIdx != -1) {
+          final nextBal = max(0.0, dbCusts[dbIdx].balance - targetSale.due);
+          final updatedCust = dbCusts[dbIdx].copyWith(balance: nextBal);
+          await LocalDbService.instance.upsertCustomer(validShopId, updatedCust);
+        }
+      }
+    }
+
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
       try {
+        if (targetSale != null && reverseStock) {
+          final qtyByProd = <String, double>{};
+          for (final item in targetSale.items) {
+            final pid = item.productId;
+            if (_isValidUuid(pid)) {
+              qtyByProd[pid!] = (qtyByProd[pid] ?? 0.0) + item.qty;
+            }
+          }
+          for (final entry in qtyByProd.entries) {
+            try {
+              final prodRow = await client!
+                  .from('products')
+                  .select('stock')
+                  .eq('id', entry.key)
+                  .maybeSingle();
+              if (prodRow != null) {
+                final curStock = (prodRow['stock'] as num?)?.toDouble() ?? 0.0;
+                final nextStock = curStock + entry.value;
+                await client!.from('products').update({'stock': nextStock}).eq('id', entry.key);
+                await client!.from('stock_movements').insert({
+                  'shop_id': validShopId,
+                  'product_id': entry.key,
+                  'change': entry.value,
+                  'reason': 'adjustment',
+                  'ref_id': saleId,
+                });
+              }
+            } catch (stockErr) {
+              debugPrint("Stock restore skipped for ${entry.key}: $stockErr");
+            }
+          }
+        }
+        if (targetSale != null &&
+            reverseCustomerCredit &&
+            _isValidUuid(targetSale.customerId) &&
+            targetSale.due > 0.009) {
+          await _adjustCustomerBalanceInCloud(targetSale.customerId!, -targetSale.due);
+        }
+
         await client!.from('sales').delete().eq('id', saleId);
         pendingDeletions.remove(saleId);
         await prefs.setStringList(queueKey, pendingDeletions);
         debugPrint("SUCCESS: Deleted sale $saleId from Supabase Cloud");
       } catch (e) {
         debugPrint("Error deleting sale in cloud: $e");
+      }
+    }
+  }
+
+  /// Clears all saved bills for [shopId] locally and on Supabase Cloud.
+  /// When [resetCounterToOne] is true, resets sequential numbering so the next
+  /// bill starts cleanly at #1.
+  Future<void> clearBillHistory(
+    String shopId, {
+    bool resetCounterToOne = true,
+  }) async {
+    final validShopId = await _ensureValidShopId(shopId);
+    _localSales.clear();
+    await LocalDbService.instance.clearSalesForShop(
+      validShopId,
+      resetCounter: resetCounterToOne,
+    );
+    if (shopId != validShopId) {
+      await LocalDbService.instance.clearSalesForShop(
+        shopId,
+        resetCounter: resetCounterToOne,
+      );
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('cached_sales_$validShopId', jsonEncode([]));
+    await prefs.setStringList('pending_deleted_sales_$validShopId', []);
+    if (shopId != validShopId) {
+      await prefs.setString('cached_sales_$shopId', jsonEncode([]));
+      await prefs.setStringList('pending_deleted_sales_$shopId', []);
+    }
+
+    if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
+      try {
+        await client!.rpc('clear_shop_bill_history', params: {
+          '_shop_id': validShopId,
+          '_reset_counter': resetCounterToOne,
+        }).timeout(const Duration(seconds: 6));
+      } catch (rpcErr) {
+        debugPrint("clear_shop_bill_history RPC fallback to table delete: $rpcErr");
+        await client!
+            .from('sales')
+            .delete()
+            .eq('shop_id', validShopId)
+            .timeout(const Duration(seconds: 8));
       }
     }
   }
