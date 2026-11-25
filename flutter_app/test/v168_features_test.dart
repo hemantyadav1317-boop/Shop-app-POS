@@ -180,5 +180,68 @@ void main() {
       expect(ProductAliases.matches('आलू (Potato)', 'VEGETABLES', null, 'potato'), isTrue);
       expect(ProductAliases.matches('आलू (Potato)', 'VEGETABLES', null, 'आलू'), isTrue);
     });
+
+    testWidgets('6. MandiOrderScreen header title does not overlap + button on narrow width', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(340, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final localeProvider = LocaleProvider();
+      await localeProvider.setLocale('en');
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider.value(value: localeProvider),
+          ],
+          child: const MaterialApp(
+            home: MandiOrderScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final titleRect = tester.getRect(find.text('Mandi / Supplier Order'));
+      final addBtnRect = tester.getRect(find.byIcon(Icons.add_circle_outline_rounded));
+      expect(titleRect.right, lessThanOrEqualTo(addBtnRect.left));
+    });
+
+    testWidgets('7. DailyProfitScreen SafeArea protects content from bottom navigation bar inset', (tester) async {
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: const MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: Size(360, 720),
+                padding: EdgeInsets.only(bottom: 48),
+              ),
+              child: DailyProfitScreen(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      final bodySafeAreaFinder = find.ancestor(
+        of: find.byType(ListView),
+        matching: find.byType(SafeArea),
+      );
+      expect(bodySafeAreaFinder, findsOneWidget);
+      final safeArea = tester.widget<SafeArea>(bodySafeAreaFinder);
+      expect(safeArea.bottom, isTrue);
+      final listViewRect = tester.getRect(find.byType(ListView));
+      // Bottom of ListView must stop above the 48px system navigation bar inset (720 - 48 = 672)
+      expect(listViewRect.bottom, lessThanOrEqualTo(672.0));
+    });
   });
 }

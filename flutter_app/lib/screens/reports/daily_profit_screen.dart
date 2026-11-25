@@ -52,14 +52,20 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
       List<Expense> eList = [];
 
       if (_selectedRange == 'today') {
-        sList = salesSource.where((s) => s.createdAt.isAfter(todayStart)).toList();
-        eList = expensesSource.where((e) => e.spentOn.isAfter(todayStart)).toList();
+        sList = salesSource.where((s) => !s.createdAt.toLocal().isBefore(todayStart)).toList();
+        eList = expensesSource.where((e) => !e.spentOn.toLocal().isBefore(todayStart)).toList();
       } else if (_selectedRange == 'yesterday') {
-        sList = salesSource.where((s) => s.createdAt.isAfter(yesterdayStart) && s.createdAt.isBefore(todayStart)).toList();
-        eList = expensesSource.where((e) => e.spentOn.isAfter(yesterdayStart) && e.spentOn.isBefore(todayStart)).toList();
+        sList = salesSource.where((s) {
+          final local = s.createdAt.toLocal();
+          return !local.isBefore(yesterdayStart) && local.isBefore(todayStart);
+        }).toList();
+        eList = expensesSource.where((e) {
+          final local = e.spentOn.toLocal();
+          return !local.isBefore(yesterdayStart) && local.isBefore(todayStart);
+        }).toList();
       } else {
-        sList = salesSource.where((s) => s.createdAt.isAfter(last7Start)).toList();
-        eList = expensesSource.where((e) => e.spentOn.isAfter(last7Start)).toList();
+        sList = salesSource.where((s) => !s.createdAt.toLocal().isBefore(last7Start)).toList();
+        eList = expensesSource.where((e) => !e.spentOn.toLocal().isBefore(last7Start)).toList();
       }
 
       if (mounted) {
@@ -123,8 +129,14 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
       final startOfDay = DateTime(picked.year, picked.month, picked.day);
       final endOfDay = startOfDay.add(const Duration(days: 1));
 
-      final sList = salesSource.where((s) => s.createdAt.isAfter(startOfDay) && s.createdAt.isBefore(endOfDay)).toList();
-      final eList = expensesSource.where((e) => e.spentOn.isAfter(startOfDay) && e.spentOn.isBefore(endOfDay)).toList();
+      final sList = salesSource.where((s) {
+        final local = s.createdAt.toLocal();
+        return !local.isBefore(startOfDay) && local.isBefore(endOfDay);
+      }).toList();
+      final eList = expensesSource.where((e) {
+        final local = e.spentOn.toLocal();
+        return !local.isBefore(startOfDay) && local.isBefore(endOfDay);
+      }).toList();
 
       if (mounted) {
         setState(() {
@@ -236,9 +248,11 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              children: [
+          : SafeArea(
+              top: false,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 32),
+                children: [
                 // 1. Date Range Filter Pills + Calendar Icon Button
                 Row(
                   children: [
@@ -635,6 +649,7 @@ class _DailyProfitScreenState extends State<DailyProfitScreen> {
                   ),
               ],
             ),
+          ),
     );
   }
 

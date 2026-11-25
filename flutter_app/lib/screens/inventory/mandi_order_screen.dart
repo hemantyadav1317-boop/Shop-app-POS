@@ -391,6 +391,7 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
         ),
         foregroundColor: Colors.white,
         elevation: 0,
+        titleSpacing: 4,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           onPressed: () {
@@ -406,12 +407,23 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                 color: Colors.white.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: const Icon(Icons.assignment_rounded, color: Colors.white, size: 20),
+              child: const Icon(Icons.assignment_rounded, color: Colors.white, size: 19),
             ),
             const SizedBox(width: 8),
-            Text(
-              isHindi ? 'मंडी / सप्लायर पर्ची' : 'Mandi / Supplier Order',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: Colors.white),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    isHindi ? 'मंडी / सप्लायर पर्ची' : 'Mandi / Supplier Order',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5, color: Colors.white),
+                  ),
+                ),
+              ),
             ),
           ],
         ),
@@ -513,36 +525,43 @@ class _MandiOrderScreenState extends State<MandiOrderScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         // Left active section with orange bottom indicator
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.storefront_rounded, color: Color(0xFFFF5722), size: 18),
-                                const SizedBox(width: 6),
-                                Text(
-                                  isHindi
-                                      ? 'पर्ची में शामिल सामान (${_selectedProductIds.length})'
-                                      : 'Items in Order (${_selectedProductIds.length})',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13.5,
-                                    color: isDark ? Colors.white : const Color(0xFF1E293B),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.storefront_rounded, color: Color(0xFFFF5722), size: 18),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      isHindi
+                                          ? 'पर्ची में शामिल सामान (${_selectedProductIds.length})'
+                                          : 'Items in Order (${_selectedProductIds.length})',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13.5,
+                                        color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              height: 2.5,
-                              width: 140,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFF5722),
-                                borderRadius: BorderRadius.circular(2),
+                                ],
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Container(
+                                height: 2.5,
+                                width: 140,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF5722),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
 
                         // Right: '+ और जोड़ें'
                         InkWell(
