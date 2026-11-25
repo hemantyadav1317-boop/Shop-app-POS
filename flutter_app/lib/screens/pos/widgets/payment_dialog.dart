@@ -780,6 +780,12 @@ class _PaymentDialogState extends State<PaymentDialog> {
           custProv.loadCustomers(shop.id);
         }
       } else {
+        // Quick 700ms multi-device check before allocating bill number so concurrent phones don't collide
+        try {
+          await SupabaseService.instance
+              .syncCloudBillCounterFloor(shop.id)
+              .timeout(const Duration(milliseconds: 700));
+        } catch (_) {}
         final confirmedBillNo = await LocalDbService.instance.getNextBillNo(shop.id);
         _billNo = confirmedBillNo;
         final sale = Sale(

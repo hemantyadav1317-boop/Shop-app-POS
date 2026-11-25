@@ -1274,26 +1274,43 @@ class SupabaseService {
       }
 
       try {
-        var query = client!
-            .from('sales')
-            .select('*, sale_items(*)')
-            .eq('shop_id', validShopId)
-            .order('created_at', ascending: false);
-        final response = limit != null ? await query.limit(limit) : await query;
-        final rawCloudList = (response as List).map((e) => Sale.fromJson(e)).toList();
-
-        // Deduplicate consecutive identical sales created within 15 seconds of each other
-        final List<Sale> cloudList = [];
-        for (final sale in rawCloudList) {
-          final isDuplicate = cloudList.any((existing) =>
-              existing.total == sale.total &&
-              existing.paymentMode == sale.paymentMode &&
-              existing.customerName == sale.customerName &&
-              existing.items.length == sale.items.length &&
-              existing.createdAt.difference(sale.createdAt).abs().inSeconds < 15);
-          if (!isDuplicate) {
-            cloudList.add(sale);
+        final List<Sale> rawCloudList = [];
+        if (limit != null) {
+          final response = await client!
+              .from('sales')
+              .select('*, sale_items(*)')
+              .eq('shop_id', validShopId)
+              .order('created_at', ascending: false)
+              .limit(limit);
+          rawCloudList.addAll((response as List).map((e) => Sale.fromJson(e)));
+        } else {
+          // Paginate in 1000-row chunks so Supabase's default 1000-row cap never cuts off bills #1..#299
+          const int pageSize = 1000;
+          int offset = 0;
+          for (int page = 0; page < 50; page++) {
+            final response = await client!
+                .from('sales')
+                .select('*, sale_items(*)')
+                .eq('shop_id', validShopId)
+                .order('created_at', ascending: false)
+                .range(offset, offset + pageSize - 1);
+            final batch = (response as List).map((e) => Sale.fromJson(e)).toList();
+            rawCloudList.addAll(batch);
+            if (batch.length < pageSize) break;
+            offset += pageSize;
           }
+        }
+
+        // Deduplicate only true ID / bill_no / clientRef duplicates (never hide separate valid bills)
+        final List<Sale> cloudList = [];
+        final seenIds = <String>{};
+        final seenBillNos = <int>{};
+        for (final sale in rawCloudList) {
+          if (seenIds.contains(sale.id)) continue;
+          if (sale.billNo > 0 && seenBillNos.contains(sale.billNo)) continue;
+          seenIds.add(sale.id);
+          if (sale.billNo > 0) seenBillNos.add(sale.billNo);
+          cloudList.add(sale);
         }
 
         if (cloudList.isNotEmpty || !isStaff) {
@@ -1485,6 +1502,91 @@ class SupabaseService {
     return floor;
   }
 
+  /// Upserts a sale header to Supabase; if another device already claimed [sale.billNo]
+  /// (`23505` unique constraint violation), automatically assigns the next free server
+  /// bill number via `get_next_bill_no` so earlier device keeps the first number and
+  /// the second device advances monotonically without creating a stuck outbox duplicate.
+  Future<Sale> _upsertSaleHeaderWithConflictResolution({
+    required Sale sale,
+    required String saleUuid,
+    required String validShopId,
+  }) async {
+    final validMode = ['cash', 'online', 'credit', 'split', 'set_later'].contains(sale.paymentMode)
+        ? sale.paymentMode
+        : 'cash';
+    Sale workingSale = sale.copyWith(id: saleUuid, shopId: validShopId);
+
+    Map<String, dynamic> buildPayload(int billNo) => {
+      'id': saleUuid,
+      'shop_id': validShopId,
+      'bill_no': billNo > 0 ? billNo : 1,
+      'customer_id': _isValidUuid(workingSale.customerId) ? workingSale.customerId : null,
+      'customer_name': workingSale.customerName,
+      'customer_phone': workingSale.customerPhone,
+      'sub_total': workingSale.subtotal,
+      'discount': workingSale.discount,
+      'total': workingSale.total,
+      'paid': workingSale.paid,
+      'due': workingSale.due,
+      'payment_mode': validMode,
+      'note': workingSale.encodedNote,
+      'created_at': workingSale.createdAt.toUtc().toIso8601String(),
+    };
+
+    try {
+      await client!
+          .from('sales')
+          .upsert(buildPayload(workingSale.billNo))
+          .timeout(const Duration(milliseconds: 5000));
+      return workingSale;
+    } catch (err) {
+      final errStr = err.toString().toLowerCase();
+      final isBillConflict = errStr.contains('23505') ||
+          errStr.contains('duplicate key') ||
+          errStr.contains('sales_shop_id_bill_no_key');
+      if (!isBillConflict) rethrow;
+
+      int nextFreeBillNo = workingSale.billNo + 1;
+      try {
+        final rpcNext = await client!
+            .rpc('get_next_bill_no', params: {'_shop_id': validShopId})
+            .timeout(const Duration(milliseconds: 2500));
+        if (rpcNext is num && rpcNext.toInt() > 0 && rpcNext.toInt() < 1000000000) {
+          nextFreeBillNo = rpcNext.toInt();
+        }
+      } catch (_) {
+        try {
+          final topRow = await client!
+              .from('sales')
+              .select('bill_no')
+              .eq('shop_id', validShopId)
+              .lt('bill_no', 1000000000)
+              .order('bill_no', ascending: false)
+              .limit(1)
+              .maybeSingle()
+              .timeout(const Duration(milliseconds: 2500));
+          final topVal = (topRow?['bill_no'] as num?)?.toInt() ?? 0;
+          if (topVal >= nextFreeBillNo) {
+            nextFreeBillNo = topVal + 1;
+          }
+        } catch (_) {}
+      }
+
+      workingSale = workingSale.copyWith(billNo: nextFreeBillNo);
+      await client!
+          .from('sales')
+          .upsert(buildPayload(nextFreeBillNo))
+          .timeout(const Duration(milliseconds: 5000));
+
+      final idx = _localSales.indexWhere((s) => s.id == sale.id || s.id == saleUuid);
+      if (idx != -1) {
+        _localSales[idx] = workingSale;
+      }
+      await LocalDbService.instance.upsertSale(validShopId, workingSale);
+      return workingSale;
+    }
+  }
+
   Future<void> _syncCreatedSaleToCloud(Sale targetSale, String validShopId) async {
     try {
       // 1. Try calling official Supabase RPC create_sale with strict 2-sec timeout
@@ -1572,25 +1674,11 @@ class SupabaseService {
       try {
         final isValidSaleUuid = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$').hasMatch(targetSale.id);
         final saleId = isValidSaleUuid ? targetSale.id : const Uuid().v4();
-        final salePayload = {
-          'id': saleId,
-          'shop_id': validShopId,
-          'bill_no': targetSale.billNo > 0 ? targetSale.billNo : 1,
-          'customer_id': (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null,
-          'customer_name': targetSale.customerName,
-          'customer_phone': targetSale.customerPhone,
-          'sub_total': targetSale.subtotal,
-          'discount': targetSale.discount,
-          'total': targetSale.total,
-          'paid': targetSale.paid,
-          'due': targetSale.due,
-          'payment_mode': ['cash', 'online', 'credit', 'split', 'set_later'].contains(targetSale.paymentMode)
-              ? targetSale.paymentMode
-              : 'cash',
-          'note': targetSale.encodedNote,
-          'created_at': targetSale.createdAt.toUtc().toIso8601String(),
-        };
-        await client!.from('sales').upsert(salePayload).timeout(const Duration(milliseconds: 5000));
+        final resolvedSale = await _upsertSaleHeaderWithConflictResolution(
+          sale: targetSale,
+          saleUuid: saleId,
+          validShopId: validShopId,
+        );
 
         // ⚡ BATCH INSERT ALL SALE ITEMS IN ONE SINGLE CALL INSTEAD OF N SEPARATE CALLS!
         await client!.from('sale_items').delete().eq('sale_id', saleId).timeout(const Duration(milliseconds: 2500));
@@ -1669,7 +1757,7 @@ class SupabaseService {
                   'amount': khataCreditToAdd,
                   'balance_after': nextBal,
                   'sale_id': saleId,
-                  'note': 'Credit on Bill #${targetSale.billNo}',
+                  'note': 'Credit on Bill #${resolvedSale.billNo}',
                 }).timeout(const Duration(milliseconds: 2500));
               } catch (_) {}
             }
@@ -1856,7 +1944,9 @@ class SupabaseService {
   /// Delete / cancel an existing bill
   Future<void> deleteSale(String saleId) async {
     _localSales.removeWhere((s) => s.id == saleId);
-    _saveCachedSales(_localShop.id, _localSales);
+    await LocalDbService.instance.deleteSale(_localShop.id, saleId);
+    await LocalDbService.instance.removeOutboxForEntity('sale', saleId);
+    await _saveCachedSales(_localShop.id, _localSales);
 
     final prefs = await SharedPreferences.getInstance();
     final queueKey = 'pending_deleted_sales_${_localShop.id}';
@@ -2735,31 +2825,14 @@ class SupabaseService {
             final saleUuid = _isValidUuid(offlineSale.id)
                 ? offlineSale.id
                 : const Uuid().v4();
-            final validMode = ['cash', 'online', 'credit', 'split', 'set_later']
-                    .contains(offlineSale.paymentMode)
-                ? offlineSale.paymentMode
-                : 'cash';
-            await client!.from('sales').upsert({
-              'id': saleUuid,
-              'shop_id': validShopId,
-              'bill_no': offlineSale.billNo > 0 ? offlineSale.billNo : 1,
-              'customer_id': _isValidUuid(offlineSale.customerId)
-                  ? offlineSale.customerId
-                  : null,
-              'customer_name': offlineSale.customerName,
-              'customer_phone': offlineSale.customerPhone,
-              'sub_total': offlineSale.subtotal,
-              'discount': offlineSale.discount,
-              'total': offlineSale.total,
-              'paid': offlineSale.paid,
-              'due': offlineSale.due,
-              'payment_mode': validMode,
-              'note': offlineSale.encodedNote,
-              'created_at': offlineSale.createdAt.toUtc().toIso8601String(),
-            });
+            final resolvedOfflineSale = await _upsertSaleHeaderWithConflictResolution(
+              sale: offlineSale,
+              saleUuid: saleUuid,
+              validShopId: validShopId,
+            );
             await client!.from('sale_items').delete().eq('sale_id', saleUuid);
-            if (offlineSale.items.isNotEmpty) {
-              await client!.from('sale_items').insert(offlineSale.items.map((it) => {
+            if (resolvedOfflineSale.items.isNotEmpty) {
+              await client!.from('sale_items').insert(resolvedOfflineSale.items.map((it) => {
                     'shop_id': validShopId,
                     'sale_id': saleUuid,
                     'product_id': _isValidUuid(it.productId) ? it.productId : null,
@@ -2801,7 +2874,7 @@ class SupabaseService {
                       'amount': offlineKhataCredit,
                       'balance_after': nextBal,
                       'sale_id': saleUuid,
-                      'note': 'Credit on Bill #${offlineSale.billNo}',
+                      'note': 'Credit on Bill #${resolvedOfflineSale.billNo}',
                     });
                   } catch (_) {}
                 }

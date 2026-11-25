@@ -227,6 +227,24 @@ void main() {
           createdAt: DateTime(2026, 11, 25, 16, 9),
         ),
       );
+      await SupabaseService.instance.createSale(
+        Sale(
+          id: 'bill-edited-1',
+          shopId: shopId,
+          billNo: 1099,
+          customerName: 'Edited Customer',
+          items: [
+            CartItem(productId: 'p2', name: 'Onion', unit: 'kg', price: 40, qty: 1),
+          ],
+          subtotal: 40,
+          total: 40,
+          paid: 40,
+          due: 0,
+          paymentMode: 'cash',
+          editCount: 1,
+          createdAt: DateTime(2026, 11, 25, 15, 30),
+        ),
+      );
 
       await tester.pumpWidget(
         MultiProvider(
@@ -247,9 +265,18 @@ void main() {
 
       expect(tester.takeException(), isNull);
       expect(find.text('1100'), findsOneWidget);
+      expect(find.text('1099'), findsOneWidget);
       final timeRect = tester.getRect(find.text('25 Nov 2026 4:09 PM'));
-      final totalRect = tester.getRect(find.text('Total : '));
+      final totalRect = tester.getRect(find.text('Total : ').first);
       expect(timeRect.right, lessThanOrEqualTo(totalRect.left - 10));
+
+      // Verify Edited Bills filter shows only edited bill (#1099)
+      await tester.tap(find.byIcon(Icons.tune_rounded));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Edited Bills (संपादित बिल)'));
+      await tester.pumpAndSettle();
+      expect(find.text('1099'), findsOneWidget);
+      expect(find.text('1100'), findsNothing);
     });
 
     test('Split payment Cash + UPI + Credit calculates exact Khata creditAmount', () {

@@ -128,13 +128,15 @@ class _BillsScreenState extends State<BillsScreen> {
 
     List<Sale> list = unique;
 
-    // 2. Filter by payment mode
+    // 2. Filter by payment mode or edit status
     if (_filter == 'credit') {
       list = list.where((s) => s.due > 0).toList();
     } else if (_filter == 'online') {
       list = list.where((s) => s.paymentMode == 'online').toList();
     } else if (_filter == 'cash') {
       list = list.where((s) => s.paymentMode == 'cash').toList();
+    } else if (_filter == 'edited') {
+      list = list.where((s) => s.isEdited).toList();
     }
 
     // 3. Filter by date
@@ -1389,6 +1391,8 @@ class _BillsScreenState extends State<BillsScreen> {
                         _buildFilterPopupItem('online', 'UPI Online (ऑनलाइन बिल)', Icons.qr_code_2, isDark),
                         const PopupMenuDivider(height: 1),
                         _buildFilterPopupItem('credit', 'Unsettled / Credit (उधार बाकी)', Icons.book_outlined, isDark),
+                        const PopupMenuDivider(height: 1),
+                        _buildFilterPopupItem('edited', 'Edited Bills (संपादित बिल)', Icons.edit_note_rounded, isDark),
                       ],
                     ),
                     IconButton(
@@ -1458,7 +1462,9 @@ class _BillsScreenState extends State<BillsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'Filter: ${_filter.toUpperCase()}',
+                          _filter == 'edited'
+                              ? 'Filter: EDITED BILLS'
+                              : 'Filter: ${_filter.toUpperCase()}',
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                         ),
                         const SizedBox(width: 4),
@@ -1527,6 +1533,20 @@ class _BillsScreenState extends State<BillsScreen> {
                                                 _visibleCount += 50;
                                               });
                                             },
+                                          ),
+                                          const SizedBox(width: 10),
+                                          OutlinedButton(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AppColors.primary,
+                                              side: const BorderSide(color: AppColors.primary),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                _visibleCount = totalCount;
+                                              });
+                                            },
+                                            child: Text('Load All ($totalCount)'),
                                           ),
                                         ],
                                       ),
