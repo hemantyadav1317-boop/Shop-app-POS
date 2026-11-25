@@ -72,6 +72,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: release_output/ShopPOS-Release.apk
-          generate_release_notes: true
+          generate_release_notes: false
+          body: |
+            • सटीक सीरियल बिल नंबरिंग (Zero-Gap Billing)
+            • बेहतर क्लाउड सिंक और परफॉरमेंस सुधार
+            • यूआई लेआउट और बग फिक्स
           draft: false
           prerelease: false

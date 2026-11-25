@@ -24,6 +24,7 @@ import 'package:shop_pos/providers/product_provider.dart';
 import 'package:shop_pos/providers/shop_provider.dart';
 import 'package:shop_pos/screens/bills/bills_screen.dart';
 import 'package:shop_pos/screens/customers/customers_screen.dart';
+import 'package:shop_pos/screens/inventory/add_edit_product_screen.dart';
 import 'package:shop_pos/screens/inventory/inventory_screen.dart';
 import 'package:shop_pos/screens/pos/widgets/bill_receipt_card.dart';
 import 'package:shop_pos/screens/pos/widgets/payment_dialog.dart';
@@ -1111,6 +1112,166 @@ void main() {
       final y1317 = tester.getTopLeft(find.text('1317')).dy;
       final y1294 = tester.getTopLeft(find.text('1294')).dy;
       expect(y1317, lessThan(y1294));
+    });
+
+    test('LocalDbService.saveSales deduplicates pending create by clientRef, preserves update_sale edits, and keeps +1 serial billNo', () async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.init(dbPathOverride: inMemoryDatabasePath);
+
+      const shopId = 'shop-serial-sync-test';
+      final t1 = DateTime(2026, 11, 25, 20, 30);
+
+      // Client created bill #1401 with client UUID + clientRef, queued in sync_outbox
+      final clientSale = Sale(
+        id: '11111111-1111-4111-8111-111111111111',
+        shopId: shopId,
+        billNo: 1401,
+        customerName: 'Walk-in Customer',
+        items: [CartItem(productId: 'p1', name: 'Tomato', unit: 'kg', price: 60, qty: 1)],
+        subtotal: 60,
+        total: 60,
+        paid: 60,
+        paymentMode: 'cash',
+        createdAt: t1,
+        clientRef: 'cref-unique-1401',
+      );
+      await LocalDbService.instance.enqueueOutbox(
+        shopId: shopId,
+        entityType: 'sale',
+        entityId: clientSale.id,
+        operation: 'create',
+        payload: {'sale': clientSale.toJson()},
+      );
+
+      // An already-synced bill #1400 with a pending local edit ('update_sale')
+      final editedSale = Sale(
+        id: '22222222-2222-4222-8222-222222222222',
+        shopId: shopId,
+        billNo: 1400,
+        customerName: 'Edited Customer',
+        items: [CartItem(productId: 'p1', name: 'Tomato', unit: 'kg', price: 80, qty: 1)],
+        subtotal: 80,
+        total: 80,
+        paid: 80,
+        paymentMode: 'cash',
+        createdAt: t1.subtract(const Duration(minutes: 2)),
+        clientRef: 'cref-unique-1400',
+        editCount: 1,
+      );
+      await LocalDbService.instance.enqueueOutbox(
+        shopId: shopId,
+        entityType: 'sale',
+        entityId: editedSale.id,
+        operation: 'update_sale',
+        payload: {'sale': editedSale.toJson()},
+      );
+
+      // Cloud returns server UUID for #1401 (with matching clientRef) + stale pre-edit #1400
+      final serverSale1401 = clientSale.copyWith(id: '99999999-9999-4999-8999-999999999999');
+      final cloudStale1400 = editedSale.copyWith(total: 50, paid: 50, editCount: 0);
+
+      await LocalDbService.instance.saveSales(
+        shopId,
+        [serverSale1401, cloudStale1400],
+        authoritativeCloudSync: false,
+      );
+
+      final saved = await LocalDbService.instance.getSales(shopId);
+      // Must have exactly 2 bills (#1401 server UUID + #1400 pending local edit), NO duplicate client UUID!
+      expect(saved.length, 2);
+      expect(saved.where((s) => s.billNo == 1401).length, 1);
+      expect(saved.firstWhere((s) => s.billNo == 1401).id, serverSale1401.id);
+      expect(saved.firstWhere((s) => s.billNo == 1400).total, 80);
+
+      // Strict +1 serial increment check: 1402, 1403, 1404 (never +6)
+      expect(await LocalDbService.instance.getNextBillNo(shopId), 1402);
+      expect(await LocalDbService.instance.getNextBillNo(shopId), 1403);
+      expect(await LocalDbService.instance.getNextBillNo(shopId), 1404);
+
+      await LocalDbService.instance.closeForTest();
+    });
+
+    testWidgets('UpdateService update popup hides GitHub Full Changelog URLs and markdown noise', (tester) async {
+      expect(
+        UpdateService.sanitizeReleaseNotes(
+          '**Full Changelog**: https://github.com/hemantyadav1317-boop/Shop-app-POS/compare/v1.7.9...v1.7.10',
+        ),
+        '',
+      );
+      expect(
+        UpdateService.sanitizeReleaseNotes(
+          "## What's Changed\n* Faster billing sync by @dev in https://github.com/org/repo/pull/1\n**Full Changelog**: https://github.com/org/repo/compare/v1...v2",
+        ),
+        '• Faster billing sync',
+      );
+
+      final info = UpdateInfo(
+        hasUpdate: true,
+        currentVersion: '1.7.12',
+        latestVersion: '1.7.13',
+        downloadUrl: 'https://github.com/example/app/releases/download/v1.7.13/app.apk',
+        releaseNotes: '**Full Changelog**: https://github.com/hemantyadav1317-boop/Shop-app-POS/compare/v1.7.12...v1.7.13',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () => UpdateService.showUpdateDialog(context, info),
+                child: const Text('ShowUpdate'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('ShowUpdate'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('नया अपडेट उपलब्ध है! 🚀'), findsOneWidget);
+      expect(find.textContaining('Full Changelog'), findsNothing);
+      expect(find.textContaining('github.com'), findsNothing);
+      expect(find.textContaining('https://'), findsNothing);
+    });
+
+    testWidgets('AddEditProductScreen renders Profit Margin row without horizontal overflow on 360px phone', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 760));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest(disable: true);
+
+      final existingProduct = Product(
+        id: 'prod-potato-1',
+        shopId: 'demo-shop-101',
+        name: 'आलू (Potato)',
+        category: 'Vegetables',
+        unit: 'kg',
+        price: 25.0,
+        purchasePrice: 11.0,
+        stock: 700.205,
+        lowStockAt: 0.1,
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
+          ],
+          child: MaterialApp(
+            home: AddEditProductScreen(existing: existingProduct),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('अनुमानित मुनाफा (Profit Margin):'), findsOneWidget);
+      expect(find.text('₹14.0 / kg (127.3%)'), findsOneWidget);
     });
   });
 }

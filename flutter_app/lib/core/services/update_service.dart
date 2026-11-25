@@ -23,7 +23,7 @@ class UpdateInfo {
 }
 
 class UpdateService {
-  static const String currentVersion = '1.7.12';
+  static const String currentVersion = '1.7.13';
 
   // GitHub repository for auto updates
   static String githubRepo = 'hemantyadav1317-boop/Shop-app-POS';
@@ -66,7 +66,7 @@ class UpdateService {
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         final tagName = (data['tag_name'] as String? ?? '').replaceAll('v', '');
-        final body = data['body'] as String? ?? 'नया सुधार और फीचर्स जोड़े गए हैं।';
+        final body = sanitizeReleaseNotes(data['body'] as String?);
 
         // Find APK download asset if present
         String downloadUrl = data['html_url'] as String? ?? 'https://github.com/$repo/releases';
@@ -107,7 +107,7 @@ class UpdateService {
           currentVersion: currentVersion,
           latestVersion: tagName,
           downloadUrl: downloadUrl,
-          releaseNotes: 'नया अपडेट v$tagName उपलब्ध है।',
+          releaseNotes: '',
         );
       }
     } catch (e) {
@@ -115,6 +115,49 @@ class UpdateService {
     }
 
     return null;
+  }
+
+  /// Strips GitHub auto-generated changelog URLs, repo names, commit metadata,
+  /// and raw markdown syntax so the update popup stays clean and professional.
+  @visibleForTesting
+  static String sanitizeReleaseNotes(String? rawNotes) {
+    if (rawNotes == null || rawNotes.trim().isEmpty) return '';
+    final urlRegex = RegExp(r'https?://\S+', caseSensitive: false);
+    final byAuthorRegex = RegExp(r'\s+by\s+@\S+.*$', caseSensitive: false);
+    final mdHeadingRegex = RegExp(r'^#{1,6}\s*');
+    final bulletPrefixRegex = RegExp(r'^[\-\*]\s+');
+
+    final cleanedLines = <String>[];
+    for (final rawLine in rawNotes.split(RegExp(r'\r?\n'))) {
+      var line = rawLine.trim();
+      if (line.isEmpty) continue;
+      final lower = line.toLowerCase();
+      if (lower.contains('full changelog') ||
+          lower.contains('/compare/') ||
+          lower.contains("what's changed") ||
+          lower.contains('new contributors')) {
+        continue;
+      }
+
+      line = line
+          .replaceAll(urlRegex, '')
+          .replaceAll(byAuthorRegex, '')
+          .replaceAll(RegExp(r'\s+in\s*$', caseSensitive: false), '')
+          .replaceAll('**', '')
+          .replaceAll('__', '')
+          .replaceAll('`', '')
+          .replaceFirst(mdHeadingRegex, '')
+          .trim();
+
+      if (line.isEmpty) continue;
+      if (bulletPrefixRegex.hasMatch(line)) {
+        line = '• ${line.replaceFirst(bulletPrefixRegex, '').trim()}';
+      }
+      if (line.isNotEmpty) {
+        cleanedLines.add(line);
+      }
+    }
+    return cleanedLines.join('\n');
   }
 
   /// Optional override for tests to inject mock OTA progress events
@@ -184,6 +227,13 @@ class UpdateService {
     }
 
     // New update is available - show popup
+    showUpdateDialog(context, info);
+  }
+
+  /// Displays the clean customer-facing update dialog for [info].
+  @visibleForTesting
+  static void showUpdateDialog(BuildContext context, UpdateInfo info) {
+    final cleanNotes = sanitizeReleaseNotes(info.releaseNotes);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -221,16 +271,17 @@ class UpdateService {
               'इस नए अपडेट में बेहतर परफॉरमेंस, बग फिक्स और नए फीचर्स जोड़े गए हैं।',
               style: TextStyle(fontSize: 12, color: AppColors.lightTextSecondary),
             ),
-            if (info.releaseNotes.isNotEmpty) ...[
+            if (cleanNotes.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: AppColors.lightMuted,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  info.releaseNotes,
+                  cleanNotes,
                   style: const TextStyle(fontSize: 11),
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,

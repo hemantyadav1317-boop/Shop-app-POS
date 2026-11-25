@@ -388,6 +388,7 @@ class LocalDbService {
         : const <SyncOutboxItem>[];
     final pendingDeletedSaleIds = <String>{};
     final pendingLocalSalesById = <String, Sale>{};
+    final pendingCreateSaleIds = <String>{};
     for (final item in outboxItems) {
       if (item.entityType == 'sale') {
         if (item.operation == 'delete_sale') {
@@ -398,6 +399,9 @@ class LocalDbService {
                 ? Map<String, dynamic>.from(item.payload['sale'] as Map)
                 : item.payload;
             pendingLocalSalesById[item.entityId] = Sale.fromJson(raw);
+            if (item.operation == 'create') {
+              pendingCreateSaleIds.add(item.entityId);
+            }
           } catch (_) {}
         }
       }
@@ -406,15 +410,35 @@ class LocalDbService {
         pendingDeletedSaleIds.isNotEmpty || pendingLocalSalesById.isNotEmpty;
 
     final merged = <String, Sale>{};
+    final syncedClientRefs = <String>{};
+    final syncedBillNos = <int>{};
     for (final s in sales) {
       if (!pendingDeletedSaleIds.contains(s.id)) {
         merged[s.id] = s;
+        final ref = s.clientRef?.trim();
+        if (ref != null && ref.isNotEmpty) syncedClientRefs.add(ref);
+        if (s.billNo > 0 && s.billNo < 1000000000) syncedBillNos.add(s.billNo);
       }
     }
     for (final entry in pendingLocalSalesById.entries) {
-      if (!pendingDeletedSaleIds.contains(entry.key)) {
-        merged[entry.key] = entry.value;
+      if (pendingDeletedSaleIds.contains(entry.key)) continue;
+      if (pendingCreateSaleIds.contains(entry.key)) {
+        final pendingRef = entry.value.clientRef?.trim();
+        if (pendingRef != null && pendingRef.isNotEmpty && syncedClientRefs.contains(pendingRef)) {
+          continue;
+        }
+        if (!merged.containsKey(entry.key) &&
+            entry.value.billNo > 0 &&
+            syncedBillNos.contains(entry.value.billNo)) {
+          // Check if cloud already has this exact sale under a server UUID
+          final alreadyInCloud = sales.any((s) =>
+              s.billNo == entry.value.billNo &&
+              (s.total - entry.value.total).abs() <= 0.01 &&
+              s.paymentMode == entry.value.paymentMode);
+          if (alreadyInCloud) continue;
+        }
       }
+      merged[entry.key] = entry.value;
     }
 
     final now = DateTime.now().toUtc().toIso8601String();

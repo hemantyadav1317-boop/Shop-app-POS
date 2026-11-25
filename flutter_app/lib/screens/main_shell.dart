@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -37,6 +38,9 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
   AuthProvider? _authProvider;
   DateTime? _lastBackPressedAt;
+  Timer? _productsRtTimer;
+  Timer? _customersRtTimer;
+  Timer? _salesRtTimer;
 
   @override
   void initState() {
@@ -73,9 +77,49 @@ class _MainShellState extends State<MainShell> {
 
   @override
   void dispose() {
+    _productsRtTimer?.cancel();
+    _customersRtTimer?.cancel();
+    _salesRtTimer?.cancel();
     SupabaseService.instance.unsubscribeFromShopChanges();
     _authProvider?.removeListener(_onAuthChanged);
     super.dispose();
+  }
+
+  void _handleRealtimeTableEvent({
+    required String table,
+    required String shopId,
+    required bool isStaff,
+    String? userId,
+    String? email,
+  }) {
+    if (!mounted) return;
+    if (table == 'shops') {
+      if (isStaff) {
+        context.read<ShopProvider>().syncStaffShop();
+      } else if (userId != null) {
+        context.read<ShopProvider>().loadForUser(userId, email: email);
+      }
+    } else if (table == 'products') {
+      _productsRtTimer?.cancel();
+      _productsRtTimer = Timer(const Duration(milliseconds: 700), () {
+        if (mounted) context.read<ProductProvider>().loadProducts(shopId);
+      });
+    } else if (table == 'customers' ||
+        table == 'customer_transactions' ||
+        table == 'payments') {
+      _customersRtTimer?.cancel();
+      _customersRtTimer = Timer(const Duration(milliseconds: 700), () {
+        if (mounted) context.read<CustomerProvider>().loadCustomers(shopId);
+      });
+    } else if (table == 'sales') {
+      _salesRtTimer?.cancel();
+      _salesRtTimer = Timer(const Duration(milliseconds: 900), () {
+        if (!mounted) return;
+        SupabaseService.instance.getSales(shopId).then((_) {
+          if (mounted) context.read<CustomerProvider>().loadCustomers(shopId);
+        });
+      });
+    }
   }
 
   Future<void> _syncUserCloudData() async {
@@ -106,17 +150,13 @@ class _MainShellState extends State<MainShell> {
             onEvent: (table, eventType, record) {
               if (!mounted) return;
               debugPrint('[MainShell] Real-time live event on: $table ($eventType)');
-              if (table == 'shops') {
-                context.read<ShopProvider>().loadForUser(u.id, email: u.email);
-              } else if (table == 'products') {
-                context.read<ProductProvider>().loadProducts(syncedShop.id);
-              } else if (table == 'customers' || table == 'customer_transactions' || table == 'payments') {
-                context.read<CustomerProvider>().loadCustomers(syncedShop.id);
-              } else if (table == 'sales') {
-                SupabaseService.instance.getSales(syncedShop.id).then((_) {
-                  if (mounted) context.read<CustomerProvider>().loadCustomers(syncedShop.id);
-                });
-              }
+              _handleRealtimeTableEvent(
+                table: table,
+                shopId: syncedShop.id,
+                isStaff: false,
+                userId: u.id,
+                email: u.email,
+              );
             },
           );
         }
@@ -138,17 +178,11 @@ class _MainShellState extends State<MainShell> {
             onEvent: (table, eventType, record) {
               if (!mounted) return;
               debugPrint('[MainShell] Staff Real-time live event on: $table ($eventType)');
-              if (table == 'shops') {
-                context.read<ShopProvider>().syncStaffShop();
-              } else if (table == 'products') {
-                context.read<ProductProvider>().loadProducts(syncedShop.id);
-              } else if (table == 'customers' || table == 'customer_transactions' || table == 'payments') {
-                context.read<CustomerProvider>().loadCustomers(syncedShop.id);
-              } else if (table == 'sales') {
-                SupabaseService.instance.getSales(syncedShop.id).then((_) {
-                  if (mounted) context.read<CustomerProvider>().loadCustomers(syncedShop.id);
-                });
-              }
+              _handleRealtimeTableEvent(
+                table: table,
+                shopId: syncedShop.id,
+                isStaff: true,
+              );
             },
           );
         }

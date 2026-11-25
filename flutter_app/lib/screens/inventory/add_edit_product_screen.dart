@@ -507,32 +507,40 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                         border: Border.all(color: marginVal >= 0 ? const Color(0xFF16A34A).withValues(alpha: 0.3) : Colors.red.withValues(alpha: 0.3)),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                marginVal >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                                size: 18,
+                          Icon(
+                            marginVal >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                            size: 18,
+                            color: marginVal >= 0 ? const Color(0xFF16A34A) : Colors.red,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              marginVal >= 0 ? 'अनुमानित मुनाफा (Profit Margin):' : 'नुकसान (Loss):',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                                 color: marginVal >= 0 ? const Color(0xFF16A34A) : Colors.red,
                               ),
-                              const SizedBox(width: 6),
-                              Text(
-                                marginVal >= 0 ? 'अनुमानित मुनाफा (Profit Margin):' : 'नुकसान (Loss):',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 155),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerRight,
+                              child: Text(
+                                '₹${marginVal.abs().toStringAsFixed(1)} / $_unit (${marginPct.abs().toStringAsFixed(1)}%)',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.bold,
                                   color: marginVal >= 0 ? const Color(0xFF16A34A) : Colors.red,
                                 ),
                               ),
-                            ],
-                          ),
-                          Text(
-                            '₹${marginVal.abs().toStringAsFixed(1)} / $_unit (${marginPct.abs().toStringAsFixed(1)}%)',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: marginVal >= 0 ? const Color(0xFF16A34A) : Colors.red,
                             ),
                           ),
                         ],
@@ -806,12 +814,16 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
             children: [
               Icon(icon, size: 18, color: const Color(0xFF1A4B8E)),
               const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1A4B8E),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1A4B8E),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
