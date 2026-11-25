@@ -120,8 +120,11 @@ class _BillsScreenState extends State<BillsScreen> {
       }
     }
 
-    // 1. Sort strictly date-wise: newest bills first
-    unique.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    // 1. Sort strictly date-wise (newest first), tie-breaking by higher billNo
+    unique.sort((a, b) {
+      final byDate = b.createdAt.compareTo(a.createdAt);
+      return byDate != 0 ? byDate : b.billNo.compareTo(a.billNo);
+    });
 
     List<Sale> list = unique;
 
@@ -909,22 +912,26 @@ class _BillsScreenState extends State<BillsScreen> {
                 onTap: () => _showBillDetails(sale),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Left Column: Invoice, Time, Customer, Created by
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      // Row 1: Invoice No (+ EDITED) & Items count
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Row(
                               children: [
-                                Text(
-                                  'Invoice : ',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                Flexible(
+                                  child: Text(
+                                    'Invoice : ',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                    ),
                                   ),
                                 ),
                                 Text(
@@ -955,67 +962,8 @@ class _BillsScreenState extends State<BillsScreen> {
                                 ],
                               ],
                             ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF64748B)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Time : ${timeFormat.format(sale.createdAt.toLocal())}',
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                const Icon(Icons.person_outline_rounded, size: 13, color: Color(0xFF64748B)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Customer : ',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Text(
-                                    customerDisplay,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                const Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFF64748B)),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Created by : $staffOrAdmin',
-                                  style: const TextStyle(
-                                    fontSize: 11.5,
-                                    color: Color(0xFF64748B),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Right Column: Items, Total, Button
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
+                          ),
+                          const SizedBox(width: 12),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -1036,28 +984,134 @@ class _BillsScreenState extends State<BillsScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 3),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'Total : ',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: Color(0xFF64748B),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+
+                      // Row 2: Date & Time (left) with guaranteed breathing gap before Total (right)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.access_time_rounded, size: 12, color: Color(0xFF64748B)),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: FittedBox(
+                                      fit: BoxFit.scaleDown,
+                                      alignment: Alignment.centerLeft,
+                                      child: Text(
+                                        timeFormat.format(sale.createdAt.toLocal()),
+                                        maxLines: 1,
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              Text(
-                                '₹${sale.total.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                  fontSize: 15.5,
-                                  fontWeight: FontWeight.w900,
-                                  color: isDark ? Colors.white : const Color(0xFF1E3A8A),
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(width: 14),
+                          Flexible(
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerRight,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      'Total : ',
+                                      style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                    Text(
+                                      '₹${sale.total.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: 15.5,
+                                        fontWeight: FontWeight.w900,
+                                        color: isDark ? Colors.white : const Color(0xFF1E3A8A),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 7),
+
+                      // Row 3: Customer & Created by (left) + Settle bill / Receipt CTA (right)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.person_outline_rounded, size: 13, color: Color(0xFF64748B)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            TextSpan(
+                                              text: 'Customer : ',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isDark ? Colors.grey.shade400 : const Color(0xFF64748B),
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text: customerDisplay,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.edit_note_rounded, size: 14, color: Color(0xFF64748B)),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        'Created by : $staffOrAdmin',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 11.5,
+                                          color: Color(0xFF64748B),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           if (isUnsettled)
                             FittedBox(
                               fit: BoxFit.scaleDown,
@@ -1125,8 +1179,8 @@ class _BillsScreenState extends State<BillsScreen> {
                                   ),
                                 ),
                               ),
-                            )
-],
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -1205,90 +1259,97 @@ class _BillsScreenState extends State<BillsScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 // Left: Date filter dropdown
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _dateFilter,
-                      isDense: true,
-                      icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
-                      items: [
-                        DropdownMenuItem(
-                          value: 'all',
-                          child: Text(
-                            'All Time',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _dateFilter,
+                          isDense: true,
+                          icon: const Icon(Icons.arrow_drop_down, color: Color(0xFF64748B)),
+                          items: [
+                            DropdownMenuItem(
+                              value: 'all',
+                              child: Text(
+                                'All Time',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'today',
-                          child: Text(
-                            'Today',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            DropdownMenuItem(
+                              value: 'today',
+                              child: Text(
+                                'Today',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'yesterday',
-                          child: Text(
-                            'Yesterday',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            DropdownMenuItem(
+                              value: 'yesterday',
+                              child: Text(
+                                'Yesterday',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'this_week',
-                          child: Text(
-                            'This Week',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            DropdownMenuItem(
+                              value: 'this_week',
+                              child: Text(
+                                'This Week',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                ),
+                              ),
                             ),
-                          ),
-                        ),
-                        DropdownMenuItem(
-                          value: 'custom',
-                          child: Text(
-                            _customSelectedDate != null
-                                ? DateFormat('dd MMM yyyy').format(_customSelectedDate!)
-                                : 'Pick Date...',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white : const Color(0xFF1E293B),
+                            DropdownMenuItem(
+                              value: 'custom',
+                              child: Text(
+                                _customSelectedDate != null
+                                    ? DateFormat('dd MMM yyyy').format(_customSelectedDate!)
+                                    : 'Pick Date...',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark ? Colors.white : const Color(0xFF1E293B),
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
+                          onChanged: (val) {
+                            if (val == 'custom') {
+                              _pickCustomDate();
+                            } else if (val != null) {
+                              setState(() {
+                                _dateFilter = val;
+                                _customSelectedDate = null;
+                              });
+                            }
+                          },
                         ),
-                      ],
-                      onChanged: (val) {
-                        if (val == 'custom') {
-                          _pickCustomDate();
-                        } else if (val != null) {
-                          setState(() {
-                            _dateFilter = val;
-                            _customSelectedDate = null;
-                          });
-                        }
-                      },
+                      ),
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
 
                 // Right: Action Icons (Search, Filter, Export)
                 Row(

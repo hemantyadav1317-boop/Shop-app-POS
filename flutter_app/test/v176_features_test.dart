@@ -20,6 +20,7 @@ import 'package:shop_pos/providers/customer_provider.dart';
 import 'package:shop_pos/providers/locale_provider.dart';
 import 'package:shop_pos/providers/product_provider.dart';
 import 'package:shop_pos/providers/shop_provider.dart';
+import 'package:shop_pos/screens/bills/bills_screen.dart';
 import 'package:shop_pos/screens/customers/customers_screen.dart';
 import 'package:shop_pos/screens/pos/widgets/bill_receipt_card.dart';
 import 'package:shop_pos/screens/pos/widgets/payment_dialog.dart';
@@ -199,6 +200,56 @@ void main() {
       await tester.tap(find.text('OpenStandalone'));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
+    });
+
+    testWidgets('BillsScreen keeps clean spacing between date/time label and Total on 360px phone width', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(360, 760));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest();
+
+      const shopId = 'demo-shop-101';
+      await SupabaseService.instance.createSale(
+        Sale(
+          id: 'bill-spacing-1',
+          shopId: shopId,
+          billNo: 1100,
+          customerName: 'Vinay Bro',
+          items: [
+            CartItem(productId: 'p1', name: 'Tomato', unit: 'kg', price: 90, qty: 2),
+          ],
+          subtotal: 180,
+          total: 180,
+          paid: 0,
+          due: 180,
+          paymentMode: 'credit',
+          createdAt: DateTime(2026, 11, 25, 16, 9),
+        ),
+      );
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => CartProvider()),
+            ChangeNotifierProvider(create: (_) => CustomerProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: const MaterialApp(
+            home: BillsScreen(isMainTab: true),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('1100'), findsOneWidget);
+      final timeRect = tester.getRect(find.text('25 Nov 2026 4:09 PM'));
+      final totalRect = tester.getRect(find.text('Total : '));
+      expect(timeRect.right, lessThanOrEqualTo(totalRect.left - 10));
     });
 
     test('Split payment Cash + UPI + Credit calculates exact Khata creditAmount', () {
@@ -532,6 +583,69 @@ void main() {
       expect(find.text('Invoice 1000005'), findsOneWidget);
       expect(find.text('25-11-2026 02:30 PM'), findsOneWidget);
       expect(find.textContaining('Edited'), findsOneWidget);
+    });
+
+    test('Authoritative cloud sync heals poisoned local counter (98730 -> 1100) while protecting pending offline bills', () async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest();
+      await LocalDbService.instance.init(dbPathOverride: inMemoryDatabasePath);
+
+      const shopId = 'shop-heal-test';
+      // Phone had poisoned counter 98730 cached locally
+      await LocalDbService.instance.setLastBillNo(shopId, 98730);
+      expect(await LocalDbService.instance.peekNextBillNo(shopId), 98731);
+
+      // Cloud has been cleanly renumbered to 1..1100 and no offline bills are pending in outbox
+      final cleanCloudSales = [
+        Sale(
+          id: 's-1100',
+          shopId: shopId,
+          billNo: 1100,
+          items: [CartItem(productId: 'p1', name: 'Aloo', unit: 'kg', price: 40, qty: 1)],
+          subtotal: 40,
+          total: 40,
+          paid: 40,
+          due: 0,
+          paymentMode: 'cash',
+          createdAt: DateTime.utc(2026, 11, 25, 10, 0),
+        ),
+      ];
+      await LocalDbService.instance.saveSales(
+        shopId,
+        cleanCloudSales,
+        authoritativeCloudSync: true,
+      );
+      expect(await LocalDbService.instance.peekNextBillNo(shopId), 1101);
+      expect(await LocalDbService.instance.getNextBillNo(shopId), 1101);
+
+      // Pending offline sale in outbox must protect local counter from shrinking
+      await LocalDbService.instance.enqueueOutbox(
+        shopId: shopId,
+        entityType: 'sale',
+        entityId: 'offline-1102',
+        operation: 'create',
+        payload: {
+          'sale': Sale(
+            id: 'offline-1102',
+            shopId: shopId,
+            billNo: 1102,
+            items: [CartItem(productId: 'p1', name: 'Pyaz', unit: 'kg', price: 50, qty: 1)],
+            subtotal: 50,
+            total: 50,
+            paid: 50,
+            due: 0,
+            paymentMode: 'cash',
+            createdAt: DateTime.now(),
+          ).toJson(),
+        },
+      );
+      await LocalDbService.instance.setLastBillNo(shopId, 1102);
+      await LocalDbService.instance.reconcileCounterFromCloud(shopId, 1100);
+      expect(await LocalDbService.instance.peekNextBillNo(shopId), 1103);
+
+      await LocalDbService.instance.closeForTest();
     });
   });
 }

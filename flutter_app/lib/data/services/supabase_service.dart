@@ -1297,7 +1297,16 @@ class SupabaseService {
         }
 
         if (cloudList.isNotEmpty || !isStaff) {
-          await _saveCachedSales(validShopId, cloudList);
+          await LocalDbService.instance.saveSales(
+            validShopId,
+            cloudList,
+            authoritativeCloudSync: (limit == null),
+          );
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            final compact = cloudList.take(200).map((s) => s.toJson()).toList();
+            await prefs.setString('cached_sales_$validShopId', jsonEncode(compact));
+          } catch (_) {}
           // Also sync cloud bill counter floor so next bill never jumps backward
           int cloudMaxBill = 0;
           for (final s in cloudList) {
@@ -1305,7 +1314,9 @@ class SupabaseService {
               cloudMaxBill = s.billNo;
             }
           }
-          if (cloudMaxBill > 0) {
+          if (limit == null && cloudMaxBill >= 0) {
+            await LocalDbService.instance.reconcileCounterFromCloud(validShopId, cloudMaxBill);
+          } else if (cloudMaxBill > 0) {
             await LocalDbService.instance.syncCounterFloor(validShopId, cloudMaxBill);
           }
           // Re-read merged SQLite list so offline/unsynced edits stay preserved
@@ -1414,7 +1425,7 @@ class SupabaseService {
   }
 
   /// Fetches the highest authoritative bill number from Supabase (counter + sales)
-  /// and advances the local SQLite counter floor so switching devices never skips backward.
+  /// and reconciles the local SQLite counter so devices stay sequential and self-heal.
   Future<int> syncCloudBillCounterFloor(String shopId) async {
     final validShopId = await _ensureValidShopId(shopId);
     final localPeek = await LocalDbService.instance.peekNextBillNo(validShopId);
@@ -1424,6 +1435,11 @@ class SupabaseService {
       return floor;
     }
 
+    int cloudCounterVal = 0;
+    int cloudSalesMaxVal = 0;
+    bool gotCloudCounter = false;
+    bool gotCloudSales = false;
+
     try {
       final counterRow = await client!
           .from('shop_bill_counters')
@@ -1431,9 +1447,10 @@ class SupabaseService {
           .eq('shop_id', validShopId)
           .maybeSingle()
           .timeout(const Duration(milliseconds: 1200));
+      gotCloudCounter = true;
       if (counterRow != null && counterRow['last_bill_no'] != null) {
         final cVal = (counterRow['last_bill_no'] as num).toInt();
-        if (cVal > floor && cVal < 1000000000) floor = cVal;
+        if (cVal > 0 && cVal < 1000000000) cloudCounterVal = cVal;
       }
     } catch (_) {}
 
@@ -1447,15 +1464,24 @@ class SupabaseService {
           .limit(1)
           .maybeSingle()
           .timeout(const Duration(milliseconds: 1200));
+      gotCloudSales = true;
       if (topSaleRow != null && topSaleRow['bill_no'] != null) {
         final sVal = (topSaleRow['bill_no'] as num).toInt();
-        if (sVal > floor && sVal < 1000000000) floor = sVal;
+        if (sVal > 0 && sVal < 1000000000) cloudSalesMaxVal = sVal;
       }
     } catch (_) {}
 
-    if (floor > 0) {
-      await LocalDbService.instance.syncCounterFloor(validShopId, floor);
+    if (gotCloudCounter || gotCloudSales) {
+      final cloudFloor = cloudCounterVal > cloudSalesMaxVal ? cloudCounterVal : cloudSalesMaxVal;
+      if (gotCloudSales && cloudFloor >= 0) {
+        await LocalDbService.instance.reconcileCounterFromCloud(validShopId, cloudFloor);
+        return cloudFloor;
+      } else if (cloudFloor > floor) {
+        await LocalDbService.instance.syncCounterFloor(validShopId, cloudFloor);
+        return cloudFloor;
+      }
     }
+
     return floor;
   }
 

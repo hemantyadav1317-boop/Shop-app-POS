@@ -378,7 +378,8 @@ class LocalDbService {
   /// Saves all sales without any 200-bill limit.
   /// Preserves local unsynced/pending-edit/pending-delete sales when merging cloud snapshots.
   Future<void> saveSales(String shopId, List<Sale> sales,
-      {bool preserveOutboxChanges = true}) async {
+      {bool preserveOutboxChanges = true,
+      bool authoritativeCloudSync = false}) async {
     final db = await _ensureDb();
     if (db == null) return;
 
@@ -401,6 +402,8 @@ class LocalDbService {
         }
       }
     }
+    final bool hasPendingLocalSales =
+        pendingDeletedSaleIds.isNotEmpty || pendingLocalSalesById.isNotEmpty;
 
     final merged = <String, Sale>{};
     for (final s in sales) {
@@ -439,7 +442,8 @@ class LocalDbService {
       }
       await batch.commit(noResult: true);
 
-      // Keep local bill counter in lockstep with highest synced bill number
+      // Keep local bill counter aligned with synced bills; when cloud snapshot is authoritative
+      // and no offline sales are pending, allow healing down from legacy poisoned counters (e.g. 98730 -> 1100).
       final cRows = await txn.query(
         'shop_bill_counters',
         where: 'shop_id = ?',
@@ -450,7 +454,10 @@ class LocalDbService {
           ? ((cRows.first['last_bill_no'] as num?)?.toInt() ?? 0)
           : 0;
       if (currentCounter >= 1000000000) currentCounter = 0;
-      final effectiveFloor = math.max(currentCounter, syncedMaxBill);
+      final bool trustCloudExactly =
+          authoritativeCloudSync && !hasPendingLocalSales && sales.isNotEmpty;
+      final int effectiveFloor =
+          trustCloudExactly ? syncedMaxBill : math.max(currentCounter, syncedMaxBill);
       if (effectiveFloor > 0) {
         await txn.insert(
           'shop_bill_counters',
@@ -469,7 +476,7 @@ class LocalDbService {
         final prefs = await SharedPreferences.getInstance();
         final prevPref = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
         final cleanPrev = prevPref >= 1000000000 ? 0 : prevPref;
-        if (syncedMaxBill > cleanPrev) {
+        if ((authoritativeCloudSync && !hasPendingLocalSales) || syncedMaxBill > cleanPrev) {
           await prefs.setInt('shop_last_bill_no_$shopId', syncedMaxBill);
         }
       } catch (_) {}
@@ -1017,6 +1024,25 @@ class LocalDbService {
 
       return nextNo;
     });
+  }
+
+  /// Returns true if any unsynced sale operation is waiting in local outbox.
+  Future<bool> hasPendingSaleOutbox(String shopId) async {
+    final db = await _ensureDb();
+    if (db == null) return false;
+    final rows = await db.rawQuery(
+      "SELECT 1 FROM sync_outbox WHERE shop_id = ? AND entity_type = 'sale' LIMIT 1",
+      [shopId],
+    );
+    return rows.isNotEmpty;
+  }
+
+  /// Aligns the local counter with the authoritative cloud counter when no offline sales are pending.
+  /// Allows healing down if cloud bills were renumbered or a poisoned counter (like 98730) was cleaned.
+  Future<void> reconcileCounterFromCloud(String shopId, int cloudLastBillNo) async {
+    if (cloudLastBillNo < 0 || cloudLastBillNo >= 1000000000) return;
+    if (await hasPendingSaleOutbox(shopId)) return;
+    await setLastBillNo(shopId, cloudLastBillNo);
   }
 
   /// Advances the local bill counter forward if [floorBillNo] is higher than current counter.
