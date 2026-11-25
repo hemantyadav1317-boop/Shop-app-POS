@@ -236,15 +236,7 @@ class Sale {
     if (json['created_at'] != null) {
       try {
         final rawStr = json['created_at'] as String;
-        final parsed = DateTime.parse(rawStr).toLocal();
-        final now = DateTime.now();
-        // Auto-heal timezone bug: if a timestamp was saved with UTC shift causing it
-        // to appear in the future (>5 mins ahead), correct the 5.5-hour IST offset!
-        if (parsed.isAfter(now.add(const Duration(minutes: 5)))) {
-          parsedDate = parsed.subtract(const Duration(hours: 5, minutes: 30));
-        } else {
-          parsedDate = parsed;
-        }
+        parsedDate = DateTime.parse(rawStr).toLocal();
       } catch (_) {
         parsedDate = DateTime.now();
       }

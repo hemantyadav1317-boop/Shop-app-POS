@@ -1229,6 +1229,16 @@ class SupabaseService {
 
         if (cloudList.isNotEmpty || !isStaff) {
           await _saveCachedSales(validShopId, cloudList);
+          // Also sync cloud bill counter floor so next bill never jumps backward
+          int cloudMaxBill = 0;
+          for (final s in cloudList) {
+            if (s.billNo > cloudMaxBill && s.billNo < 1000000) {
+              cloudMaxBill = s.billNo;
+            }
+          }
+          if (cloudMaxBill > 0) {
+            await LocalDbService.instance.syncCounterFloor(validShopId, cloudMaxBill);
+          }
           // Re-read merged SQLite list so offline/unsynced edits stay preserved
           final merged = await LocalDbService.instance.getSales(validShopId);
           final effectiveList = merged.isNotEmpty ? merged : cloudList;
@@ -1286,12 +1296,16 @@ class SupabaseService {
       }
     }
 
-    // Add to customer Khata if credit
-    if (targetSale.due > 0 && targetSale.customerId != null) {
+    // Add to customer Khata for credit portion (credit mode uses full due; split uses creditAmount)
+    final double khataCreditToAdd = targetSale.paymentMode == 'split'
+        ? targetSale.creditAmount
+        : targetSale.due;
+    if (khataCreditToAdd > 0.009 && targetSale.customerId != null) {
       final cIndex = _localCustomers.indexWhere((c) => c.id == targetSale.customerId);
       if (cIndex != -1) {
         final c = _localCustomers[cIndex];
-        _localCustomers[cIndex] = c.copyWith(balance: c.balance + targetSale.due);
+        _localCustomers[cIndex] = c.copyWith(balance: c.balance + khataCreditToAdd);
+        await _saveCachedCustomers(validShopId, _localCustomers);
       }
     }
 
@@ -1320,6 +1334,52 @@ class SupabaseService {
     return targetSale;
   }
 
+  /// Fetches the highest authoritative bill number from Supabase (counter + sales)
+  /// and advances the local SQLite counter floor so switching devices never skips backward.
+  Future<int> syncCloudBillCounterFloor(String shopId) async {
+    final validShopId = await _ensureValidShopId(shopId);
+    final localPeek = await LocalDbService.instance.peekNextBillNo(validShopId);
+    int floor = localPeek > 1 ? localPeek - 1 : 0;
+
+    if (!_isInitialized || client == null || validShopId == 'demo-shop-101') {
+      return floor;
+    }
+
+    try {
+      final counterRow = await client!
+          .from('shop_bill_counters')
+          .select('last_bill_no')
+          .eq('shop_id', validShopId)
+          .maybeSingle()
+          .timeout(const Duration(milliseconds: 1200));
+      if (counterRow != null && counterRow['last_bill_no'] != null) {
+        final cVal = (counterRow['last_bill_no'] as num).toInt();
+        if (cVal > floor && cVal < 1000000) floor = cVal;
+      }
+    } catch (_) {}
+
+    try {
+      final topSaleRow = await client!
+          .from('sales')
+          .select('bill_no')
+          .eq('shop_id', validShopId)
+          .lt('bill_no', 1000000)
+          .order('bill_no', ascending: false)
+          .limit(1)
+          .maybeSingle()
+          .timeout(const Duration(milliseconds: 1200));
+      if (topSaleRow != null && topSaleRow['bill_no'] != null) {
+        final sVal = (topSaleRow['bill_no'] as num).toInt();
+        if (sVal > floor && sVal < 1000000) floor = sVal;
+      }
+    } catch (_) {}
+
+    if (floor > 0) {
+      await LocalDbService.instance.syncCounterFloor(validShopId, floor);
+    }
+    return floor;
+  }
+
   Future<void> _syncCreatedSaleToCloud(Sale targetSale, String validShopId) async {
     try {
       // 1. Try calling official Supabase RPC create_sale with strict 2-sec timeout
@@ -1337,33 +1397,65 @@ class SupabaseService {
 
       final custId = (targetSale.customerId != null && targetSale.customerId!.length >= 30) ? targetSale.customerId : null;
 
-      final rpcRes = await client!.rpc('create_sale', params: {
-        '_shop_id': validShopId,
-        '_items': formattedItems,
-        '_discount': targetSale.discount,
-        '_payment_mode': validMode,
-        '_paid': targetSale.paid,
-        '_customer_id': custId,
-        '_customer_name': targetSale.customerName,
-        '_customer_phone': targetSale.customerPhone,
-        '_note': targetSale.encodedNote,
-      }).timeout(const Duration(milliseconds: 2000));
-      debugPrint("Sale successfully synced to cloud via create_sale RPC");
+      // Only invoke create_sale RPC when Split does not mix unverified UPI with Credit
+      // (create_sale computes _due = _total - _paid and adds all _due to customer balance)
+      final splitMixesPendingUpiAndCredit = validMode == 'split' &&
+          targetSale.upiPayable > 0.009 &&
+          targetSale.creditAmount > 0.009;
 
-      if (rpcRes != null) {
-        final saleId = rpcRes.toString();
+      if (!splitMixesPendingUpiAndCredit) {
+        final rpcRes = await client!.rpc('create_sale', params: {
+          '_shop_id': validShopId,
+          '_items': formattedItems,
+          '_discount': targetSale.discount,
+          '_payment_mode': validMode,
+          '_paid': targetSale.paid,
+          '_customer_id': custId,
+          '_customer_name': targetSale.customerName,
+          '_customer_phone': targetSale.customerPhone,
+          '_note': targetSale.encodedNote,
+        }).timeout(const Duration(milliseconds: 2000));
+        debugPrint("Sale successfully synced to cloud via create_sale RPC");
 
-        if (targetSale.billNo > 0) {
+        if (rpcRes != null) {
+          final saleId = rpcRes.toString();
           try {
-            await client!.from('sales').update({'bill_no': targetSale.billNo}).eq('id', saleId).timeout(const Duration(milliseconds: 2500));
-          } catch (e) {
-            debugPrint("Failed to sync client bill_no to sale $saleId: $e");
-          }
-        }
+            final createdRow = await client!
+                .from('sales')
+                .select('bill_no')
+                .eq('id', saleId)
+                .maybeSingle()
+                .timeout(const Duration(milliseconds: 2000));
+            final serverBillNo = (createdRow?['bill_no'] as num?)?.toInt() ?? 0;
 
-        // Successfully synced to cloud - remove from outbox!
-        await LocalDbService.instance.removeOutboxForEntity('sale', targetSale.id);
-        return;
+            if (serverBillNo > targetSale.billNo && serverBillNo < 1000000) {
+              // Server already has higher sequential bills from another device/session:
+              // adopt server's authoritative bill_no locally so series stays strictly sequential!
+              final updatedLocal = targetSale.copyWith(billNo: serverBillNo);
+              final idx = _localSales.indexWhere((s) => s.id == targetSale.id);
+              if (idx != -1) _localSales[idx] = updatedLocal;
+              await LocalDbService.instance.upsertSale(validShopId, updatedLocal);
+              await LocalDbService.instance.syncCounterFloor(validShopId, serverBillNo);
+            } else if (targetSale.billNo > serverBillNo && targetSale.billNo < 1000000) {
+              await client!
+                  .from('sales')
+                  .update({'bill_no': targetSale.billNo})
+                  .eq('id', saleId)
+                  .timeout(const Duration(milliseconds: 2000));
+              await LocalDbService.instance.syncCounterFloor(validShopId, targetSale.billNo);
+            } else if (serverBillNo > 0) {
+              await LocalDbService.instance.syncCounterFloor(validShopId, serverBillNo);
+            }
+          } catch (e) {
+            debugPrint("Failed to reconcile bill_no for sale $saleId: $e");
+          }
+
+          // Successfully synced to cloud - remove from outbox!
+          await LocalDbService.instance.removeOutboxForEntity('sale', targetSale.id);
+          return;
+        }
+      } else {
+        throw Exception('Split mixes pending UPI and credit; using direct upsert for exact Khata attribution');
       }
     } catch (e) {
       debugPrint("RPC create_sale fallback to direct table insert: $e");
@@ -1386,6 +1478,7 @@ class SupabaseService {
               ? targetSale.paymentMode
               : 'cash',
           'note': targetSale.encodedNote,
+          'created_at': targetSale.createdAt.toUtc().toIso8601String(),
         };
         await client!.from('sales').upsert(salePayload).timeout(const Duration(milliseconds: 2500));
 
@@ -1431,16 +1524,31 @@ class SupabaseService {
           }
         }
 
-        // Update customer balance in cloud if credit sale
-        if (targetSale.due > 0 && targetSale.customerId != null && targetSale.customerId!.length >= 30) {
+        // Update customer balance in cloud for credit portion (credit mode uses full due; split uses creditAmount)
+        final double khataCreditToAdd = targetSale.paymentMode == 'split'
+            ? targetSale.creditAmount
+            : targetSale.due;
+        if (khataCreditToAdd > 0.009 && targetSale.customerId != null && targetSale.customerId!.length >= 30) {
           try {
             final cRow = await client!.from('customers').select('balance').eq('id', targetSale.customerId!).maybeSingle().timeout(const Duration(milliseconds: 1500));
             if (cRow != null && cRow['balance'] != null) {
               final currBal = (cRow['balance'] as num).toDouble();
+              final nextBal = currBal + khataCreditToAdd;
               await client!.from('customers').update({
-                'balance': currBal + targetSale.due,
-                'updated_at': DateTime.now().toIso8601String(),
+                'balance': nextBal,
+                'updated_at': DateTime.now().toUtc().toIso8601String(),
               }).eq('id', targetSale.customerId!).timeout(const Duration(milliseconds: 1500));
+              try {
+                await client!.from('customer_ledger').insert({
+                  'shop_id': validShopId,
+                  'customer_id': targetSale.customerId!,
+                  'entry_type': 'credit_sale',
+                  'amount': khataCreditToAdd,
+                  'balance_after': nextBal,
+                  'sale_id': saleId,
+                  'note': 'Credit on Bill #${targetSale.billNo}',
+                }).timeout(const Duration(milliseconds: 1500));
+              } catch (_) {}
             }
           } catch (_) {}
         }
@@ -2524,7 +2632,7 @@ class SupabaseService {
               'due': offlineSale.due,
               'payment_mode': validMode,
               'note': offlineSale.encodedNote,
-              'created_at': offlineSale.createdAt.toIso8601String(),
+              'created_at': offlineSale.createdAt.toUtc().toIso8601String(),
             });
             await client!.from('sale_items').delete().eq('sale_id', saleUuid);
             if (offlineSale.items.isNotEmpty) {
@@ -2538,6 +2646,25 @@ class SupabaseService {
                     'qty': it.qty,
                     'line_total': it.total,
                   }).toList());
+            }
+            final double offlineKhataCredit = offlineSale.paymentMode == 'split'
+                ? offlineSale.creditAmount
+                : offlineSale.due;
+            if (offlineKhataCredit > 0.009 && _isValidUuid(offlineSale.customerId)) {
+              try {
+                final cRow = await client!
+                    .from('customers')
+                    .select('balance')
+                    .eq('id', offlineSale.customerId!)
+                    .maybeSingle();
+                if (cRow != null && cRow['balance'] != null) {
+                  final currBal = (cRow['balance'] as num).toDouble();
+                  await client!.from('customers').update({
+                    'balance': currBal + offlineKhataCredit,
+                    'updated_at': DateTime.now().toUtc().toIso8601String(),
+                  }).eq('id', offlineSale.customerId!);
+                }
+              } catch (_) {}
             }
           }
           await LocalDbService.instance.removeOutboxItem(item.id);

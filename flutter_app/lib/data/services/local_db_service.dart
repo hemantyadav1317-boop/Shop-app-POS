@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -413,18 +414,22 @@ class LocalDbService {
       }
     }
 
-    final now = DateTime.now().toIso8601String();
+    final now = DateTime.now().toUtc().toIso8601String();
+    int syncedMaxBill = 0;
     await db.transaction((txn) async {
       await txn.delete('sales', where: 'shop_id = ?', whereArgs: [shopId]);
       final batch = txn.batch();
       for (final s in merged.values) {
+        if (s.billNo > syncedMaxBill && s.billNo < 1000000) {
+          syncedMaxBill = s.billNo;
+        }
         batch.insert(
           'sales',
           {
             'id': s.id,
             'shop_id': shopId,
             'bill_no': s.billNo,
-            'created_at': s.createdAt.toIso8601String(),
+            'created_at': s.createdAt.toUtc().toIso8601String(),
             'edit_count': s.editCount,
             'data_json': jsonEncode(s.toJson()),
             'updated_at': now,
@@ -433,25 +438,64 @@ class LocalDbService {
         );
       }
       await batch.commit(noResult: true);
+
+      // Keep local bill counter in lockstep with highest synced bill number
+      final cRows = await txn.query(
+        'shop_bill_counters',
+        where: 'shop_id = ?',
+        whereArgs: [shopId],
+        limit: 1,
+      );
+      int currentCounter = cRows.isNotEmpty
+          ? ((cRows.first['last_bill_no'] as num?)?.toInt() ?? 0)
+          : 0;
+      if (currentCounter >= 1000000) currentCounter = 0;
+      final effectiveFloor = math.max(currentCounter, syncedMaxBill);
+      if (effectiveFloor > 0) {
+        await txn.insert(
+          'shop_bill_counters',
+          {
+            'shop_id': shopId,
+            'last_bill_no': effectiveFloor,
+            'updated_at': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+        syncedMaxBill = effectiveFloor;
+      }
     });
+    if (syncedMaxBill > 0) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final prevPref = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
+        final cleanPrev = prevPref >= 1000000 ? 0 : prevPref;
+        if (syncedMaxBill > cleanPrev) {
+          await prefs.setInt('shop_last_bill_no_$shopId', syncedMaxBill);
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> upsertSale(String shopId, Sale sale) async {
     final db = await _ensureDb();
     if (db == null) return;
+    final nowUtc = DateTime.now().toUtc().toIso8601String();
     await db.insert(
       'sales',
       {
         'id': sale.id,
         'shop_id': shopId,
         'bill_no': sale.billNo,
-        'created_at': sale.createdAt.toIso8601String(),
+        'created_at': sale.createdAt.toUtc().toIso8601String(),
         'edit_count': sale.editCount,
         'data_json': jsonEncode(sale.toJson()),
-        'updated_at': DateTime.now().toIso8601String(),
+        'updated_at': nowUtc,
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+    if (sale.billNo > 0 && sale.billNo < 1000000) {
+      await syncCounterFloor(shopId, sale.billNo);
+    }
   }
 
   Future<void> deleteSale(String shopId, String saleId) async {
@@ -809,7 +853,7 @@ class LocalDbService {
             'sale_id': e.saleId,
             'payment_id': e.paymentId,
             'note': e.note,
-            'created_at': e.createdAt.toIso8601String(),
+            'created_at': e.createdAt.toUtc().toIso8601String(),
             'data_json': jsonEncode(e.toJson()),
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
@@ -834,7 +878,7 @@ class LocalDbService {
         'sale_id': entry.saleId,
         'payment_id': entry.paymentId,
         'note': entry.note,
-        'created_at': entry.createdAt.toIso8601String(),
+        'created_at': entry.createdAt.toUtc().toIso8601String(),
         'data_json': jsonEncode(entry.toJson()),
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
@@ -865,14 +909,14 @@ class LocalDbService {
   // ===================== ATOMIC BILL COUNTERS =====================
 
   /// Peeks the upcoming bill number without incrementing.
-  /// Automatically heals 5-digit outlier bugs (> 5000) back to true sequential series.
+  /// Always uses MAX(counter, historical_sales) + 1 so multi-device syncs never jump backward.
   Future<int> peekNextBillNo(String shopId) async {
     final db = await _ensureDb();
     if (db == null) {
       try {
         final prefs = await SharedPreferences.getInstance();
         var last = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
-        if (last >= 5000) last = 0;
+        if (last >= 1000000) last = 0;
         return last + 1;
       } catch (_) {
         return 1;
@@ -883,26 +927,26 @@ class LocalDbService {
       where: 'shop_id = ?',
       whereArgs: [shopId],
     );
-    // Ignore 5-digit millisecond timestamps (> 5,000) that were created by old random fallback bug
+    // Ignore 7+ digit millisecond timestamp outliers (>= 1,000,000) from legacy fallback bug
     final sRows = await db.rawQuery(
-      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 5000',
+      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 1000000',
       [shopId],
     );
     final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
     int current = 0;
     if (rows.isNotEmpty) {
       current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
-      // Auto-heal: If counter was poisoned with 5-digit outlier (> 5000), heal to legitimate sales
-      if (current >= 5000) {
+      if (current >= 1000000) {
         current = maxSales;
       }
     }
-    int peekNo = (current > 0) ? (current + 1) : (maxSales + 1);
+    final effectiveBase = math.max(current, maxSales);
+    int peekNo = effectiveBase + 1;
 
-    // Guarantee candidate number has no collisions with legitimate sales (< 5000)
+    // Guarantee candidate number has no collisions with existing sales
     while (true) {
       final existing = await db.rawQuery(
-        'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 5000 LIMIT 1',
+        'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 1000000 LIMIT 1',
         [shopId, peekNo],
       );
       if (existing.isEmpty) break;
@@ -912,14 +956,14 @@ class LocalDbService {
   }
 
   /// Atomically allocates and increments the next sequential bill number.
-  /// Strictly ensures bill number continues monotonically past all legitimate historical sales.
+  /// Strictly ensures bill number continues monotonically past MAX(counter, historical_sales).
   Future<int> getNextBillNo(String shopId) async {
     final db = await _ensureDb();
     if (db == null) {
       try {
         final prefs = await SharedPreferences.getInstance();
         var last = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
-        if (last >= 5000) last = 0;
+        if (last >= 1000000) last = 0;
         final next = last + 1;
         await prefs.setInt('shop_last_bill_no_$shopId', next);
         return next;
@@ -933,33 +977,33 @@ class LocalDbService {
         where: 'shop_id = ?',
         whereArgs: [shopId],
       );
-      // Ignore 5-digit millisecond timestamps (> 5,000) from old fallback bug
+      // Ignore 7+ digit millisecond timestamp outliers (>= 1,000,000) from legacy fallback bug
       final sRows = await txn.rawQuery(
-        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 5000',
+        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 1000000',
         [shopId],
       );
       final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
       int current = 0;
       if (rows.isNotEmpty) {
         current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
-        // Auto-heal if counter was poisoned with > 5000
-        if (current >= 5000) {
+        if (current >= 1000000) {
           current = maxSales;
         }
       }
-      int nextNo = (current > 0) ? (current + 1) : (maxSales + 1);
+      final effectiveBase = math.max(current, maxSales);
+      int nextNo = effectiveBase + 1;
 
-      // Guarantee candidate number has no collisions with legitimate sales
+      // Guarantee candidate number has no collisions with existing sales
       while (true) {
         final existing = await txn.rawQuery(
-          'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 5000 LIMIT 1',
+          'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 1000000 LIMIT 1',
           [shopId, nextNo],
         );
         if (existing.isEmpty) break;
         nextNo++;
       }
 
-      final now = DateTime.now().toIso8601String();
+      final now = DateTime.now().toUtc().toIso8601String();
       await txn.insert(
         'shop_bill_counters',
         {'shop_id': shopId, 'last_bill_no': nextNo, 'updated_at': now},
@@ -972,6 +1016,45 @@ class LocalDbService {
       } catch (_) {}
 
       return nextNo;
+    });
+  }
+
+  /// Advances the local bill counter forward if [floorBillNo] is higher than current counter.
+  /// Never moves the counter backward.
+  Future<void> syncCounterFloor(String shopId, int floorBillNo) async {
+    if (floorBillNo <= 0 || floorBillNo >= 1000000) return;
+    final db = await _ensureDb();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final prev = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
+      final cleanPrev = prev >= 1000000 ? 0 : prev;
+      if (floorBillNo > cleanPrev) {
+        await prefs.setInt('shop_last_bill_no_$shopId', floorBillNo);
+      }
+    } catch (_) {}
+    if (db == null) return;
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'shop_bill_counters',
+        where: 'shop_id = ?',
+        whereArgs: [shopId],
+        limit: 1,
+      );
+      int existing = rows.isNotEmpty
+          ? ((rows.first['last_bill_no'] as num?)?.toInt() ?? 0)
+          : 0;
+      if (existing >= 1000000) existing = 0;
+      if (floorBillNo > existing) {
+        await txn.insert(
+          'shop_bill_counters',
+          {
+            'shop_id': shopId,
+            'last_bill_no': floorBillNo,
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
     });
   }
 

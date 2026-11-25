@@ -92,10 +92,11 @@ class _MainShellState extends State<MainShell> {
         final syncedShop = await shopProvider.loadForUser(u.id, email: u.email);
 
         if (mounted) {
-          // Parallel fast load: Products and Customers concurrently
+          // Parallel fast load: Products, Customers, and Cloud Bill Counter concurrently
           await Future.wait([
             productProvider.loadProducts(syncedShop.id),
             customerProvider.loadCustomers(syncedShop.id),
+            SupabaseService.instance.syncCloudBillCounterFloor(syncedShop.id),
           ]);
           debugPrint("Cloud sync complete: Shop=${syncedShop.id} Products=${productProvider.products.length}");
 
@@ -130,6 +131,7 @@ class _MainShellState extends State<MainShell> {
           await Future.wait([
             productProvider.loadProducts(syncedShop.id),
             customerProvider.loadCustomers(syncedShop.id),
+            SupabaseService.instance.syncCloudBillCounterFloor(syncedShop.id),
           ]);
           SupabaseService.instance.subscribeToShopChanges(
             shopId: syncedShop.id,

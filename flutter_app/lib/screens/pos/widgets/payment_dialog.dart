@@ -46,6 +46,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   String _paymentMode = 'cash'; // 'cash', 'online', 'credit', 'split'
   late TextEditingController _paidController;
   late TextEditingController _upiController;
+  late TextEditingController _creditController;
   bool _isSaving = false;
   Sale? _completedSale;
   bool _onlinePaymentVerified = false;
@@ -82,21 +83,27 @@ class _PaymentDialogState extends State<PaymentDialog> {
       if (_paymentMode == 'cash') {
         _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
         _upiController = TextEditingController(text: '0.00');
+        _creditController = TextEditingController(text: '0.00');
       } else if (_paymentMode == 'online') {
         _paidController = TextEditingController(text: '0.00');
         _upiController = TextEditingController(text: cart.total.toStringAsFixed(2));
+        _creditController = TextEditingController(text: '0.00');
       } else if (_paymentMode == 'credit') {
         _paidController = TextEditingController(text: '0.00');
         _upiController = TextEditingController(text: '0.00');
+        _creditController = TextEditingController(text: cart.total.toStringAsFixed(2));
       } else {
         final initialCash = editing.cashPaid.clamp(0.0, cart.total);
-        final remUpi = math.max(0.0, cart.total - initialCash);
+        final initialCredit = editing.creditAmount.clamp(0.0, math.max(0.0, cart.total - initialCash));
+        final remUpi = math.max(0.0, cart.total - initialCash - initialCredit);
         _paidController = TextEditingController(text: initialCash.toStringAsFixed(2));
         _upiController = TextEditingController(text: remUpi.toStringAsFixed(2));
+        _creditController = TextEditingController(text: initialCredit.toStringAsFixed(2));
       }
     } else {
       _paidController = TextEditingController(text: cart.total.toStringAsFixed(2));
       _upiController = TextEditingController(text: '0.00');
+      _creditController = TextEditingController(text: '0.00');
       _billNo = 1;
       _initBillNo();
     }
@@ -114,11 +121,15 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final cart = context.read<CartProvider>();
     if (cart.editingSale != null) return;
     final shop = context.read<ShopProvider>().shop;
-    final peek = await LocalDbService.instance.peekNextBillNo(shop.id);
+    final localPeek = await LocalDbService.instance.peekNextBillNo(shop.id);
     if (mounted && _completedSale == null) {
-      setState(() {
-        _billNo = peek;
-      });
+      setState(() => _billNo = localPeek);
+    }
+    // Also check cloud counter floor so multi-device billing always previews & allocates sequentially
+    await SupabaseService.instance.syncCloudBillCounterFloor(shop.id);
+    final syncedPeek = await LocalDbService.instance.peekNextBillNo(shop.id);
+    if (mounted && _completedSale == null && syncedPeek > _billNo) {
+      setState(() => _billNo = syncedPeek);
     }
   }
 
@@ -252,7 +263,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
       ),
     );
 
-    // D-Mart style: 500ms celebratory feedback -> auto checkout & instant auto-print!
+    // Instant celebratory feedback -> auto checkout & instant auto-print!
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted && _completedSale == null && !_isSaving) {
         _processCheckout();
@@ -277,7 +288,13 @@ class _PaymentDialogState extends State<PaymentDialog> {
     _paymentNotifSub?.cancel();
     _paidController.dispose();
     _upiController.dispose();
+    _creditController.dispose();
     super.dispose();
+  }
+
+  String _fmtAmt(double val) {
+    final rounded = PaymentQrHelper.round2(math.max(0.0, val));
+    return rounded % 1 == 0 ? rounded.toInt().toString() : rounded.toStringAsFixed(2);
   }
 
   void _onCashChanged(String val, CartProvider cart) {
@@ -285,10 +302,18 @@ class _PaymentDialogState extends State<PaymentDialog> {
       setState(() {});
       return;
     }
-    final cash = double.tryParse(val.trim()) ?? 0.0;
-    final remainingUpi = math.max(0.0, PaymentQrHelper.round2(cart.total - cash));
-    final formattedUpi = remainingUpi % 1 == 0 ? remainingUpi.toInt().toString() : remainingUpi.toStringAsFixed(2);
-    _upiController.text = formattedUpi;
+    final cash = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, cart.total);
+    final currentCredit = double.tryParse(_creditController.text.trim()) ?? 0.0;
+    if (currentCredit > 0.009) {
+      final safeCredit = math.min(currentCredit, PaymentQrHelper.round2(math.max(0.0, cart.total - cash)));
+      final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - cash - safeCredit));
+      _upiController.text = _fmtAmt(remUpi);
+      _creditController.text = _fmtAmt(safeCredit);
+    } else {
+      final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - cash));
+      _upiController.text = _fmtAmt(remUpi);
+      _creditController.text = '0';
+    }
     setState(() {});
     _triggerUpiQrDebounced();
   }
@@ -298,10 +323,31 @@ class _PaymentDialogState extends State<PaymentDialog> {
       setState(() {});
       return;
     }
-    final upi = double.tryParse(val.trim()) ?? 0.0;
-    final remainingCash = math.max(0.0, PaymentQrHelper.round2(cart.total - upi));
-    final formattedCash = remainingCash % 1 == 0 ? remainingCash.toInt().toString() : remainingCash.toStringAsFixed(2);
-    _paidController.text = formattedCash;
+    final upi = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, cart.total);
+    var cash = (double.tryParse(_paidController.text.trim()) ?? 0.0).clamp(0.0, cart.total);
+    if (cash + upi > cart.total) {
+      cash = PaymentQrHelper.round2(math.max(0.0, cart.total - upi));
+      _paidController.text = _fmtAmt(cash);
+    }
+    final remCredit = PaymentQrHelper.round2(math.max(0.0, cart.total - cash - upi));
+    _creditController.text = _fmtAmt(remCredit);
+    setState(() {});
+    _triggerUpiQrDebounced();
+  }
+
+  void _onCreditChanged(String val, CartProvider cart) {
+    if (_paymentMode != 'split') {
+      setState(() {});
+      return;
+    }
+    final credit = (double.tryParse(val.trim()) ?? 0.0).clamp(0.0, cart.total);
+    var cash = (double.tryParse(_paidController.text.trim()) ?? 0.0).clamp(0.0, cart.total);
+    if (cash + credit > cart.total) {
+      cash = PaymentQrHelper.round2(math.max(0.0, cart.total - credit));
+      _paidController.text = _fmtAmt(cash);
+    }
+    final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - cash - credit));
+    _upiController.text = _fmtAmt(remUpi);
     setState(() {});
     _triggerUpiQrDebounced();
   }
@@ -319,17 +365,21 @@ class _PaymentDialogState extends State<PaymentDialog> {
       if (mode == 'cash') {
         _paidController.text = cart.total.toStringAsFixed(2);
         _upiController.text = '0.00';
+        _creditController.text = '0.00';
       } else if (mode == 'online') {
         _paidController.text = '0.00';
         _upiController.text = cart.total.toStringAsFixed(2);
+        _creditController.text = '0.00';
       } else if (mode == 'credit') {
         _paidController.text = '0.00';
         _upiController.text = '0.00';
+        _creditController.text = cart.total.toStringAsFixed(2);
       } else if (mode == 'split') {
         final halfCash = PaymentQrHelper.round2(cart.total / 2);
         final remUpi = PaymentQrHelper.round2(math.max(0.0, cart.total - halfCash));
         _paidController.text = halfCash.toStringAsFixed(2);
         _upiController.text = remUpi.toStringAsFixed(2);
+        _creditController.text = '0.00';
       }
     });
 
@@ -346,15 +396,116 @@ class _PaymentDialogState extends State<PaymentDialog> {
     }
   }
 
+  Future<void> _pickCustomerForCredit(CartProvider cart) async {
+    final custProv = context.read<CustomerProvider>();
+    final shop = context.read<ShopProvider>().shop;
+    if (custProv.customers.isEmpty && shop.id.isNotEmpty) {
+      await custProv.loadCustomers(shop.id);
+    }
+    if (!mounted) return;
+    String query = '';
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (sheetCtx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final filtered = custProv.customers.where((c) {
+            if (query.trim().isEmpty) return true;
+            final q = query.trim().toLowerCase();
+            return c.name.toLowerCase().contains(q) ||
+                (c.phone ?? '').toLowerCase().contains(q);
+          }).toList();
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 14,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 14,
+              ),
+              child: SizedBox(
+                height: 400,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'ग्राहक चुनें (Khata Account)',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(sheetCtx),
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'नाम या मोबाइल नंबर से खोजें...',
+                        prefixIcon: Icon(Icons.search, size: 18),
+                        isDense: true,
+                      ),
+                      onChanged: (v) => setSheetState(() => query = v),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('कोई ग्राहक नहीं मिला'))
+                          : ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, _) => const Divider(height: 1),
+                              itemBuilder: (_, idx) {
+                                final c = filtered[idx];
+                                return ListTile(
+                                  dense: true,
+                                  leading: CircleAvatar(
+                                    radius: 16,
+                                    backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+                                    child: Text(
+                                      c.name.isNotEmpty ? c.name[0].toUpperCase() : 'C',
+                                      style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5)),
+                                  subtitle: Text(
+                                    '${c.phone ?? 'No phone'} · बकाया: ₹${c.balance.toStringAsFixed(0)}',
+                                    style: const TextStyle(fontSize: 11.5),
+                                  ),
+                                  onTap: () {
+                                    cart.setCustomer(c);
+                                    Navigator.pop(sheetCtx);
+                                    if (mounted) setState(() {});
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   PaymentBreakdown _computeBreakdown(CartProvider cart) {
     final cashInput = double.tryParse(_paidController.text.trim()) ?? 0.0;
     final upiInput = double.tryParse(_upiController.text.trim()) ?? 0.0;
+    final creditInput = double.tryParse(_creditController.text.trim()) ?? 0.0;
     final shop = context.read<ShopProvider>().shop;
     return PaymentQrHelper.calculateBreakdown(
       total: cart.total,
       paymentMode: _paymentMode,
       cashAmount: cashInput,
       upiAmount: upiInput,
+      creditAmount: _paymentMode == 'split' ? creditInput : null,
       onlineVerified: _onlinePaymentVerified,
       verificationSource: _paymentMode == 'online' || (_paymentMode == 'split' && upiInput > 0)
           ? (_onlinePaymentVerified
@@ -454,6 +605,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
         total: cart.total,
         cashAmount: double.tryParse(_paidController.text.trim()) ?? 0.0,
         upiAmount: double.tryParse(_upiController.text.trim()) ?? 0.0,
+        creditAmount: double.tryParse(_creditController.text.trim()) ?? 0.0,
       );
       if (splitErr != null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -655,6 +807,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
         saved = await SupabaseService.instance.createSale(sale);
         // Immediately deduct in UI memory so stock decreases right away on screen
         productProv.deductStock(sale.items);
+        // Refresh Khata customer balances immediately when Credit or Split Credit is recorded
+        if ((saved.creditAmount > 0.009 || saved.due > 0.009) && saved.customerId != null) {
+          unawaited(custProv.loadCustomers(shop.id));
+        }
       }
 
       // Trigger quiet phone auto-backup in background without blocking checkout
@@ -674,7 +830,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
 
       cart.clear();
 
-      // D-Mart style Auto-Print on Payment completion
+      // Instant Auto-Print on Payment completion
       if (PrinterSettingsService.instance.autoPrintOnPayment) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           try {
@@ -1299,11 +1455,13 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             Text(
-                                              '✓ भुगतान सत्यापित (${_detectedPaymentApp ?? 'UPI / PhonePe'})',
+                                              '✓ भुगतान सत्यापित (${_detectedPaymentApp ?? 'UPI'})',
                                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: Colors.green.shade900),
                                             ),
                                             Text(
-                                              'रसीद अपने आप प्रिंट हो रही है... D-Mart स्टाइल ✓',
+                                              _paymentMode == 'split'
+                                                  ? 'UPI हिस्सा सत्यापित ✓ — अब बिल पूरा करें दबाएं'
+                                                  : 'भुगतान प्राप्त ✓ — रसीद तैयार है',
                                               style: TextStyle(fontSize: 10.5, color: Colors.green.shade800),
                                             ),
                                           ],
@@ -1313,123 +1471,45 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                   ),
                                 )
                               else ...[
-                                if (PaymentNotificationService.instance.isAutoVerifyEnabled)
-                                  Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDF4),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(color: const Color(0xFF86EFAC)),
-                                    ),
-                                    child: Column(
-                                      children: [
-                                        Row(
-                                          children: [
-                                            const SizedBox(
-                                              width: 14,
-                                              height: 14,
-                                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF00875A)),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            const Expanded(
-                                              child: Text(
-                                                '⚡ D-Mart ऑटो-प्रिंट सक्रिय: PhonePe, Paytm, GPay पेमेंट आते ही बिल खुद प्रिंट होगा',
-                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Color(0xFF14532D)),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 6),
-                                        OutlinedButton.icon(
-                                          style: OutlinedButton.styleFrom(
-                                            visualDensity: VisualDensity.compact,
-                                            foregroundColor: const Color(0xFF00875A),
-                                            side: const BorderSide(color: Color(0xFF00875A)),
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                          ),
-                                          icon: const Icon(Icons.flash_on_rounded, size: 14),
-                                          label: Text('🧪 ₹${checkoutUpiAmount.toStringAsFixed(2)} टेस्ट पे (Test Auto-Print)', style: const TextStyle(fontSize: 11)),
-                                          onPressed: () {
-                                            PaymentNotificationService.instance.simulatePayment(
-                                              amount: checkoutUpiAmount,
-                                              appName: 'PhonePe',
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                // ⚡ 1-Tap Instant Manual Verification & Complete Bill
-                                if (!_onlinePaymentVerified)
-                                  Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    width: double.infinity,
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF00875A),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        elevation: 2,
+                                // Single clean verification control (no duplicate checkbox or test banner)
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 4),
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF00875A),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10),
                                       ),
-                                      icon: const Icon(Icons.check_circle_rounded, size: 18),
-                                      label: const Text(
-                                        '✅ भुगतान मिल गया · बिल पूरा करें (Mark Paid)',
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+                                      elevation: 2,
+                                    ),
+                                    icon: const Icon(Icons.check_circle_rounded, size: 18),
+                                    label: Text(
+                                      _paymentMode == 'split'
+                                          ? '✅ UPI भुगतान मिल गया (Verify UPI)'
+                                          : '✅ भुगतान मिल गया · बिल पूरा करें (Mark Paid)',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
                                       ),
-                                      onPressed: () {
-                                        _phonePeTimer?.cancel();
-                                        setState(() {
-                                          _onlinePaymentVerified = true;
-                                          _detectedPaymentApp = _detectedPaymentApp ?? 'Manual (साउंडबॉक्स / UPI)';
-                                        });
-                                        SoundService.instance.playSuccess();
+                                    ),
+                                    onPressed: () {
+                                      _phonePeTimer?.cancel();
+                                      setState(() {
+                                        _onlinePaymentVerified = true;
+                                        _detectedPaymentApp = _detectedPaymentApp ?? 'Manual (साउंडबॉक्स / UPI)';
+                                      });
+                                      SoundService.instance.playSuccess();
+                                      if (_paymentMode != 'split') {
                                         Future.delayed(const Duration(milliseconds: 300), () {
                                           if (mounted && _completedSale == null && !_isSaving) {
                                             _processCheckout();
                                           }
                                         });
-                                      },
-                                    ),
-                                  ),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: _onlinePaymentVerified ? Colors.green.shade50 : Colors.amber.shade50,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: _onlinePaymentVerified ? Colors.green.shade300 : Colors.amber.shade300,
-                                    ),
-                                  ),
-                                  child: CheckboxListTile(
-                                    title: const Text(
-                                      'Payment प्राप्त हो गया (Verified)',
-                                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold),
-                                    ),
-                                    subtitle: Text(
-                                      _onlinePaymentVerified
-                                          ? 'भुगतान सत्यापित ✓ — बिल में Google Review QR दिखेगा'
-                                          : 'असत्यापित (Pending) — बिल में UPI Payment QR दिखेगा',
-                                      style: TextStyle(
-                                        fontSize: 10.5,
-                                        fontWeight: FontWeight.w600,
-                                        color: _onlinePaymentVerified ? Colors.green.shade800 : Colors.amber.shade900,
-                                      ),
-                                    ),
-                                    value: _onlinePaymentVerified,
-                                    onChanged: (val) {
-                                      setState(() {
-                                        _onlinePaymentVerified = val ?? false;
-                                      });
+                                      }
                                     },
-                                    dense: true,
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    controlAffinity: ListTileControlAffinity.leading,
                                   ),
                                 ),
                               ],
@@ -1442,7 +1522,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   const SizedBox(height: 12),
                 ],
 
-                // 2. Khata Notice with Credit Limit
+                // 2. Khata Notice with Credit Limit & Inline Customer Picker
                 if (_paymentMode == 'credit') ...[
                   Builder(
                     builder: (context) {
@@ -1475,7 +1555,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                   Text(
                                     hasCustomer
                                         ? 'ग्राहक: ${cart.customer!.name} के खाते में ${CurrencyFormatter.format(cart.total)} जुड़ेगा।'
-                                        : 'कृपया पहले ग्राहक (Customer) सेलेक्ट करें।',
+                                        : 'कृपया पहले ग्राहक (Customer) चुनें।',
                                     style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                                   ),
                                   if (hasCustomer && cart.customer!.creditLimit > 0) ...[
@@ -1494,6 +1574,10 @@ class _PaymentDialogState extends State<PaymentDialog> {
                                 ],
                               ),
                             ),
+                            TextButton(
+                              onPressed: () => _pickCustomerForCredit(cart),
+                              child: Text(hasCustomer ? 'बदलें' : 'ग्राहक चुनें'),
+                            ),
                           ],
                         ),
                       );
@@ -1502,7 +1586,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   const SizedBox(height: 12),
                 ],
 
-                // 3. Cash & Split Inputs
+                // 3. Cash & Split Inputs (Cash + UPI + Credit/उधार)
                 if (_paymentMode == 'cash' || _paymentMode == 'split') ...[
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1512,17 +1596,17 @@ class _PaymentDialogState extends State<PaymentDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _paymentMode == 'split' ? 'Cash प्राप्त (₹)' : 'Customer दिया Cash (₹)',
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                              _paymentMode == 'split' ? 'Cash (₹)' : 'Customer दिया Cash (₹)',
+                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5),
                             ),
                             const SizedBox(height: 4),
                             TextField(
                               controller: _paidController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                               decoration: const InputDecoration(
                                 prefixText: '₹ ',
-                                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                               ),
                               onChanged: (val) => _onCashChanged(val, cart),
                             ),
@@ -1530,25 +1614,48 @@ class _PaymentDialogState extends State<PaymentDialog> {
                         ),
                       ),
                       if (_paymentMode == 'split') ...[
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'UPI राशि (₹)',
-                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                'UPI (₹)',
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5),
                               ),
                               const SizedBox(height: 4),
                               TextField(
                                 controller: _upiController,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                                 decoration: const InputDecoration(
                                   prefixText: '₹ ',
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                 ),
                                 onChanged: (val) => _onUpiChanged(val, cart),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'उधार / Credit (₹)',
+                                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5, color: Color(0xFFB45309)),
+                              ),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: _creditController,
+                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFFB45309)),
+                                decoration: const InputDecoration(
+                                  prefixText: '₹ ',
+                                  contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                ),
+                                onChanged: (val) => _onCreditChanged(val, cart),
                               ),
                             ],
                           ),
@@ -1587,21 +1694,64 @@ class _PaymentDialogState extends State<PaymentDialog> {
                           color: breakdown.creditAmount > 0 ? Colors.amber.shade300 : Colors.green.shade200,
                         ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            'Cash: ₹${breakdown.cashPaid.toStringAsFixed(0)} · UPI: ₹${breakdown.upiDeclared.toStringAsFixed(0)} (${_onlinePaymentVerified ? 'Paid ✓' : 'Pending'})',
-                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Cash: ₹${breakdown.cashPaid.toStringAsFixed(0)} · UPI: ₹${breakdown.upiDeclared.toStringAsFixed(0)}${breakdown.upiDeclared > 0 ? (_onlinePaymentVerified ? ' (Paid ✓)' : ' (Pending)') : ''}',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                              Text(
+                                'उधार: ₹${breakdown.creditAmount.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  color: breakdown.creditAmount > 0 ? Colors.red.shade700 : Colors.green.shade800,
+                                ),
+                              ),
+                            ],
                           ),
-                          Text(
-                            'उधार: ₹${breakdown.creditAmount.toStringAsFixed(0)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: breakdown.creditAmount > 0 ? Colors.red.shade700 : Colors.green.shade800,
+                          if (breakdown.creditAmount > 0.009) ...[
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  cart.customer != null ? Icons.account_balance_wallet_outlined : Icons.warning_amber_rounded,
+                                  size: 16,
+                                  color: cart.customer != null ? const Color(0xFF92400E) : const Color(0xFFDC2626),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    cart.customer != null
+                                        ? '${cart.customer!.name} के खाते में ₹${breakdown.creditAmount.toStringAsFixed(0)} उधार जुड़ेगा'
+                                        : 'उधार ₹${breakdown.creditAmount.toStringAsFixed(0)} जोड़ने के लिए ग्राहक चुनें',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: cart.customer != null ? const Color(0xFF92400E) : const Color(0xFFDC2626),
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  style: TextButton.styleFrom(
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  ),
+                                  onPressed: () => _pickCustomerForCredit(cart),
+                                  child: Text(
+                                    cart.customer != null ? 'बदलें' : 'ग्राहक चुनें',
+                                    style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
+                          ],
                         ],
                       ),
                     ),
@@ -1714,7 +1864,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     required String? userEmail,
   }) {
     final sale = _completedSale!;
-    final dateString = DateFormat('dd-MM-yyyy h:mm a').format(sale.createdAt);
+    final dateString = DateFormat('dd-MM-yyyy h:mm a').format(sale.createdAt.toLocal());
 
     return Column(
       children: [

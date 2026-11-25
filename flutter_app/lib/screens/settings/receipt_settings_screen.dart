@@ -187,7 +187,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // D-Mart Style Auto-Print Switch Card
+            // Auto-Print Switch Card
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
@@ -204,7 +204,7 @@ class _ReceiptSettingsScreenState extends State<ReceiptSettingsScreen> {
                     Icon(Icons.flash_on_rounded, color: Color(0xFF00875A), size: 20),
                     SizedBox(width: 8),
                     Expanded(
-                      child: Text('D-Mart स्टाइल ऑटो-प्रिंट (Auto-Print)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      child: Text('इंस्टैंट ऑटो-प्रिंट (Auto-Print)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     ),
                   ],
                 ),

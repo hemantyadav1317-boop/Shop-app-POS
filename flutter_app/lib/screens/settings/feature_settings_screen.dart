@@ -355,7 +355,7 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ⚡ 1. D-Mart Style Auto-Payment Verification Card
+            // ⚡ 1. Auto-Payment Verification Card
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -378,7 +378,7 @@ class _FeatureSettingsScreenState extends State<FeatureSettingsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('D-Mart स्टाइल ऑटो-पेमेंट वेरिफिकेशन', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
+                            Text('इंस्टैंट ऑटो-पेमेंट वेरिफिकेशन', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5)),
                             Text('PhonePe / Paytm / GPay / SMS नोटिफिकेशन से तुरंत ऑटो-वेरिफाई', style: TextStyle(fontSize: 11, color: AppColors.lightTextSecondary)),
                           ],
                         ),
