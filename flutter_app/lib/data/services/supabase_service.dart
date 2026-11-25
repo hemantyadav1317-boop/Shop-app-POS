@@ -800,9 +800,35 @@ class SupabaseService {
 
         _localCustomers.clear();
         _localCustomers.addAll(cloudList);
-        _saveCachedCustomers(validShopId, cloudList);
-        debugPrint("SUCCESS: Loaded ${cloudList.length} customers from Supabase Cloud for shop $validShopId");
-        return cloudList;
+
+        // Preserve any pending local credit sales still queued in outbox so fast Khata reads
+        // right after checkout never flicker back to pre-sale balance while cloud sync runs.
+        try {
+          final outboxItems = await LocalDbService.instance.getOutboxItems(validShopId);
+          for (final item in outboxItems) {
+            if (item.entityType == 'sale' && item.operation == 'create') {
+              final rawSale = item.payload['sale'];
+              if (rawSale is Map) {
+                final pendingSale = Sale.fromJson(Map<String, dynamic>.from(rawSale));
+                final pendingCredit = pendingSale.paymentMode == 'split'
+                    ? pendingSale.creditAmount
+                    : pendingSale.due;
+                if (pendingCredit > 0.009 && pendingSale.customerId != null) {
+                  final idx = _localCustomers.indexWhere((c) => c.id == pendingSale.customerId);
+                  if (idx != -1) {
+                    _localCustomers[idx] = _localCustomers[idx].copyWith(
+                      balance: _localCustomers[idx].balance + pendingCredit,
+                    );
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+
+        await _saveCachedCustomers(validShopId, _localCustomers);
+        debugPrint("SUCCESS: Loaded ${_localCustomers.length} customers from Supabase Cloud for shop $validShopId");
+        return List.from(_localCustomers);
       } catch (e) {
         debugPrint("Error fetching customers from cloud: $e");
       }

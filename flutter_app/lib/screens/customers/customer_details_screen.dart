@@ -221,10 +221,15 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
   List<_CreditTransactionItem> get _ledgerEntries {
     final List<_CreditTransactionItem> items = [];
 
-    // 1. Credit Sales
+    // 1. Credit Sales (split mode attributes only its creditAmount, never unverified UPI)
     for (final s in _customerSales) {
-      if (s.paymentMode == 'credit' || s.due > 0) {
-        final amt = s.due > 0 ? s.due : s.total;
+      final isKhataCreditSale = s.paymentMode == 'split'
+          ? s.creditAmount > 0.009
+          : (s.paymentMode == 'credit' || s.due > 0.009);
+      if (isKhataCreditSale) {
+        final amt = s.paymentMode == 'split'
+            ? s.creditAmount
+            : (s.due > 0 ? s.due : s.total);
         items.add(_CreditTransactionItem(
           id: s.id,
           date: s.createdAt,

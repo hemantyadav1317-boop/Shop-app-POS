@@ -328,15 +328,19 @@ class BillReceiptCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Customer: ${customerName!.trim()}',
-                  style: TextStyle(
-                    fontSize: 12.5 * scale,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                Expanded(
+                  child: Text(
+                    'Customer: ${customerName!.trim()}',
+                    style: TextStyle(
+                      fontSize: 12.5 * scale,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                if (customerPhone != null && customerPhone!.trim().isNotEmpty)
+                if (customerPhone != null && customerPhone!.trim().isNotEmpty) ...[
+                  const SizedBox(width: 8),
                   Text(
                     customerPhone!.trim(),
                     style: TextStyle(
@@ -345,6 +349,7 @@ class BillReceiptCard extends StatelessWidget {
                       color: Colors.black,
                     ),
                   ),
+                ],
               ],
             ),
           ],

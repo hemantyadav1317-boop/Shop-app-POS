@@ -71,6 +71,17 @@ class CustomerProvider extends ChangeNotifier {
     }
   }
 
+  /// Immediately reflects newly billed credit in UI memory without waiting for cloud reload.
+  void applyLocalCredit(String customerId, double creditAmount) {
+    if (creditAmount <= 0.009) return;
+    final idx = _customers.indexWhere((c) => c.id == customerId);
+    if (idx != -1) {
+      final current = _customers[idx];
+      _customers[idx] = current.copyWith(balance: current.balance + creditAmount);
+      notifyListeners();
+    }
+  }
+
   Future<void> addCredit(String customerId, double creditAmount) async {
     final idx = _customers.indexWhere((c) => c.id == customerId);
     if (idx != -1) {

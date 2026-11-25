@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:shop_pos/core/services/update_service.dart';
 import 'package:shop_pos/core/utils/payment_qr_helper.dart';
 import 'package:shop_pos/data/models/cart_item.dart';
+import 'package:shop_pos/data/models/customer.dart';
+import 'package:shop_pos/data/models/product.dart';
 import 'package:shop_pos/data/models/sale.dart';
+import 'package:shop_pos/data/models/shop.dart';
 import 'package:shop_pos/data/services/local_db_service.dart';
 import 'package:shop_pos/data/services/upi_service.dart';
 import 'package:shop_pos/providers/auth_provider.dart';
+import 'package:shop_pos/providers/cart_provider.dart';
 import 'package:shop_pos/providers/customer_provider.dart';
 import 'package:shop_pos/providers/locale_provider.dart';
+import 'package:shop_pos/providers/product_provider.dart';
 import 'package:shop_pos/providers/shop_provider.dart';
 import 'package:shop_pos/screens/customers/customers_screen.dart';
+import 'package:shop_pos/screens/pos/widgets/payment_dialog.dart';
 import 'package:shop_pos/screens/settings/settings_screen.dart';
 
 void main() {
@@ -299,6 +306,97 @@ void main() {
       expect(decoded.createdAt.toLocal().day, originalLocal.day);
       expect(decoded.createdAt.toLocal().hour, originalLocal.hour);
       expect(decoded.createdAt.toLocal().minute, originalLocal.minute);
+    });
+
+    testWidgets('Split payment updates Dynamic UPI QR live and adds Credit to Customer Khata', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final shopProvider = ShopProvider(
+        initialShop: Shop(
+          id: 'demo-shop-101',
+          name: 'Yadav Store',
+          upiId: 'yadavstore@okicici',
+          upiPayeeName: 'Yadav Store',
+        ),
+      );
+      final cartProvider = CartProvider();
+      cartProvider.incrementOrAdd(
+        Product(
+          id: 'prod-1',
+          shopId: 'demo-shop-101',
+          name: 'Sugar',
+          category: 'GROCERY',
+          price: 300.0,
+          unit: 'kg',
+          stock: 50,
+        ),
+      );
+      final cust = Customer(
+        id: 'cust-1',
+        shopId: 'demo-shop-101',
+        name: 'Ramesh',
+        phone: '9876543210',
+        balance: 100.0,
+        createdAt: DateTime.now(),
+      );
+      cartProvider.setCustomer(cust);
+
+      final custProvider = CustomerProvider();
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider.value(value: shopProvider),
+            ChangeNotifierProvider.value(value: cartProvider),
+            ChangeNotifierProvider.value(value: custProvider),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: PaymentDialog(onSaleCompleted: () {}),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Switch to Split tab
+      await tester.tap(find.text('Split'));
+      await tester.pumpAndSettle();
+
+      // Should have 3 TextFields: Cash (0), UPI (1), Credit (2)
+      final fields = find.byType(TextField);
+      expect(fields, findsNWidgets(3));
+
+      // Enter Cash = 50, UPI = 200 -> Credit automatically becomes 50 & QR shows ₹200.00
+      await tester.enterText(fields.at(0), '50');
+      await tester.pump();
+      await tester.enterText(fields.at(1), '200');
+      await tester.pump();
+
+      expect(tester.widget<TextField>(fields.at(2)).controller!.text, '50');
+      expect(find.text('Ramesh के खाते में ₹50 उधार जुड़ेगा'), findsOneWidget);
+      expect(find.text('Payable: ₹ 200.00'), findsOneWidget);
+      final qr1 = tester.widget<QrImageView>(find.byType(QrImageView));
+      final qr1Uri = (qr1.key as ValueKey<String>).value;
+      expect(qr1Uri, contains('am=200.00'));
+      expect(qr1Uri.contains('tr='), isFalse);
+      expect(qr1Uri.contains('#'), isFalse);
+
+      // Change UPI live from 200 to 150 -> Credit becomes 100 & QR immediately updates to ₹150.00
+      await tester.enterText(fields.at(1), '150');
+      await tester.pump();
+
+      expect(tester.widget<TextField>(fields.at(2)).controller!.text, '100');
+      expect(find.text('Ramesh के खाते में ₹100 उधार जुड़ेगा'), findsOneWidget);
+      expect(find.text('Payable: ₹ 150.00'), findsOneWidget);
+      final qr2 = tester.widget<QrImageView>(find.byType(QrImageView));
+      final qr2Uri = (qr2.key as ValueKey<String>).value;
+      expect(qr2Uri, contains('am=150.00'));
+
+      // Verify no D-Mart label and no double checkbox exist
+      expect(find.textContaining('D-Mart'), findsNothing);
+      expect(find.byType(CheckboxListTile), findsNothing);
     });
   });
 }
