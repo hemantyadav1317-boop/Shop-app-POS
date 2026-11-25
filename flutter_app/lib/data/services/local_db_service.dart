@@ -552,7 +552,7 @@ class LocalDbService {
       'sales',
       where: 'shop_id = ?',
       whereArgs: [shopId],
-      orderBy: 'created_at DESC',
+      orderBy: 'bill_no DESC, created_at DESC',
     );
     final List<Sale> result = [];
     for (final row in rows) {

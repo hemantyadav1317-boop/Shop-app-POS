@@ -1032,5 +1032,85 @@ void main() {
       expect(find.text('नज़दीकी रुपया (Nearest Rupee)'), findsOneWidget);
       expect(find.text('पैसे हटाएं (Drop Paise / Floor)'), findsOneWidget);
     });
+
+    testWidgets('BillsScreen always sorts strictly by billNo descending (1317 above 1294) even with out-of-order timestamps, and heals 8:06 PM batch', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.closeForTest(disable: true);
+
+      const shopId = 'demo-shop-101';
+      await SupabaseService.instance.clearBillHistory(shopId);
+
+      // Replicate #1294 (8:06 PM) vs #1317 (7:57 PM) + cascade heal
+      addTearDown(() => TimeSyncService.instance.setForTest());
+      TimeSyncService.instance.setForTest(offset: Duration.zero, hasNetworkSync: true);
+      final nowLocal = TimeSyncService.instance.nowLocal();
+      final s1317 = Sale(
+        id: 'sale-1317',
+        shopId: shopId,
+        billNo: 1317,
+        customerName: 'Walk-in Customer',
+        items: [CartItem(productId: 'p1', name: 'Aloo', unit: 'kg', price: 200, qty: 1)],
+        subtotal: 200,
+        total: 200,
+        paid: 200,
+        paymentMode: 'cash',
+        createdAt: nowLocal.subtract(const Duration(minutes: 8)),
+      );
+      final s1295 = Sale(
+        id: 'sale-1295',
+        shopId: shopId,
+        billNo: 1295,
+        customerName: 'Walk-in Customer',
+        items: [CartItem(productId: 'p2', name: 'Pyaz', unit: 'kg', price: 100, qty: 1)],
+        subtotal: 100,
+        total: 100,
+        paid: 100,
+        paymentMode: 'cash',
+        createdAt: nowLocal.add(const Duration(minutes: 13)),
+      );
+      final s1294 = Sale(
+        id: 'sale-1294',
+        shopId: shopId,
+        billNo: 1294,
+        customerName: 'Walk-in Customer',
+        items: [CartItem(productId: 'p3', name: 'Gobhi', unit: 'kg', price: 378, qty: 1)],
+        subtotal: 378,
+        total: 378,
+        paid: 378,
+        paymentMode: 'cash',
+        createdAt: nowLocal.add(const Duration(minutes: 1)),
+      );
+
+      final healedBatch = TimeSyncService.instance.healCloudSalesTimestamps([s1294, s1295, s1317]);
+      final healed1294 = healedBatch.firstWhere((s) => s.billNo == 1294);
+      final healed1295 = healedBatch.firstWhere((s) => s.billNo == 1295);
+      // Both #1294 (+1 min) and #1295 (+13 min) are >30s ahead -> healed back -5:30!
+      expect(healed1294.createdAt.isBefore(s1317.createdAt), isTrue);
+      expect(healed1295.createdAt.isBefore(s1317.createdAt), isTrue);
+
+      // Even if unhealed timestamps were directly in local cache, BillsScreen sorts 1317 above 1294
+      await SupabaseService.instance.createSale(s1294);
+      await SupabaseService.instance.createSale(s1317);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => CartProvider()),
+            ChangeNotifierProvider(create: (_) => CustomerProvider()),
+            ChangeNotifierProvider(create: (_) => ProductProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: const MaterialApp(home: BillsScreen(isMainTab: true)),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final y1317 = tester.getTopLeft(find.text('1317')).dy;
+      final y1294 = tester.getTopLeft(find.text('1294')).dy;
+      expect(y1317, lessThan(y1294));
+    });
   });
 }

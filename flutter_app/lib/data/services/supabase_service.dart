@@ -1262,11 +1262,11 @@ class SupabaseService {
             try {
               await TimeSyncService.instance.syncWithInternet();
             } catch (_) {}
-            final rpcList = (rpcRes['sales'] as List).map((e) {
-              final parsed = Sale.fromJson(Map<String, dynamic>.from(e as Map));
-              final healed = TimeSyncService.instance.healCloudTimestampIfFuture(parsed.createdAt);
-              return healed != parsed.createdAt ? parsed.copyWith(createdAt: healed) : parsed;
-            }).toList();
+            final rpcList = TimeSyncService.instance.healCloudSalesTimestamps(
+              (rpcRes['sales'] as List)
+                  .map((e) => Sale.fromJson(Map<String, dynamic>.from(e as Map)))
+                  .toList(),
+            );
             await _saveCachedSales(validShopId, rpcList);
             final mergedList = await LocalDbService.instance.getSales(validShopId);
             final finalRpcList = mergedList.isNotEmpty ? mergedList : rpcList;
@@ -1284,21 +1284,15 @@ class SupabaseService {
           await TimeSyncService.instance.syncWithInternet();
         } catch (_) {}
 
-        Sale parseCloudSale(dynamic raw) {
-          final parsed = Sale.fromJson(Map<String, dynamic>.from(raw as Map));
-          final healed = TimeSyncService.instance.healCloudTimestampIfFuture(parsed.createdAt);
-          return healed != parsed.createdAt ? parsed.copyWith(createdAt: healed) : parsed;
-        }
-
         final List<Sale> rawCloudList = [];
         if (limit != null) {
           final response = await client!
               .from('sales')
               .select('*, sale_items(*)')
               .eq('shop_id', validShopId)
-              .order('created_at', ascending: false)
+              .order('bill_no', ascending: false)
               .limit(limit);
-          rawCloudList.addAll((response as List).map(parseCloudSale));
+          rawCloudList.addAll((response as List).map((e) => Sale.fromJson(Map<String, dynamic>.from(e as Map))));
         } else {
           // Paginate in 1000-row chunks so Supabase's default 1000-row cap never cuts off bills #1..#299
           const int pageSize = 1000;
@@ -1308,20 +1302,22 @@ class SupabaseService {
                 .from('sales')
                 .select('*, sale_items(*)')
                 .eq('shop_id', validShopId)
-                .order('created_at', ascending: false)
+                .order('bill_no', ascending: false)
                 .range(offset, offset + pageSize - 1);
-            final batch = (response as List).map(parseCloudSale).toList();
+            final batch = (response as List).map((e) => Sale.fromJson(Map<String, dynamic>.from(e as Map))).toList();
             rawCloudList.addAll(batch);
             if (batch.length < pageSize) break;
             offset += pageSize;
           }
         }
 
+        final healedCloudList = TimeSyncService.instance.healCloudSalesTimestamps(rawCloudList);
+
         // Deduplicate only true ID / bill_no / clientRef duplicates (never hide separate valid bills)
         final List<Sale> cloudList = [];
         final seenIds = <String>{};
         final seenBillNos = <int>{};
-        for (final sale in rawCloudList) {
+        for (final sale in healedCloudList) {
           if (seenIds.contains(sale.id)) continue;
           if (sale.billNo > 0 && seenBillNos.contains(sale.billNo)) continue;
           seenIds.add(sale.id);

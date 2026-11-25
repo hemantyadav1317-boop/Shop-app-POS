@@ -121,10 +121,13 @@ class _BillsScreenState extends State<BillsScreen> {
       }
     }
 
-    // 1. Sort strictly date-wise (newest first), tie-breaking by higher billNo
+    // 1. Sort strictly by sequential billNo descending (e.g. 1317, 1316, 1315 ... 1)
+    // so legacy out-of-order timestamps never push an old bill above newer bills.
     unique.sort((a, b) {
-      final byDate = b.createdAt.compareTo(a.createdAt);
-      return byDate != 0 ? byDate : b.billNo.compareTo(a.billNo);
+      if (a.billNo > 0 && b.billNo > 0 && a.billNo != b.billNo) {
+        return b.billNo.compareTo(a.billNo);
+      }
+      return b.createdAt.compareTo(a.createdAt);
     });
 
     List<Sale> list = unique;

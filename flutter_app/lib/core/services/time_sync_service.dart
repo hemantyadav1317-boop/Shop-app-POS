@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/models/sale.dart';
 
 /// Keeps billing timestamps accurate across devices even when a phone's local
 /// system clock is skewed, by calibrating against Internet/Supabase HTTP Date
@@ -135,7 +136,7 @@ class TimeSyncService {
     if (!_hasNetworkSync) return parsedLocal;
     final realNowUtc = nowUtc();
     final parsedUtc = parsedLocal.toUtc();
-    if (parsedUtc.isAfter(realNowUtc.add(const Duration(minutes: 5)))) {
+    if (parsedUtc.isAfter(realNowUtc.add(const Duration(seconds: 30)))) {
       final shifted = parsedUtc.subtract(const Duration(hours: 5, minutes: 30));
       if (!shifted.isAfter(realNowUtc.add(const Duration(minutes: 2)))) {
         return shifted.toLocal();
@@ -143,6 +144,51 @@ class TimeSyncService {
       return realNowUtc.toLocal();
     }
     return parsedLocal;
+  }
+
+  /// Heals both future-dated rows and earlier-billNo rows whose timestamp jumps >3h ahead
+  /// of higher-numbered bills due to legacy +5:30 IST-in-UTC storage.
+  List<Sale> healCloudSalesTimestamps(List<Sale> sales) {
+    if (sales.isEmpty) return sales;
+
+    // Pass 1: heal any row still sitting in the future relative to real calibrated time
+    final pass1 = sales.map((s) {
+      final healed = healCloudTimestampIfFuture(s.createdAt);
+      return healed != s.createdAt ? s.copyWith(createdAt: healed) : s;
+    }).toList();
+
+    // Pass 2: walk descending from highest billNo downward; if a lower billNo sits
+    // >3h after a subsequent bill's timestamp and subtracting 5:30 restores order, heal it.
+    final indexed = pass1
+        .asMap()
+        .entries
+        .where((e) => e.value.billNo > 0 && e.value.billNo < 1000000000)
+        .toList()
+      ..sort((a, b) => a.value.billNo.compareTo(b.value.billNo));
+
+    if (indexed.length >= 2) {
+      DateTime minLaterUtc = indexed.last.value.createdAt.toUtc();
+      for (int k = indexed.length - 2; k >= 0; k--) {
+        final origIdx = indexed[k].key;
+        final cur = pass1[origIdx];
+        final curUtc = cur.createdAt.toUtc();
+        if (curUtc.isAfter(minLaterUtc.add(const Duration(hours: 3)))) {
+          final shiftedUtc = curUtc.subtract(const Duration(hours: 5, minutes: 30));
+          if (!shiftedUtc.isAfter(minLaterUtc.add(const Duration(minutes: 5)))) {
+            pass1[origIdx] = cur.copyWith(createdAt: shiftedUtc.toLocal());
+            if (shiftedUtc.isBefore(minLaterUtc)) {
+              minLaterUtc = shiftedUtc;
+            }
+            continue;
+          }
+        }
+        if (curUtc.isBefore(minLaterUtc)) {
+          minLaterUtc = curUtc;
+        }
+      }
+    }
+
+    return pass1;
   }
 
   @visibleForTesting
