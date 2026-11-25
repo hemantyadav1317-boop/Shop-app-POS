@@ -996,7 +996,7 @@ class SupabaseService {
       'amount': amount,
       'mode': mode,
       if (note != null && note.isNotEmpty) 'note': note,
-      'created_at': payment.createdAt.toIso8601String(),
+      'created_at': payment.createdAt.toUtc().toIso8601String(),
     };
 
     if (_isInitialized && client != null && validShopId != 'demo-shop-101') {
@@ -1301,7 +1301,7 @@ class SupabaseService {
           // Also sync cloud bill counter floor so next bill never jumps backward
           int cloudMaxBill = 0;
           for (final s in cloudList) {
-            if (s.billNo > cloudMaxBill && s.billNo < 1000000) {
+            if (s.billNo > cloudMaxBill && s.billNo < 1000000000) {
               cloudMaxBill = s.billNo;
             }
           }
@@ -1433,7 +1433,7 @@ class SupabaseService {
           .timeout(const Duration(milliseconds: 1200));
       if (counterRow != null && counterRow['last_bill_no'] != null) {
         final cVal = (counterRow['last_bill_no'] as num).toInt();
-        if (cVal > floor && cVal < 1000000) floor = cVal;
+        if (cVal > floor && cVal < 1000000000) floor = cVal;
       }
     } catch (_) {}
 
@@ -1442,14 +1442,14 @@ class SupabaseService {
           .from('sales')
           .select('bill_no')
           .eq('shop_id', validShopId)
-          .lt('bill_no', 1000000)
+          .lt('bill_no', 1000000000)
           .order('bill_no', ascending: false)
           .limit(1)
           .maybeSingle()
           .timeout(const Duration(milliseconds: 1200));
       if (topSaleRow != null && topSaleRow['bill_no'] != null) {
         final sVal = (topSaleRow['bill_no'] as num).toInt();
-        if (sVal > floor && sVal < 1000000) floor = sVal;
+        if (sVal > floor && sVal < 1000000000) floor = sVal;
       }
     } catch (_) {}
 
@@ -1508,10 +1508,10 @@ class SupabaseService {
                 .timeout(const Duration(milliseconds: 2500));
             final serverBillNo = (createdRow?['bill_no'] as num?)?.toInt() ?? 0;
 
-            if (serverBillNo > targetSale.billNo && serverBillNo < 1000000) {
+            if (serverBillNo > targetSale.billNo && serverBillNo < 1000000000) {
               resolvedBillNo = serverBillNo;
               await LocalDbService.instance.syncCounterFloor(validShopId, serverBillNo);
-            } else if (targetSale.billNo > serverBillNo && targetSale.billNo < 1000000) {
+            } else if (targetSale.billNo > serverBillNo && targetSale.billNo < 1000000000) {
               await client!
                   .from('sales')
                   .update({'bill_no': targetSale.billNo})

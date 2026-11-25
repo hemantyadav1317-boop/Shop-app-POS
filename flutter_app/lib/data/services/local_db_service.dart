@@ -420,7 +420,7 @@ class LocalDbService {
       await txn.delete('sales', where: 'shop_id = ?', whereArgs: [shopId]);
       final batch = txn.batch();
       for (final s in merged.values) {
-        if (s.billNo > syncedMaxBill && s.billNo < 1000000) {
+        if (s.billNo > syncedMaxBill && s.billNo < 1000000000) {
           syncedMaxBill = s.billNo;
         }
         batch.insert(
@@ -449,7 +449,7 @@ class LocalDbService {
       int currentCounter = cRows.isNotEmpty
           ? ((cRows.first['last_bill_no'] as num?)?.toInt() ?? 0)
           : 0;
-      if (currentCounter >= 1000000) currentCounter = 0;
+      if (currentCounter >= 1000000000) currentCounter = 0;
       final effectiveFloor = math.max(currentCounter, syncedMaxBill);
       if (effectiveFloor > 0) {
         await txn.insert(
@@ -468,7 +468,7 @@ class LocalDbService {
       try {
         final prefs = await SharedPreferences.getInstance();
         final prevPref = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
-        final cleanPrev = prevPref >= 1000000 ? 0 : prevPref;
+        final cleanPrev = prevPref >= 1000000000 ? 0 : prevPref;
         if (syncedMaxBill > cleanPrev) {
           await prefs.setInt('shop_last_bill_no_$shopId', syncedMaxBill);
         }
@@ -493,7 +493,7 @@ class LocalDbService {
       },
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
-    if (sale.billNo > 0 && sale.billNo < 1000000) {
+    if (sale.billNo > 0 && sale.billNo < 1000000000) {
       await syncCounterFloor(shopId, sale.billNo);
     }
   }
@@ -916,7 +916,7 @@ class LocalDbService {
       try {
         final prefs = await SharedPreferences.getInstance();
         var last = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
-        if (last >= 1000000) last = 0;
+        if (last >= 1000000000) last = 0;
         return last + 1;
       } catch (_) {
         return 1;
@@ -929,14 +929,14 @@ class LocalDbService {
     );
     // Ignore 7+ digit millisecond timestamp outliers (>= 1,000,000) from legacy fallback bug
     final sRows = await db.rawQuery(
-      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 1000000',
+      'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 1000000000',
       [shopId],
     );
     final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
     int current = 0;
     if (rows.isNotEmpty) {
       current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
-      if (current >= 1000000) {
+      if (current >= 1000000000) {
         current = maxSales;
       }
     }
@@ -946,7 +946,7 @@ class LocalDbService {
     // Guarantee candidate number has no collisions with existing sales
     while (true) {
       final existing = await db.rawQuery(
-        'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 1000000 LIMIT 1',
+        'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 1000000000 LIMIT 1',
         [shopId, peekNo],
       );
       if (existing.isEmpty) break;
@@ -963,7 +963,7 @@ class LocalDbService {
       try {
         final prefs = await SharedPreferences.getInstance();
         var last = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
-        if (last >= 1000000) last = 0;
+        if (last >= 1000000000) last = 0;
         final next = last + 1;
         await prefs.setInt('shop_last_bill_no_$shopId', next);
         return next;
@@ -979,14 +979,14 @@ class LocalDbService {
       );
       // Ignore 7+ digit millisecond timestamp outliers (>= 1,000,000) from legacy fallback bug
       final sRows = await txn.rawQuery(
-        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 1000000',
+        'SELECT MAX(bill_no) as max_b FROM sales WHERE shop_id = ? AND bill_no < 1000000000',
         [shopId],
       );
       final maxSales = (sRows.first['max_b'] as num?)?.toInt() ?? 0;
       int current = 0;
       if (rows.isNotEmpty) {
         current = (rows.first['last_bill_no'] as num?)?.toInt() ?? 0;
-        if (current >= 1000000) {
+        if (current >= 1000000000) {
           current = maxSales;
         }
       }
@@ -996,7 +996,7 @@ class LocalDbService {
       // Guarantee candidate number has no collisions with existing sales
       while (true) {
         final existing = await txn.rawQuery(
-          'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 1000000 LIMIT 1',
+          'SELECT 1 FROM sales WHERE shop_id = ? AND bill_no = ? AND bill_no < 1000000000 LIMIT 1',
           [shopId, nextNo],
         );
         if (existing.isEmpty) break;
@@ -1022,12 +1022,12 @@ class LocalDbService {
   /// Advances the local bill counter forward if [floorBillNo] is higher than current counter.
   /// Never moves the counter backward.
   Future<void> syncCounterFloor(String shopId, int floorBillNo) async {
-    if (floorBillNo <= 0 || floorBillNo >= 1000000) return;
+    if (floorBillNo <= 0 || floorBillNo >= 1000000000) return;
     final db = await _ensureDb();
     try {
       final prefs = await SharedPreferences.getInstance();
       final prev = prefs.getInt('shop_last_bill_no_$shopId') ?? 0;
-      final cleanPrev = prev >= 1000000 ? 0 : prev;
+      final cleanPrev = prev >= 1000000000 ? 0 : prev;
       if (floorBillNo > cleanPrev) {
         await prefs.setInt('shop_last_bill_no_$shopId', floorBillNo);
       }
@@ -1043,7 +1043,7 @@ class LocalDbService {
       int existing = rows.isNotEmpty
           ? ((rows.first['last_bill_no'] as num?)?.toInt() ?? 0)
           : 0;
-      if (existing >= 1000000) existing = 0;
+      if (existing >= 1000000000) existing = 0;
       if (floorBillNo > existing) {
         await txn.insert(
           'shop_bill_counters',

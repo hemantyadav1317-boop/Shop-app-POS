@@ -269,56 +269,67 @@ class BillReceiptCard extends StatelessWidget {
 
           SizedBox(height: 5 * scale),
 
-          // 3. Date & Invoice No
+          // 3. Date & Invoice No (scales cleanly for 5-to-8+ digit bill numbers on 58mm paper)
           if (optInvoiceNo)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Flexible(
-                  child: Text(
-                    dateString,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13.0 * scale,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Invoice $cleanBillNo',
+                  flex: 5,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      dateString,
                       style: TextStyle(
-                        fontSize: 13.0 * scale,
+                        fontSize: 12.5 * scale,
                         fontWeight: FontWeight.bold,
                         color: Colors.black,
                       ),
                     ),
-                    if (editCount > 0) ...[
-                      SizedBox(width: 4 * scale),
-                      Container(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 4 * scale,
-                          vertical: 1.5 * scale,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black, width: 1),
-                          borderRadius: BorderRadius.circular(3 * scale),
-                        ),
-                        child: Text(
-                          'Edited ($editCount)',
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  flex: 6,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Invoice $cleanBillNo',
                           style: TextStyle(
-                            fontSize: 9.5 * scale,
-                            fontWeight: FontWeight.w900,
+                            fontSize: 13.0 * scale,
+                            fontWeight: FontWeight.bold,
                             color: Colors.black,
                           ),
                         ),
-                      ),
-                    ],
-                  ],
+                        if (editCount > 0) ...[
+                          SizedBox(width: 4 * scale),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 4 * scale,
+                              vertical: 1.5 * scale,
+                            ),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.black, width: 1),
+                              borderRadius: BorderRadius.circular(3 * scale),
+                            ),
+                            child: Text(
+                              'Edited ($editCount)',
+                              style: TextStyle(
+                                fontSize: 9.5 * scale,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -341,12 +352,18 @@ class BillReceiptCard extends StatelessWidget {
                 ),
                 if (customerPhone != null && customerPhone!.trim().isNotEmpty) ...[
                   const SizedBox(width: 8),
-                  Text(
-                    customerPhone!.trim(),
-                    style: TextStyle(
-                      fontSize: 12.5 * scale,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        customerPhone!.trim(),
+                        style: TextStyle(
+                          fontSize: 12.5 * scale,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -484,24 +501,34 @@ class BillReceiptCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                'Items : ${items.length}',
-                style: TextStyle(
-                  fontSize: 13.5 * scale,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black,
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Items : ${items.length}',
+                    style: TextStyle(
+                      fontSize: 13.5 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
               Flexible(
-                child: Text(
-                  'Sub Total : Rs ${subtotal.toStringAsFixed(2)}',
-                  textAlign: TextAlign.right,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13.5 * scale,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                flex: 2,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    'Sub Total : Rs ${subtotal.toStringAsFixed(2)}',
+                    textAlign: TextAlign.right,
+                    style: TextStyle(
+                      fontSize: 13.5 * scale,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
               ),
@@ -513,20 +540,29 @@ class BillReceiptCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Discount :',
-                  style: TextStyle(
-                    fontSize: 13.0 * scale,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                Flexible(
+                  child: Text(
+                    'Discount :',
+                    style: TextStyle(
+                      fontSize: 13.0 * scale,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black,
+                    ),
                   ),
                 ),
-                Text(
-                  '- Rs ${discount.toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 13.0 * scale,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.black,
+                const SizedBox(width: 6),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '- Rs ${discount.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 13.0 * scale,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black,
+                      ),
+                    ),
                   ),
                 ),
               ],

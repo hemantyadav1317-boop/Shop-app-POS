@@ -1105,12 +1105,12 @@ class _CustomerDetailsScreenState extends State<CustomerDetailsScreen> {
     final hasPhone = phone != null && phone.trim().isNotEmpty;
 
     final lastPaymentDate = _customerPayments.isNotEmpty
-        ? DateFormat('dd MMM yyyy').format(_customerPayments.first.createdAt)
+        ? DateFormat('dd MMM yyyy').format(_customerPayments.first.createdAt.toLocal())
         : '--';
     final lastSaleDate = _customerSales.isNotEmpty
-        ? DateFormat('dd MMM yyyy').format(_customerSales.first.createdAt)
+        ? DateFormat('dd MMM yyyy').format(_customerSales.first.createdAt.toLocal())
         : '--';
-    final customerSince = DateFormat('dd MMM yyyy').format(_currentCustomer.createdAt);
+    final customerSince = DateFormat('dd MMM yyyy').format(_currentCustomer.createdAt.toLocal());
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),

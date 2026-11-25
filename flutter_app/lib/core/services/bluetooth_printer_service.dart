@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:esc_pos_utils_plus/esc_pos_utils_plus.dart';
@@ -156,6 +157,10 @@ class BluetoothPrinterService {
           bytes += generator.text(
             'Bill #${sale.billNo}${sale.isEdited ? ' [${sale.editedTagText}]' : ''}',
             styles: const PosStyles(align: PosAlign.left, bold: true),
+          );
+          bytes += generator.text(
+            DateFormat('dd-MM-yyyy hh:mm a').format(sale.createdAt.toLocal()),
+            styles: const PosStyles(align: PosAlign.left),
           );
         }
         bytes += generator.hr();

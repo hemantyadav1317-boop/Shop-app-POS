@@ -30,7 +30,7 @@ class ReceiptPrintService {
         : const PdfPageFormat(58 * PdfPageFormat.mm, double.infinity, marginAll: 2 * PdfPageFormat.mm);
 
     final dateFormat = DateFormat('dd-MM-yyyy hh:mm a');
-    final formattedDate = dateFormat.format(sale.createdAt);
+    final formattedDate = dateFormat.format(sale.createdAt.toLocal());
     final payeeName = (shop.upiPayeeName != null && shop.upiPayeeName!.trim().isNotEmpty)
         ? shop.upiPayeeName!.trim()
         : shop.name;
@@ -109,26 +109,33 @@ class ReceiptPrintService {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Row(
-                    mainAxisSize: pw.MainAxisSize.min,
-                    children: [
-                      pw.Text('Bill No: #${sale.billNo}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                      if (sale.isEdited) ...[
-                        pw.SizedBox(width: 4),
-                        pw.Container(
-                          padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-                          decoration: pw.BoxDecoration(
-                            border: pw.Border.all(width: 0.6),
-                            borderRadius: pw.BorderRadius.circular(2),
-                          ),
-                          child: pw.Text(
-                            sale.editedTagText,
-                            style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ],
+                  pw.Flexible(
+                    child: pw.FittedBox(
+                      fit: pw.BoxFit.scaleDown,
+                      alignment: pw.Alignment.centerLeft,
+                      child: pw.Row(
+                        mainAxisSize: pw.MainAxisSize.min,
+                        children: [
+                          pw.Text('Bill No: #${sale.billNo}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                          if (sale.isEdited) ...[
+                            pw.SizedBox(width: 4),
+                            pw.Container(
+                              padding: const pw.EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                              decoration: pw.BoxDecoration(
+                                border: pw.Border.all(width: 0.6),
+                                borderRadius: pw.BorderRadius.circular(2),
+                              ),
+                              child: pw.Text(
+                                sale.editedTagText,
+                                style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   ),
+                  pw.SizedBox(width: 4),
                   pw.Text(formattedDate, style: const pw.TextStyle(fontSize: 7)),
                 ],
               ),

@@ -21,6 +21,7 @@ import 'package:shop_pos/providers/locale_provider.dart';
 import 'package:shop_pos/providers/product_provider.dart';
 import 'package:shop_pos/providers/shop_provider.dart';
 import 'package:shop_pos/screens/customers/customers_screen.dart';
+import 'package:shop_pos/screens/pos/widgets/bill_receipt_card.dart';
 import 'package:shop_pos/screens/pos/widgets/payment_dialog.dart';
 import 'package:shop_pos/screens/settings/settings_screen.dart';
 
@@ -274,11 +275,13 @@ void main() {
       expect(await LocalDbService.instance.getNextBillNo(shopId), 1170);
       expect(await LocalDbService.instance.getNextBillNo(shopId), 1171);
 
-      // Verify counters > 5000 work cleanly while 7-digit timestamp outliers are ignored
-      await LocalDbService.instance.syncCounterFloor(shopId, 5005);
-      expect(await LocalDbService.instance.getNextBillNo(shopId), 5006);
+      // Verify counters >= 10,000 and >= 10,00,000 (10 Lakh+) work cleanly with no cap, while 10-digit Unix epoch outliers are ignored
+      await LocalDbService.instance.syncCounterFloor(shopId, 10000);
+      expect(await LocalDbService.instance.getNextBillNo(shopId), 10001);
+      await LocalDbService.instance.syncCounterFloor(shopId, 1000005);
+      expect(await LocalDbService.instance.getNextBillNo(shopId), 1000006);
       await LocalDbService.instance.syncCounterFloor(shopId, 1795592537);
-      expect(await LocalDbService.instance.peekNextBillNo(shopId), 5007);
+      expect(await LocalDbService.instance.peekNextBillNo(shopId), 1000007);
 
       await LocalDbService.instance.closeForTest();
     });
@@ -483,6 +486,52 @@ void main() {
       expect(allDbSalesAfterCustA.any((s) => s.id == saleB.id), isTrue);
 
       await LocalDbService.instance.closeForTest();
+    });
+
+    testWidgets('BillReceiptCard renders 10-Lakh+ billNo (1000005) + Edited tag without overflow on narrow width', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: SizedBox(
+                  width: 320,
+                  child: BillReceiptCard(
+                    shopName: 'Yadav Kirana Store',
+                    billNo: '1000005',
+                    dateString: '25-11-2026 02:30 PM',
+                    customerName: 'Ramesh Kumar',
+                    customerPhone: '9876543210',
+                    items: [
+                      CartItem(productId: 'p1', name: 'Aashirvaad Atta 5kg', unit: 'pkt', price: 245, qty: 2),
+                    ],
+                    subtotal: 490,
+                    discount: 10,
+                    total: 480,
+                    paid: 480,
+                    due: 0,
+                    paymentMode: 'cash',
+                    editCount: 2,
+                    fontScale: 1.45,
+                    printWidth: 300,
+                    showQr: false,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Invoice 1000005'), findsOneWidget);
+      expect(find.text('25-11-2026 02:30 PM'), findsOneWidget);
+      expect(find.textContaining('Edited'), findsOneWidget);
     });
   });
 }

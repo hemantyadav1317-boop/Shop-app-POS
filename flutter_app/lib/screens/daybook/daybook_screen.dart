@@ -36,9 +36,10 @@ class _DaybookScreenState extends State<DaybookScreen> {
     super.initState();
     final now = DateTime.now();
     _todaySales = SupabaseService.instance.currentLocalSales.where((s) {
-      return s.createdAt.year == now.year &&
-          s.createdAt.month == now.month &&
-          s.createdAt.day == now.day;
+      final localCreatedAt = s.createdAt.toLocal();
+      return localCreatedAt.year == now.year &&
+          localCreatedAt.month == now.month &&
+          localCreatedAt.day == now.day;
     }).toList();
     _todayExpenses = SupabaseService.instance.currentLocalExpenses.where((e) {
       return e.spentOn.year == now.year &&
@@ -58,9 +59,10 @@ class _DaybookScreenState extends State<DaybookScreen> {
     final expensesSource = SupabaseService.instance.currentLocalExpenses;
 
     final initialTodaySales = salesSource.where((s) {
-      return s.createdAt.year == now.year &&
-          s.createdAt.month == now.month &&
-          s.createdAt.day == now.day;
+      final localCreatedAt = s.createdAt.toLocal();
+      return localCreatedAt.year == now.year &&
+          localCreatedAt.month == now.month &&
+          localCreatedAt.day == now.day;
     }).toList();
 
     final initialTodayExpenses = expensesSource.where((e) {
@@ -84,9 +86,10 @@ class _DaybookScreenState extends State<DaybookScreen> {
         final allExpenses = await SupabaseService.instance.getExpenses(shop.id).timeout(const Duration(seconds: 4));
 
         final refreshedTodaySales = allSales.where((s) {
-          return s.createdAt.year == now.year &&
-              s.createdAt.month == now.month &&
-              s.createdAt.day == now.day;
+          final localCreatedAt = s.createdAt.toLocal();
+          return localCreatedAt.year == now.year &&
+              localCreatedAt.month == now.month &&
+              localCreatedAt.day == now.day;
         }).toList();
 
         final refreshedTodayExpenses = allExpenses.where((e) {
@@ -824,7 +827,7 @@ class _DaybookScreenState extends State<DaybookScreen> {
                                                     Row(
                                                       children: [
                                                         Text(
-                                                          dateFormat.format(sale.createdAt),
+                                                          dateFormat.format(sale.createdAt.toLocal()),
                                                           style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                                                         ),
                                                         const SizedBox(width: 8),

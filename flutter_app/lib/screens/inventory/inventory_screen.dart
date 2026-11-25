@@ -658,7 +658,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       separatorBuilder: (_, __) => const Divider(height: 1),
                       itemBuilder: (ctx, idx) {
                         final log = logs[idx];
-                        final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(log.createdAt);
+                        final dateStr = DateFormat('dd MMM yyyy, hh:mm a').format(log.createdAt.toLocal());
                         final isPositive = log.changeQuantity >= 0;
 
                         return ListTile(
