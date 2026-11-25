@@ -130,7 +130,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final targetWidget = readyForMainShell ? const MainShell() : const LoginScreen();
 
     if (!mounted) return;
-    Navigator.of(context).pushReplacement(
+    Navigator.of(context).pushAndRemoveUntil(
       PageRouteBuilder(
         transitionDuration: const Duration(milliseconds: 600),
         pageBuilder: (context, animation, secondaryAnimation) => targetWidget,
@@ -141,6 +141,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           );
         },
       ),
+      (route) => false,
     );
   }
 

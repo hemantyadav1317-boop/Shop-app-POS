@@ -17,7 +17,9 @@ import '../reports/daily_profit_screen.dart';
 import '../main_shell.dart';
 
 class DaybookScreen extends StatefulWidget {
-  const DaybookScreen({super.key});
+  final bool isMainTab;
+
+  const DaybookScreen({super.key, this.isMainTab = false});
 
   @override
   State<DaybookScreen> createState() => _DaybookScreenState();
@@ -294,7 +296,7 @@ class _DaybookScreenState extends State<DaybookScreen> {
     final netDrawer = cashIn - cashOut;
 
     final dateFormat = DateFormat('hh:mm a');
-    final canPop = Navigator.canPop(context);
+    final canPop = !widget.isMainTab && Navigator.canPop(context);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),

@@ -21,7 +21,9 @@ import '../../data/models/stock_adjustment.dart';
 import '../../data/services/stock_adjustment_service.dart';
 
 class InventoryScreen extends StatefulWidget {
-  const InventoryScreen({super.key});
+  final bool isMainTab;
+
+  const InventoryScreen({super.key, this.isMainTab = false});
 
   static String getCategoryEmoji(String category) {
     final cat = category.trim().toLowerCase();
@@ -720,7 +722,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isHindi = localeCode == 'hi';
-    final canPop = Navigator.canPop(context);
+    final canPop = !widget.isMainTab && Navigator.canPop(context);
 
     return DefaultTabController(
       length: 2,

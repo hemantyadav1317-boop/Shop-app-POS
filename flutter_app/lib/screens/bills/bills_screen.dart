@@ -22,8 +22,9 @@ import '../../providers/locale_provider.dart';
 
 class BillsScreen extends StatefulWidget {
   final VoidCallback? onSwitchToBilling;
+  final bool isMainTab;
 
-  const BillsScreen({super.key, this.onSwitchToBilling});
+  const BillsScreen({super.key, this.onSwitchToBilling, this.isMainTab = false});
 
   @override
   State<BillsScreen> createState() => _BillsScreenState();
@@ -1143,7 +1144,7 @@ class _BillsScreenState extends State<BillsScreen> {
     final timeFormat = DateFormat('dd MMM yyyy h:mm a');
     final filtered = _filteredSales;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final canPop = Navigator.canPop(context);
+    final canPop = !widget.isMainTab && Navigator.canPop(context);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),

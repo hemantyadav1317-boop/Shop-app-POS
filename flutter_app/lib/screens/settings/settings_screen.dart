@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../providers/shop_provider.dart';
 import '../../providers/locale_provider.dart';
+import '../main_shell.dart';
 import 'business_details_screen.dart';
 import 'feature_settings_screen.dart';
 import 'printer_settings_screen.dart';
@@ -17,7 +18,9 @@ import 'weighing_scale_settings_screen.dart';
 import 'ai_vision_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  final bool isMainTab;
+
+  const SettingsScreen({super.key, this.isMainTab = false});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -527,6 +530,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final shopProvider = context.watch<ShopProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isHindi = context.watch<LocaleProvider>().localeCode == 'hi';
+    final canPop = !widget.isMainTab && Navigator.canPop(context);
 
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
@@ -538,14 +542,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             pinned: true,
             elevation: 0,
             backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFFF6D00),
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
-              tooltip: 'Back',
-              onPressed: () {
-                SoundService.instance.playButtonClick();
-                Navigator.pop(context);
-              },
-            ),
+            leading: canPop
+                ? IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 24),
+                    tooltip: 'Back',
+                    onPressed: () {
+                      SoundService.instance.playButtonClick();
+                      Navigator.pop(context);
+                    },
+                  )
+                : IconButton(
+                    icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
+                    tooltip: 'मेन्यू',
+                    onPressed: () {
+                      SoundService.instance.playButtonClick();
+                      MainShell.openDrawer(context);
+                    },
+                  ),
             flexibleSpace: FlexibleSpaceBar(
               titlePadding: const EdgeInsets.only(left: 56, bottom: 16),
               title: Text(

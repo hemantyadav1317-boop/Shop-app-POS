@@ -1,7 +1,16 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shop_pos/core/services/update_service.dart';
 import 'package:shop_pos/core/utils/payment_qr_helper.dart';
 import 'package:shop_pos/data/services/upi_service.dart';
+import 'package:shop_pos/providers/auth_provider.dart';
+import 'package:shop_pos/providers/customer_provider.dart';
+import 'package:shop_pos/providers/locale_provider.dart';
+import 'package:shop_pos/providers/shop_provider.dart';
+import 'package:shop_pos/screens/customers/customers_screen.dart';
+import 'package:shop_pos/screens/settings/settings_screen.dart';
 
 void main() {
   group('v1.7.6 Feature & Navigation Tests', () {
@@ -90,6 +99,93 @@ void main() {
       expect(uri!.contains('tr='), isFalse);
       expect(uri.contains('#'), isFalse);
       expect(uri, contains('tn=Bill%2055'));
+    });
+
+    testWidgets('Main tab CustomersScreen always shows menu icon even when Navigator.canPop is true', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => CustomerProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CustomersScreen(isMainTab: true)),
+                      );
+                    },
+                    child: const Text('Open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      // Must show menu icon instead of back arrow so user can never pop MainShell to black screen
+      expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
+    });
+
+    testWidgets('SettingsScreen shows menu when isMainTab is true and back arrow when pushed', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            ChangeNotifierProvider(create: (_) => ShopProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider()),
+            ChangeNotifierProvider(create: (_) => LocaleProvider()),
+          ],
+          child: MaterialApp(
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsScreen(isMainTab: true)),
+                      ),
+                      child: const Text('OpenTab'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const SettingsScreen(isMainTab: false)),
+                      ),
+                      child: const Text('OpenStandalone'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('OpenTab'));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.menu_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.arrow_back_rounded), findsNothing);
+
+      // Navigate back cleanly and open standalone pushed SettingsScreen
+      Navigator.of(tester.element(find.byType(SettingsScreen))).pop();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('OpenStandalone'));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.arrow_back_rounded), findsOneWidget);
     });
   });
 }

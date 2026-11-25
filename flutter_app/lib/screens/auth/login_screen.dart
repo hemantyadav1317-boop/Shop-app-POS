@@ -114,17 +114,19 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
         await prefs.setString('selected_store_type', currentShop.storeType);
       }
       if (context.mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const MainShell()),
+          (route) => false,
         );
       }
     } else {
       // Brand new user without account or shop: guide them through store configuration
       if (context.mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const BusinessSetupScreen()),
+          (route) => false,
         );
       }
     }
@@ -970,9 +972,10 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                                             ),
                                           );
 
-                                          Navigator.pushReplacement(
+                                          Navigator.pushAndRemoveUntil(
                                             context,
                                             MaterialPageRoute(builder: (_) => const MainShell()),
+                                            (route) => false,
                                           );
                                         }
                                       }

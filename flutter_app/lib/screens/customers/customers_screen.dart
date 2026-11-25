@@ -19,7 +19,9 @@ import 'customer_details_screen.dart';
 import '../../providers/locale_provider.dart';
 
 class CustomersScreen extends StatefulWidget {
-  const CustomersScreen({super.key});
+  final bool isMainTab;
+
+  const CustomersScreen({super.key, this.isMainTab = false});
 
   @override
   State<CustomersScreen> createState() => _CustomersScreenState();
@@ -873,7 +875,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
       list.sort((a, b) => _getCustomerSales(b).compareTo(_getCustomerSales(a)));
     }
 
-    final canPop = Navigator.canPop(context);
+    final canPop = !widget.isMainTab && Navigator.canPop(context);
 
     // Color palette for customer initials squircles
     final pastelColors = [

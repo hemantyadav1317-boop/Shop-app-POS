@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/services/sound_service.dart';
@@ -35,6 +36,7 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
   AuthProvider? _authProvider;
+  DateTime? _lastBackPressedAt;
 
   @override
   void initState() {
@@ -178,12 +180,48 @@ class _MainShellState extends State<MainShell> {
 
   late final List<Widget> _screens = [
     const PosScreen(),
-    BillsScreen(onSwitchToBilling: () => _onNavigationChanged(0)),
-    const CustomersScreen(),
-    const InventoryScreen(),
-    const DaybookScreen(),
-    const SettingsScreen(),
+    BillsScreen(onSwitchToBilling: () => _onNavigationChanged(0), isMainTab: true),
+    const CustomersScreen(isMainTab: true),
+    const InventoryScreen(isMainTab: true),
+    const DaybookScreen(isMainTab: true),
+    const SettingsScreen(isMainTab: true),
   ];
+
+  void _handleBackNavigation(bool didPop, Object? result) {
+    if (didPop) return;
+    // 1. If drawer is open, close it first
+    if (MainShell.scaffoldKey.currentState?.isDrawerOpen ?? false) {
+      Navigator.of(context).pop();
+      return;
+    }
+    // 2. If user is on Khata / Bills / Stock / etc., switch safely back to Home tab
+    if (_currentIndex != 0) {
+      _onNavigationChanged(0);
+      return;
+    }
+    // 3. On Home tab, require double-back within 2s to exit cleanly without black screen
+    final now = DateTime.now();
+    if (_lastBackPressedAt == null ||
+        now.difference(_lastBackPressedAt!) > const Duration(seconds: 2)) {
+      _lastBackPressedAt = now;
+      final isHindi = context.read<LocaleProvider>().localeCode == 'hi';
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+              isHindi
+                  ? 'ऐप बंद करने के लिए दोबारा Back दबाएं'
+                  : 'Press back again to exit app',
+            ),
+          ),
+        );
+      return;
+    }
+    SystemNavigator.pop();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +230,10 @@ class _MainShellState extends State<MainShell> {
     final isMenuHidden = menuVisibility.isMenuHidden;
 
     if (isTablet) {
-      return Scaffold(
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: _handleBackNavigation,
+        child: Scaffold(
         key: MainShell.scaffoldKey,
         drawer: const AppDrawer(),
         body: Stack(
@@ -323,10 +364,14 @@ class _MainShellState extends State<MainShell> {
               ),
           ],
         ),
+        ),
       );
     }
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: _handleBackNavigation,
+      child: Scaffold(
       key: MainShell.scaffoldKey,
       drawer: const AppDrawer(),
       body: Stack(
@@ -443,6 +488,7 @@ class _MainShellState extends State<MainShell> {
                 ),
               ),
             ),
+      ),
     );
   }
 }

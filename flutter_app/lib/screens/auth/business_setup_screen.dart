@@ -604,8 +604,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
       await prefs.setString('selected_store_type', _selectedCategory);
 
       if (mounted) {
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => const MainShell()),
+          (route) => false,
         );
       }
     } catch (e) {
@@ -627,8 +628,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     await prefs.remove('selected_store_type');
     await auth.signOut();
     if (mounted) {
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
       );
     }
   }
@@ -1114,8 +1116,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                                       await prefs.setString('selected_store_type', shop.storeType);
                                     }
                                     if (ctx.mounted) {
-                                      Navigator.of(ctx).pushReplacement(
+                                      Navigator.of(ctx).pushAndRemoveUntil(
                                         MaterialPageRoute(builder: (_) => const MainShell()),
+                                        (route) => false,
                                       );
                                     }
                                   },
