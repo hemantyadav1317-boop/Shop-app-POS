@@ -52,6 +52,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
   Sale? _completedSale;
   bool _onlinePaymentVerified = false;
   late int _billNo;
+  DateTime? _lastCloudFloorSyncAt;
   late final String _clientRef = const Uuid().v4();
   final ScreenshotController _screenshotController = ScreenshotController();
   BillQuote? _currentBillQuote;
@@ -129,6 +130,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     }
     // Also check cloud counter floor so multi-device billing always previews & allocates sequentially
     await SupabaseService.instance.syncCloudBillCounterFloor(shop.id);
+    _lastCloudFloorSyncAt = DateTime.now();
     final syncedPeek = await LocalDbService.instance.peekNextBillNo(shop.id);
     if (mounted && _completedSale == null && syncedPeek > _billNo) {
       setState(() => _billNo = syncedPeek);
@@ -802,12 +804,17 @@ class _PaymentDialogState extends State<PaymentDialog> {
           custProv.loadCustomers(shop.id);
         }
       } else {
-        // Quick 700ms multi-device check before allocating bill number so concurrent phones don't collide
-        try {
-          await SupabaseService.instance
-              .syncCloudBillCounterFloor(shop.id)
-              .timeout(const Duration(milliseconds: 700));
-        } catch (_) {}
+        // Skip redundant cloud wait if _initBillNo already synced <4s ago; otherwise fast 250ms check
+        final syncedRecently = _lastCloudFloorSyncAt != null &&
+            DateTime.now().difference(_lastCloudFloorSyncAt!) <
+                const Duration(seconds: 4);
+        if (!syncedRecently) {
+          try {
+            await SupabaseService.instance
+                .syncCloudBillCounterFloor(shop.id)
+                .timeout(const Duration(milliseconds: 250));
+          } catch (_) {}
+        }
         final confirmedBillNo = await LocalDbService.instance.getNextBillNo(shop.id);
         _billNo = confirmedBillNo;
         final sale = Sale(

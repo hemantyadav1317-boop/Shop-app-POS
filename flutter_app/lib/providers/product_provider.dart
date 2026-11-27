@@ -37,6 +37,17 @@ class ProductProvider extends ChangeNotifier {
   bool _isLoading = false;
   String _selectedCategory = 'All';
   String _searchQuery = '';
+  int _cacheEpoch = 0;
+  int _allCategoriesEpoch = -1;
+  List<String>? _cachedAllCategories;
+  int _filteredEpoch = -1;
+  List<Product>? _cachedFilteredProducts;
+
+  @override
+  void notifyListeners() {
+    _cacheEpoch++;
+    super.notifyListeners();
+  }
 
   List<Product> get products => _products;
   bool get isLoading => _isLoading;
@@ -193,6 +204,9 @@ class ProductProvider extends ChangeNotifier {
   /// List of all categories without 'All' (used in product add/edit dropdown & category management)
   /// Sorted by most selling / popularity first, then alphabetical
   List<String> get allCategories {
+    if (_allCategoriesEpoch == _cacheEpoch && _cachedAllCategories != null) {
+      return _cachedAllCategories!;
+    }
     final set = <String>{};
     for (final c in _normalizedCategories) {
       final upper = c.name.trim().toUpperCase();
@@ -223,6 +237,8 @@ class ProductProvider extends ChangeNotifier {
       }
       return a.compareTo(b); // Alphabetical tie-breaker
     });
+    _cachedAllCategories = list;
+    _allCategoriesEpoch = _cacheEpoch;
     return list;
   }
 
@@ -237,6 +253,9 @@ class ProductProvider extends ChangeNotifier {
   }
 
   List<Product> get filteredProducts {
+    if (_filteredEpoch == _cacheEpoch && _cachedFilteredProducts != null) {
+      return _cachedFilteredProducts!;
+    }
     final list = _products.where((p) {
       final matchesCat = _selectedCategory == 'All' ||
           p.category.trim().toUpperCase() == _selectedCategory.trim().toUpperCase();
@@ -260,6 +279,8 @@ class ProductProvider extends ChangeNotifier {
       }
       return a.name.toLowerCase().compareTo(b.name.toLowerCase()); // Alphabetical tie-breaker
     });
+    _cachedFilteredProducts = list;
+    _filteredEpoch = _cacheEpoch;
     return list;
   }
 
@@ -377,6 +398,7 @@ class ProductProvider extends ChangeNotifier {
 
   /// Recomputes product and category sales frequency / total units sold
   void recomputeSalesStats(List<Sale> sales) {
+    _cacheEpoch++;
     _productSalesQty.clear();
     _categorySalesQty.clear();
     for (final sale in sales) {

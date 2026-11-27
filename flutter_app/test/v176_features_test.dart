@@ -1273,5 +1273,92 @@ void main() {
       expect(find.text('अनुमानित मुनाफा (Profit Margin):'), findsOneWidget);
       expect(find.text('₹14.0 / kg (127.3%)'), findsOneWidget);
     });
+
+    test('ProductProvider memoizes filteredProducts per epoch and invalidates on search/category/deductStock', () {
+      final prodProv = ProductProvider();
+      final p1 = Product(
+        id: 'p-1',
+        shopId: 'demo-shop-101',
+        name: 'Tomato',
+        category: 'VEGETABLES',
+        unit: 'kg',
+        price: 40,
+        stock: 20,
+      );
+      final p2 = Product(
+        id: 'p-2',
+        shopId: 'demo-shop-101',
+        name: 'Banana',
+        category: 'FRUITS',
+        unit: 'kg',
+        price: 50,
+        stock: 15,
+      );
+      prodProv.replaceProductsLocal([p1, p2]);
+
+      final first = prodProv.filteredProducts;
+      final second = prodProv.filteredProducts;
+      expect(identical(first, second), isTrue);
+
+      prodProv.setSearchQuery('tom');
+      final afterSearch = prodProv.filteredProducts;
+      expect(identical(first, afterSearch), isFalse);
+      expect(afterSearch.length, 1);
+      expect(afterSearch.first.id, 'p-1');
+
+      prodProv.setSearchQuery('');
+      prodProv.deductStock([
+        CartItem(productId: 'p-2', name: 'Banana', unit: 'kg', price: 50, qty: 3),
+      ]);
+      expect(prodProv.getProductById('p-2')!.stock, 12);
+    });
+
+    test('SupabaseService.createSale writes only the new sale and touched products to SQLite incrementally', () async {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      SharedPreferences.setMockInitialValues({});
+      await LocalDbService.instance.init(dbPathOverride: inMemoryDatabasePath);
+
+      const shopId = 'demo-shop-101';
+      final oldSale = Sale(
+        id: 'old-sale-1',
+        shopId: shopId,
+        billNo: 1,
+        items: [CartItem(productId: 'p1', name: 'Aloo', unit: 'kg', price: 30, qty: 1)],
+        subtotal: 30,
+        total: 30,
+        paid: 30,
+        paymentMode: 'cash',
+        createdAt: DateTime(2026, 11, 25, 10, 0),
+      );
+      await LocalDbService.instance.upsertSale(shopId, oldSale);
+      await LocalDbService.instance.upsertProduct(
+        shopId,
+        Product(id: 'p1', shopId: shopId, name: 'Aloo', category: 'VEG', unit: 'kg', price: 30, stock: 50),
+      );
+
+      final dbBefore = await LocalDbService.instance.getSales(shopId);
+      expect(dbBefore.length, 1);
+
+      final newSale = Sale(
+        id: 'new-sale-2',
+        shopId: shopId,
+        billNo: 2,
+        items: [CartItem(productId: 'p1', name: 'Aloo', unit: 'kg', price: 30, qty: 2)],
+        subtotal: 60,
+        total: 60,
+        paid: 60,
+        paymentMode: 'cash',
+        createdAt: DateTime(2026, 11, 27, 18, 30),
+      );
+      await SupabaseService.instance.createSale(newSale);
+
+      final dbAfter = await LocalDbService.instance.getSales(shopId);
+      expect(dbAfter.length, 2);
+      expect(dbAfter.first.id, 'new-sale-2');
+      expect(dbAfter.last.id, 'old-sale-1');
+
+      await LocalDbService.instance.closeForTest();
+    });
   });
 }

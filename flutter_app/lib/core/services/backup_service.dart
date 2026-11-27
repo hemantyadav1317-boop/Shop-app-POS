@@ -53,10 +53,26 @@ class BackupExportResult {
   });
 }
 
+String _encodeCompactBackupJson(Map<String, dynamic> args) {
+  final payload = {
+    'app': 'BillZo POS',
+    'schema_version': 1,
+    'app_version': args['app_version'],
+    'exported_at': DateTime.now().toIso8601String(),
+    'shop': args['shop'],
+    'categories': args['categories'] ?? <String, dynamic>{},
+    'products': args['products'],
+    'customers': args['customers'],
+    'sales': args['sales'],
+  };
+  return jsonEncode(payload);
+}
+
 class BackupService {
   static const String _autoBackupEnabledKey = 'auto_backup_enabled';
   static const String _lastAutoBackupAtKey = 'last_auto_backup_at';
   static const String _lastBackupPathKey = 'last_backup_file_path';
+  static bool _isAutoBackupRunning = false;
 
   static Future<bool> isAutoBackupEnabled() async {
     final prefs = await SharedPreferences.getInstance();
@@ -240,30 +256,51 @@ class BackupService {
     );
   }
 
-  /// Quietly updates rolling phone auto-backup after bills/stock changes when enabled.
+  /// Quietly updates rolling phone auto-backup in a background isolate,
+  /// throttled to at most once every [minInterval] so rush-hour checkouts stay <50ms.
   static Future<void> runAutoBackupIfEnabled({
     required Shop shop,
     Map<String, dynamic>? categoriesConfig,
+    Duration minInterval = const Duration(minutes: 15),
+    bool force = false,
   }) async {
-    if (kIsWeb) return;
+    if (kIsWeb || _isAutoBackupRunning) return;
+    _isAutoBackupRunning = true;
     try {
       if (!await isAutoBackupEnabled()) return;
+      final prefs = await SharedPreferences.getInstance();
+      if (!force) {
+        final lastAtStr = prefs.getString(_lastAutoBackupAtKey);
+        final lastAt = lastAtStr != null ? DateTime.tryParse(lastAtStr) : null;
+        if (lastAt != null && DateTime.now().difference(lastAt) < minInterval) {
+          return;
+        }
+      }
+
       final products = await LocalDbService.instance.getProducts(shop.id);
       final customers = await LocalDbService.instance.getCustomers(shop.id);
       final sales = await LocalDbService.instance.getSales(shop.id);
       final cats = categoriesConfig ??
           await LocalDbService.instance.getCategoriesConfig(shop.id);
 
-      await exportBackupToPhone(
-        shop: shop,
-        products: products,
-        customers: customers,
-        sales: sales,
-        categoriesConfig: cats,
-        fixedFileName: 'ShopPOS_AutoBackup.json',
-      );
+      final dir = await _resolveBackupDirectory();
+      final file = File(p.join(dir.path, 'ShopPOS_AutoBackup.json'));
+      final compactJson = await compute(_encodeCompactBackupJson, {
+        'app_version': UpdateService.currentVersion,
+        'shop': shop.toJson(),
+        'categories': cats,
+        'products': products.map((e) => e.toJson()).toList(),
+        'customers': customers.map((e) => e.toJson()).toList(),
+        'sales': sales.map((e) => e.toJson()).toList(),
+      });
+      await file.writeAsString(compactJson, flush: true);
+
+      await prefs.setString(_lastAutoBackupAtKey, DateTime.now().toIso8601String());
+      await prefs.setString(_lastBackupPathKey, file.path);
     } catch (e) {
       debugPrint('[AutoBackup] Skipped silently: $e');
+    } finally {
+      _isAutoBackupRunning = false;
     }
   }
 

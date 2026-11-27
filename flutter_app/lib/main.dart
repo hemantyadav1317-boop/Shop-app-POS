@@ -26,6 +26,10 @@ import 'screens/splash/splash_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Keep decoded image memory bounded (~48 MB) so 2GB-4GB RAM tablets stay smooth
+  PaintingBinding.instance.imageCache.maximumSize = 250;
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 48 << 20;
+
   // Initialize Sound & Time Calibration Services
   await SoundService.instance.init();
   await TimeSyncService.instance.init();

@@ -211,21 +211,6 @@ class _PosScreenState extends State<PosScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final menuProv = context.watch<MenuVisibilityProvider>();
 
-    final scale = context.watch<WeighingScaleProvider>();
-    final ai = context.watch<AiVisionProvider>();
-    if (ai.isAiVisionActive) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          context.read<AiVisionProvider>().onScaleReadingChanged(
-            weight: scale.liveWeight,
-            isStable: scale.isStable,
-            productProvider: context.read<ProductProvider>(),
-            cartProvider: context.read<CartProvider>(),
-          );
-        }
-      });
-    }
-
     return Scaffold(
       backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
       bottomNavigationBar: isTablet ? null : SafeArea(top: false, child: _buildBottomTabBar(isDark, cart)),
@@ -454,6 +439,7 @@ class _PosScreenState extends State<PosScreen> {
           ],
         ),
         const AiVisionOverlay(),
+        const _AiScaleSyncBridge(),
       ],
     ),
   ),
@@ -1149,5 +1135,31 @@ class _PosScreenState extends State<PosScreen> {
         ],
       ),
     );
+  }
+}
+
+/// Isolated listener so live Weighing Scale updates never trigger full tablet POS rebuilds.
+class _AiScaleSyncBridge extends StatelessWidget {
+  const _AiScaleSyncBridge();
+
+  @override
+  Widget build(BuildContext context) {
+    final aiActive = context.select<AiVisionProvider, bool>((ai) => ai.isAiVisionActive);
+    if (!aiActive) return const SizedBox.shrink();
+
+    final scaleWeight = context.select<WeighingScaleProvider, double>((s) => s.liveWeight);
+    final isStable = context.select<WeighingScaleProvider, bool>((s) => s.isStable);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        context.read<AiVisionProvider>().onScaleReadingChanged(
+          weight: scaleWeight,
+          isStable: isStable,
+          productProvider: context.read<ProductProvider>(),
+          cartProvider: context.read<CartProvider>(),
+        );
+      }
+    });
+    return const SizedBox.shrink();
   }
 }

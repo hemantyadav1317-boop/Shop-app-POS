@@ -1396,13 +1396,16 @@ class SupabaseService {
     final targetSale = sale.shopId != validShopId ? sale.copyWith(shopId: validShopId) : sale;
     _localSales.insert(0, targetSale);
 
-    // Deduct stock locally
+    // Deduct stock locally and track only touched products for O(k) SQLite persistence
+    final List<Product> touchedProducts = [];
     for (final item in targetSale.items) {
       if (item.productId != null) {
         final pIndex = _localProducts.indexWhere((p) => p.id == item.productId);
         if (pIndex != -1) {
           final current = _localProducts[pIndex];
-          _localProducts[pIndex] = current.copyWith(stock: current.stock - item.qty);
+          final updatedProd = current.copyWith(stock: current.stock - item.qty);
+          _localProducts[pIndex] = updatedProd;
+          touchedProducts.add(updatedProd);
         }
       }
     }
@@ -1426,14 +1429,24 @@ class SupabaseService {
         final updatedCust = c.copyWith(balance: c.balance + khataCreditToAdd);
         _localCustomers[cIndex] = updatedCust;
         await LocalDbService.instance.upsertCustomer(validShopId, updatedCust);
-        await _saveCachedCustomers(validShopId, _localCustomers);
+        if (!LocalDbService.instance.isAvailable) {
+          await _saveCachedCustomers(validShopId, _localCustomers);
+        }
       }
     }
 
-    // ⚡ 1. INSTANT PERSISTENCE: Save locally to SQLite and memory in <15ms
+    // ⚡ 1. INSTANT INCREMENTAL PERSISTENCE: Write only the 1 new bill + touched products (<10ms)
+    // instead of wiping & rewriting all 1,300+ historical bills on every checkout!
     await LocalDbService.instance.upsertSale(validShopId, targetSale);
-    await _saveCachedSales(validShopId, _localSales);
-    await _saveCachedProducts(validShopId, _localProducts);
+    for (final prod in touchedProducts) {
+      await LocalDbService.instance.upsertProduct(validShopId, prod);
+    }
+    if (!LocalDbService.instance.isAvailable) {
+      await _saveCachedSales(validShopId, _localSales);
+      if (touchedProducts.isNotEmpty) {
+        await _saveCachedProducts(validShopId, _localProducts);
+      }
+    }
 
     // Enqueue in outbox for guaranteed cloud delivery
     if (validShopId != 'demo-shop-101') {

@@ -6,6 +6,23 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/local_image_cache_service.dart';
 
 class ProductImageView extends StatelessWidget {
+  static final Map<String, Uint8List> _base64BytesCache = <String, Uint8List>{};
+  static const int _maxBase64CacheEntries = 80;
+
+  static Uint8List _decodeBase64Cached(String dataUrl) {
+    final existing = _base64BytesCache[dataUrl];
+    if (existing != null) return existing;
+    final commaIndex = dataUrl.indexOf(',');
+    final base64Data =
+        commaIndex != -1 ? dataUrl.substring(commaIndex + 1) : dataUrl;
+    final decoded = base64Decode(base64Data);
+    if (_base64BytesCache.length >= _maxBase64CacheEntries) {
+      _base64BytesCache.remove(_base64BytesCache.keys.first);
+    }
+    _base64BytesCache[dataUrl] = decoded;
+    return decoded;
+  }
+
   final String? imageUrl;
   final String? fallbackIcon;
   final double size;
@@ -38,9 +55,7 @@ class ProductImageView extends StatelessWidget {
       final url = imageUrl!.trim();
       if (url.startsWith('data:image')) {
         try {
-          final commaIndex = url.indexOf(',');
-          final base64Data = commaIndex != -1 ? url.substring(commaIndex + 1) : url;
-          final bytes = base64Decode(base64Data);
+          final bytes = _decodeBase64Cached(url);
           imageContent = Image.memory(
             bytes,
             width: w,

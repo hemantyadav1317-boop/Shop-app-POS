@@ -242,6 +242,14 @@ class _ProductGridState extends State<ProductGrid> {
     final localeCode = context.watch<LocaleProvider>().localeCode;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isMobile = MediaQuery.of(context).size.width < 600;
+    final filteredProducts = productProvider.filteredProducts;
+    final cartQtyById = <String, double>{};
+    for (final line in cart.lines) {
+      final pid = line.productId;
+      if (pid != null && pid.isNotEmpty) {
+        cartQtyById[pid] = (cartQtyById[pid] ?? 0.0) + line.qty;
+      }
+    }
 
     return CustomScrollView(
       slivers: [
@@ -408,7 +416,7 @@ class _ProductGridState extends State<ProductGrid> {
         const SliverToBoxAdapter(child: SizedBox(height: 4)),
 
         // 3. Dense Product Grid with Full-Bleed Photos
-        productProvider.filteredProducts.isEmpty
+        filteredProducts.isEmpty
             ? SliverFillRemaining(
                 hasScrollBody: false,
                 child: Center(
@@ -469,15 +477,13 @@ class _ProductGridState extends State<ProductGrid> {
                         ),
                   delegate: SliverChildBuilderDelegate(
                     (context, i) {
-                      final product = productProvider.filteredProducts[i];
-                      final inCartItem = cart.lines.cast<CartItem?>().firstWhere(
-                            (l) => l?.productId == product.id,
-                            orElse: () => null,
-                          );
-                      final inCartQty = inCartItem?.qty ?? 0.0;
-                      return _buildProductCard(context, product, inCartQty, cart, isMobile, localeCode);
+                      final product = filteredProducts[i];
+                      final inCartQty = cartQtyById[product.id] ?? 0.0;
+                      return RepaintBoundary(
+                        child: _buildProductCard(context, product, inCartQty, cart, isMobile, localeCode),
+                      );
                     },
-                    childCount: productProvider.filteredProducts.length,
+                    childCount: filteredProducts.length,
                   ),
                 ),
               ),
